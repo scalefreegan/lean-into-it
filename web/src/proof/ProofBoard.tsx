@@ -79,8 +79,13 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
   const now = history[history.length - 1];
   const before = history.length > 1 ? history[history.length - 2] : null;
 
+  // `busy` is state, so two clicks in one frame both see it false; this is
+  // set at once, and keeps a double click from playing a move twice.
+  const playing = useRef(false);
+
   async function play(line: string) {
-    if (!now || busy || solved) return;
+    if (!now || busy || solved || playing.current) return;
+    playing.current = true;
     const mine = ++seq.current;
     const lines = [...now.lines, line];
     setBusy(true);
@@ -103,6 +108,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
     } catch (e) {
       if (mine === seq.current) setTrouble(e instanceof ApiError ? e.message : String(e));
     } finally {
+      playing.current = false;
       if (mine === seq.current) setBusy(false);
     }
   }

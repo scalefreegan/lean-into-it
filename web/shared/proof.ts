@@ -61,12 +61,24 @@ export function endOfBody(body: string): Position {
   return { line: lines.length - 1, character: lines[lines.length - 1].length };
 }
 
-/** Lean's diagnostics in body coordinates, without the style linters'
- *  remarks (a learner's spacing is not the lesson). */
+/**
+ * A linter's remark: a warning or note that ends with Lean's own "this
+ * linter can be disabled" line. Never an error. An error is never dropped,
+ * whatever its text says: Lean quotes the learner's own names in its
+ * messages, so a test on the text alone would let a proof hide its errors
+ * (`exact linter.x`).
+ */
+const LINTER_FOOTER = /^Note: This linter can be disabled with `set_option linter\.\S+ false`\s*$/m;
+export function isLinterRemark(d: { severity: string; message: string }): boolean {
+  return d.severity !== "error" && LINTER_FOOTER.test(d.message);
+}
+
+/** Lean's diagnostics in body coordinates, without the linters' remarks
+ *  (a learner's spacing and unused names are not the lesson). */
 export function toBody(diagnostics: Diagnostic[], body: string): BodyDiagnostic[] {
   const count = Math.max(bodyLines(body).length, 1);
   return diagnostics
-    .filter((d) => !/linter\./.test(d.message))
+    .filter((d) => !isLinterRemark(d))
     .map((d) => {
       const line = d.start.line - BODY_LINE;
       return { severity: d.severity, message: d.message, line: line >= 0 && line < count ? line : null };

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { localHost, sameOrigin } from "./api.ts";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import type { ViteDevServer } from "vite";
+import { apiPlugins, localHost, sameOrigin, wrap } from "./api.ts";
+import { HttpError } from "./sse.ts";
 
 // /api/check and /api/playground hand text to Lean, which can run code
 // while elaborating it. These two rules are what keeps another website from
@@ -26,4 +29,69 @@ test("only this machine's names count as the host (DNS rebinding sends a matchin
   assert.equal(localHost("evil.example:38800"), false);
   assert.equal(localHost("localhost.evil.example"), false);
   assert.equal(localHost(undefined), false);
+});
+
+/** A request as connect would hand it over, and a response that records what was sent. */
+function call(handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void>, headers: Record<string, string>, method = "POST") {
+  const sent = { status: 0, body: "" };
+  const req = { method, url: "/", headers } as unknown as IncomingMessage;
+  const res = {
+    headersSent: false,
+    writableEnded: false,
+    writeHead(code: number) {
+      sent.status = code;
+      return this;
+    },
+    end(chunk?: string) {
+      sent.body = chunk ?? "";
+    },
+  } as unknown as ServerResponse;
+  return Promise.resolve(handler(req, res)).then(() => sent);
+}
+
+const OWN = { host: "localhost:38800", origin: "http://localhost:38800" };
+const FOREIGN: [string, Record<string, string>][] = [
+  ["another site", { host: "localhost:38800", origin: "http://evil.example" }],
+  ["an opaque origin", { host: "localhost:38800", origin: "null" }],
+  ["another port on this machine", { host: "localhost:38800", origin: "http://localhost:5173" }],
+  ["a rebinding host with a matching origin", { host: "evil.example:38800", origin: "http://evil.example:38800" }],
+  ["a foreign host and no origin", { host: "evil.example:38800" }],
+  ["no host at all", {}],
+];
+
+test("wrap() refuses a foreign request before the handler runs", async () => {
+  for (const [name, headers] of FOREIGN) {
+    let ran = false;
+    const sent = await call(wrap(() => void (ran = true)), headers);
+    assert.equal(sent.status, 403, name);
+    assert.equal(ran, false, `${name}: the handler must not run`);
+  }
+});
+
+test("wrap() runs the handler for the app's own page, and turns a thrown error into an envelope", async () => {
+  let ran = false;
+  await call(wrap(() => void (ran = true)), OWN);
+  assert.equal(ran, true);
+  const refused = await call(wrap(() => { throw new HttpError(404, "no such exercise"); }), OWN);
+  assert.deepEqual([refused.status, JSON.parse(refused.body)], [404, { error: "no such exercise" }]);
+  const crashed = await call(wrap(() => { throw new Error("secret detail"); }), OWN);
+  assert.equal(crashed.status, 500);
+  assert.doesNotMatch(crashed.body, /secret detail/);
+});
+
+test("every route the plugin mounts is behind wrap()", async () => {
+  const mounted: [string, (req: IncomingMessage, res: ServerResponse) => void | Promise<void>][] = [];
+  const server = { middlewares: { use: (route: string, handler: (typeof mounted)[number][1]) => void mounted.push([route, handler]) }, config: { logger: { info() {} } } };
+  const plugin = apiPlugins({ checkDatabase: false, warm: false });
+  await (plugin.configureServer as (server: ViteDevServer) => unknown)(server as unknown as ViteDevServer);
+  const routes = mounted.map(([route]) => route);
+  for (const route of ["/api/content", "/api/check", "/api/playground", "/api/lean", "/api/progress", "/api"]) assert.ok(routes.includes(route), `${route} is mounted`);
+  assert.ok(routes.every((r) => r === "/api" || r.startsWith("/api/")), "nothing is mounted outside /api");
+  // A route that skipped wrap() would run its handler here and answer something other than 403.
+  for (const [route, handler] of mounted) {
+    for (const [name, headers] of FOREIGN) {
+      const sent = await call(handler, headers);
+      assert.equal(sent.status, 403, `${route}, ${name}`);
+    }
+  }
 });

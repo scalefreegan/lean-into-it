@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assemble, bodyLines, endOfBody, forbiddenIn, judge, toBody, toSource, type Diagnostic } from "./proof.ts";
+import { assemble, bodyLines, endOfBody, forbiddenIn, isLinterRemark, judge, toBody, toSource, type Diagnostic } from "./proof.ts";
 
 const at = (line: number, message: string, severity: Diagnostic["severity"] = "error"): Diagnostic => ({
   severity,
@@ -24,13 +24,30 @@ test("the end of the body is the end of its last non-blank line, in source coord
   assert.deepEqual(toSource({ line: 1, character: 7 }), { line: 4, character: 9 });
 });
 
-test("diagnostics come back in body lines; one on the statement has no line; linter remarks are dropped", () => {
+const FOOTER = "\n\nNote: This linter can be disabled with `set_option linter.unusedVariables false`";
+
+test("diagnostics come back in body lines; one on the statement has no line; a linter's remark is dropped", () => {
   const body = "apply h\nexact hP";
-  const out = toBody([at(2, "unsolved goals\n⊢ P"), at(4, "Unknown identifier `hP`"), at(4, "note\nlinter.style.whitespace false", "warning")], body);
+  const out = toBody([at(2, "unsolved goals\n⊢ P"), at(4, "Unknown identifier `hP`"), at(4, `unused variable \`hQ\`${FOOTER}`, "warning")], body);
   assert.deepEqual(out, [
     { severity: "error", message: "unsolved goals\n⊢ P", line: null },
     { severity: "error", message: "Unknown identifier `hP`", line: 1 },
   ]);
+});
+
+test("an error is never dropped, even when its text looks like a linter's", () => {
+  // Lean quotes the learner's own names: `exact linter.nope` gives the first, a
+  // hypothesis named linter.x the second. Neither may make the proof pass.
+  for (const message of ["Unknown identifier `linter.nope`", "unsolved goals\nlinter.x : True\n⊢ Q", `anything${FOOTER}`]) {
+    const body = "exact linter.nope";
+    const out = toBody([at(3, message)], body);
+    assert.equal(out.length, 1, message);
+    assert.equal(judge(out, body).solved, false, message);
+  }
+  assert.equal(isLinterRemark({ severity: "error", message: `x${FOOTER}` }), false);
+  assert.equal(isLinterRemark({ severity: "warning", message: `x${FOOTER}` }), true);
+  // A warning that merely mentions a linter is kept.
+  assert.equal(isLinterRemark({ severity: "warning", message: "declaration uses `sorry` in linter.x" }), false);
 });
 
 test("solved means no error and no sorry, for a body that is not empty", () => {

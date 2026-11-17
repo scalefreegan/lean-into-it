@@ -104,6 +104,22 @@ test("sorry is refused, though Lean reports no error for it", { skip }, async ()
   }
 });
 
+test("a proof cannot hide its errors by naming something after a linter", { skip }, async () => {
+  for (const body of ["exact linter.nope", "have linter.x : True := trivial", "exact linter.style.whitespace"]) {
+    const reply = await checkExercise(leanServer(), exercise("use-it"), body);
+    assert.equal(reply.solved, false, body);
+    assert.ok(reply.diagnostics.some((d) => d.severity === "error"), `${body}: Lean's error is reported`);
+  }
+});
+
+test("a linter's remark about an unused assumption does not fail a correct proof", { skip }, async () => {
+  // "ignore" assumes Q and never uses it: Lean's unused-variable linter may remark on that.
+  const e = exercise("ignore");
+  const reply = await checkExercise(leanServer(), e, e.solution);
+  assert.equal(reply.solved, true);
+  assert.deepEqual(reply.diagnostics, []);
+});
+
 test("a forbidden tactic is refused even where Lean accepts the proof", { skip }, async () => {
   const typed = exercise("typed");
   assert.ok(typed.forbid.includes("tauto"));

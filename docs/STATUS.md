@@ -37,9 +37,13 @@ Landed in the first PR, the foundation slice:
 - Attempts and exercise and lesson completion stored in Postgres
   (`lean_into_it`, one implicit learner, no login) and shown on the Path.
 - The API refuses any request that is not same-origin from this machine.
-- A check that runs past two minutes restarts Lean (the rest of
-  `lii-1ou.2` remains).
-- Tests: 55, including every reference solution checked by the real Lean.
+- A check that runs past two minutes restarts Lean, and a check that was
+  waiting behind it moves to the new server (the rest of `lii-1ou.2`
+  remains).
+- Tests: 64, including every reference solution checked by the real Lean,
+  the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
+  error dressed up as a linter remark), the origin guard on every mounted
+  route, and the Lean client's stop and timeout paths.
 - Docs: PRD, this file, `CONTENT.md` (the lesson format as built; the
   generated reference remains, `lii-2zf.1`), the hero-image prompt, README
   with four screenshots, `CLAUDE.md`.
