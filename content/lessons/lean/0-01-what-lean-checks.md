@@ -1,0 +1,104 @@
+---
+id: lean-0-what-lean-checks
+title: What Lean checks
+track: lean
+level: 0
+order: 1
+concepts: [checking]
+summary: What Lean is, what it means when it accepts a proof, and why stating a claim is not the same as proving it. A second way to finish a goal, by computing.
+exercises:
+  - id: compute
+    title: Two sides that are the same number
+    mode: board
+    says: "2 + 2 = 4."
+    statement: ": 2 + 2 = 4"
+    moves: [rfl]
+    solution: |
+      rfl
+  - id: power
+    title: A bigger one
+    mode: board
+    says: "2 to the power 10 is 1024."
+    statement: ": 2 ^ 10 = 1024"
+    moves: [rfl]
+    solution: |
+      rfl
+  - id: sum
+    title: A sum
+    mode: board
+    says: "The numbers from 1 to 10 add up to 55."
+    statement: ": 1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 10 = 55"
+    moves: [rfl]
+    solution: |
+      rfl
+  - id: which-move
+    title: Which move?
+    mode: board
+    says: "Let a and b be whole numbers with a = b. Then a = b."
+    statement: "(a b : ℕ) (h : a = b) : a = b"
+    moves: [exact, rfl]
+    solution: |
+      exact h
+---
+
+**Lean** is a programming language with one unusual ability: you can write a mathematical statement in it, write a proof of that statement, and have the computer check that the proof is correct. Software that does this is called a *proof assistant*.
+
+The checking is done by a small program at the centre of Lean called the **kernel**. The kernel knows the rules of logic and nothing else. It does not judge whether an argument is convincing or elegant. It checks, step by step, that each step is one the rules allow.
+
+> When Lean accepts a proof, it means every step was checked against the rules of logic by a program, and none was skipped. It does not mean somebody read it and agreed.
+
+That is why the proofs in this course are graded by Lean and by nothing else. If the board says there is no goal left, the proof is correct.
+
+## A statement is not a proof
+
+Lean will let you *write down* any statement that makes sense, true or false. Here is Goldbach's conjecture in Lean:
+
+```
+∀ n : ℕ, 2 < n → Even n → ∃ p q : ℕ, Nat.Prime p ∧ Nat.Prime q ∧ p + q = n
+```
+
+Read aloud: for every natural number n, if 2 < n and n is even, then there are natural numbers p and q, both prime, with p + q = n. You will learn each of those symbols in Level 1.
+
+Lean is happy with that sentence. It is a well-formed claim. Nobody, human or machine, has a proof to put after it. Writing a statement costs nothing. The proof is the work.
+
+## What stands behind a proof
+
+Lean does not make you start from nothing each time. **Mathlib** is a library of mathematics written in Lean by a large community of mathematicians: more than a million lines of definitions and proved theorems, every one checked by the same kernel. When this course uses the real numbers, or says `Nat.Prime`, those come from Mathlib.
+
+## Finishing a goal by computing
+
+In the last lesson a goal was finished by pointing at a fact that said the same thing. Some goals need no fact at all. `2 + 2 = 4` is true because when you work out the left side you get the right side.
+
+The move for that is **rfl**, short for *reflexivity*: a thing is equal to itself. Lean computes both sides, and if they come out as the very same number, the equation is proved.
+
+```exercise
+id: compute
+```
+
+It makes no difference how long the calculation is.
+
+```exercise
+id: power
+```
+
+```exercise
+id: sum
+```
+
+## Computing is not always enough
+
+Here are two numbers a and b. You are told they are equal. The goal is that they are equal.
+
+**rfl** will not do it: Lean cannot compute a or b, because it does not know which numbers they are. All it has is the fact. Try **rfl** first and read what Lean says, then finish the proof the other way.
+
+```exercise
+id: which-move
+```
+
+Those are two different reasons for something to be true. `2 + 2 = 4` is true by calculation. `a = b` is true here because it was assumed. A proof has to say which, and Lean checks that the reason given really applies.
+
+## What you used
+
+- `rfl` finishes an equation whose two sides compute to the same thing.
+- `exact h` finishes a goal that a fact `h` states.
+- `norm_num`, from the first lesson, calculates with particular numbers, and can also settle things like whether a number is prime.

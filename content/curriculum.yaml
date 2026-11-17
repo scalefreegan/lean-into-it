@@ -20,14 +20,8 @@ tracks:
 levels:
   - id: 0
     title: What a proof is
-    status: outline
-    summary: The difference between evidence and proof, and a first proof made by clicking.
-    topics:
-      - Claims, examples and counterexamples
-      - Why a million checked cases is still not a proof
-      - What a proof assistant does, and what it means that Lean "accepts" a proof
-      - Facts you have and the goal you want: reading a proof state
-      - A first proof on the proof board
+    summary: The difference between evidence and proof, what it means that Lean "accepts" one, and first proofs made by clicking.
+    moves: [exact, rfl, norm_num]
   - id: 1
     title: Logic you can see
     summary: And, or, not, if-then, for-all and there-exists, each with the moves that prove it and the moves that use it.

@@ -22,8 +22,11 @@ Landed in the first PR, the foundation slice:
 - A warm Lean checker: the server keeps one `lake serve` process running and
   checks proofs through it behind `/api/check`.
 - Content loader for `content/curriculum.yaml` and `content/lessons/<track>/*.md`.
-- Curriculum with Levels 0–8 listed. One Level 1 logic lesson is written
-  ("If… then", on implication); everything else is outlined.
+- Level 0 written in full (`lii-dvy.1`): "Evidence is not proof", "Facts and
+  a goal", "What Lean checks"; twelve exercises, all by clicking. One Level 1
+  lesson ("If… then", on implication). Everything else is outlined.
+- Board moves: `exact`, `rfl`, `norm_num`, `intro`, `apply`. A move that Lean
+  accepts but that changes nothing is refused as such.
 - Path page (home): levels, lessons and what has been completed.
 - Lesson page.
 - Proof board: hypothesis and goal cards, clickable moves, "Lean written so far".
@@ -44,7 +47,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 77, including every reference solution checked by the real Lean,
+- Tests: 88, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -68,6 +71,7 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-1ou.4` | Re-check a passing proof in a fresh kernel | 2 | |
+| `lii-1ou.5` | Adversarial review of exercise grading (the PR 2 review did not complete it) | 1 | |
 | `lii-1ou.2` | Lean checker timeouts and a restart path | 1 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
 
@@ -79,6 +83,7 @@ land first.
 | `lii-8wq.2` | Live proof map | 2 | `lii-1ou.3` |
 | `lii-8wq.3` | Lean editor: syntax colouring, completion and inline error marks | 2 | |
 | `lii-8wq.4` | Plain-word explanations for every move the curriculum introduces | 2 | |
+| `lii-8wq.5` | Typed proofs: show the goals still open when none is at the cursor | 2 | |
 
 ### Widgets (epic `lii-53v`)
 
@@ -129,7 +134,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-dvy.1` | Level 0 lessons: What a proof is | 1 | |
 | `lii-dvy.2` | Rest of Level 1: Logic you can see | 1 | `lii-53v.5` |
 | `lii-dvy.3` | Level 2 lessons: Numbers and induction | 2 | `lii-53v.5` |
 | `lii-dvy.4` | First verified-programs lessons (Level 2, lists) | 2 | `lii-dvy.3` |
