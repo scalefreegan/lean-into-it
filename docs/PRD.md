@@ -153,8 +153,10 @@ Fully written for v1:
   `math`: the real numbers and what is assumed about them; identities;
   equations; inequalities and how they combine; absolute value as distance
   and the triangle inequality; functions, graphs, composition, monotone and
-  bounded. `lean`: structured proofs with `have` and `calc`; when
-  automation is the honest answer and when it hides the idea.
+  bounded; structured proofs with `have` and `calc`, taught where they
+  are first needed; when automation is the honest answer and when it
+  hides the idea. `lean`: which kind of number a statement is about, and
+  what subtraction and division do on the natural numbers.
   Moves: `ring`, `linarith`, `nlinarith`, `positivity`,
   `field_simp`, `gcongr`, `have`, `calc`.
 

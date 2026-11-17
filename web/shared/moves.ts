@@ -149,6 +149,42 @@ export const MOVES: Record<string, Move> = {
     does: "Prove a claim about every natural number n in two steps: first for 0, then for n + 1, where you may use the claim for n. For a list: first for the empty list, then for a list with one more element in front.",
     prompt: "Click the number, or the list, to do induction on.",
   },
+  ring: {
+    id: "ring",
+    label: "ring",
+    needs: "none",
+    does: "Finish an equation that holds by the rules of algebra alone, whatever the letters stand for, such as (a + b)² = a² + 2ab + b². It does not use the facts on the board.",
+  },
+  linarith: {
+    id: "linarith",
+    label: "linarith",
+    needs: "none",
+    does: "Finish an equation or inequality that follows from the facts on the board by adding them up and multiplying them by particular numbers. It does not multiply two letters together.",
+  },
+  nlinarith: {
+    id: "nlinarith",
+    label: "nlinarith",
+    needs: "none",
+    does: "Like linarith, but it first multiplies pairs of facts together, which sometimes gets a goal with products or squares in it.",
+  },
+  positivity: {
+    id: "positivity",
+    label: "positivity",
+    needs: "none",
+    does: "Finish a goal of the form 0 < A, 0 ≤ A or A ≠ 0 when A is plainly so from the way it is built: a square, a sum of things that are not negative, a product of positive things.",
+  },
+  field_simp: {
+    id: "field_simp",
+    label: "field_simp",
+    needs: "none",
+    does: "Clear the fractions from an equation by multiplying through. It needs to know that each thing divided by is not zero: from a fact on the board, or because it is a number.",
+  },
+  gcongr: {
+    id: "gcongr",
+    label: "gcongr",
+    needs: "none",
+    does: "Prove an inequality whose two sides are built the same way, by comparing them part by part: A + C ≤ B + D from A ≤ B and C ≤ D. It looks for the smaller comparisons among the facts, and leaves as goals the ones it cannot find.",
+  },
 };
 
 export function isMove(id: string): boolean {

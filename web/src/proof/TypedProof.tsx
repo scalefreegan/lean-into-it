@@ -57,7 +57,10 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   }
 
   const solved = !!reply?.solved && !live.checking;
-  const errors = reply?.diagnostics.filter((d) => d.severity === "error" && d.line !== null) ?? [];
+  // Where a line is wrong, Lean may also report the goal that line left
+  // open ("unsolved goals"). Beside the real error it would read "every line
+  // is fine so far", so it is shown only when nothing else is wrong.
+  const errors = (reply?.diagnostics ?? []).filter((d) => d.severity === "error" && d.line !== null && !(reply?.error && /^unsolved goals/.test(d.message)));
   // What `exact?` found, where the exercise allows searching.
   const found = live.checking || exercise.forbid.includes("exact?") ? [] : (reply?.diagnostics ?? []).flatMap((d) => (d.severity === "info" ? [suggestion(d.message)] : [])).filter((x): x is string => x !== null);
   const verdict = submitted && submitted.body === body ? submitted.reply : null;

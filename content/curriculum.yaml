@@ -36,16 +36,9 @@ levels:
       - "Proof craft: try small cases, guess the pattern, then prove it"
   - id: 3
     title: Algebra and inequalities
-    status: outline
     summary: The real numbers, equations and inequalities, absolute value and functions, proved the way a textbook argues them.
-    moves: [ring, linarith, nlinarith, calc, positivity, field_simp]
+    moves: [ring, linarith, field_simp, nlinarith, positivity, have, calc, gcongr]
     topics:
-      - The real numbers and what Lean knows about them
-      - Identities, and letting ring do the algebra
-      - Chains of equalities and inequalities with calc
-      - Linear inequalities with linarith
-      - Absolute value and the triangle inequality
-      - Functions, graphs, increasing and decreasing
       - "Proof craft: reading a textbook proof beside its Lean proof"
   - id: 4
     title: Sets and functions

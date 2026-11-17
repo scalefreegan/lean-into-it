@@ -81,7 +81,7 @@ calc a = b + 1 := h1
 
 Each line states one equality and then, after `:=`, gives its reason. The underscore `_` stands for "the right-hand side of the line above", so you do not write it twice. A reason is either a fact, as `h1` is, or `by` followed by moves.
 
-This is a first look. `calc` earns its keep in Level 3, with longer chains and with inequalities. Type the chain above as your answer here. The second line has to be indented.
+This is a first look. `calc` earns its keep in Level 3, with longer chains and with inequalities. Type the chain above as your answer here. By custom the second line is indented.
 
 ```exercise
 id: chain
