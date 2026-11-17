@@ -143,6 +143,7 @@ export function parseLesson(
   if (typeof level !== "number" || !known.levels.some((l) => l.id === level)) problem(file, `level ${JSON.stringify(level)} is not in curriculum.yaml`);
   const concepts = strings(front.concepts);
   // Definitions every exercise of the lesson is about; an exercise may add its own.
+  if (front.given !== undefined && typeof front.given !== "string") problem(file, "`given` must be text: Lean code after `given: |`");
   const lessonGiven = typeof front.given === "string" ? front.given.replace(/\s+$/, "") : "";
 
   const exercises: Exercise[] = [];
@@ -206,7 +207,8 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
   if (!str(e.says)) bad("needs `says`, the claim in plain English");
   if (!statement.includes(":")) bad("needs a Lean `statement` (binders, a colon, the claim)");
   if (/:=|\bsorry\b/.test(statement)) bad("the statement must not contain := or sorry");
-  if (/\bsorry\b|\baxiom\b/.test(given)) bad("`given` must not contain sorry or an axiom");
+  if (e.given !== undefined && typeof e.given !== "string") bad("`given` must be text: Lean code after `given: |`");
+  if (/\b(sorry|admit|axiom)\b/.test(given)) bad("`given` must not contain sorry, admit or an axiom");
   if (!solution.trim()) bad("needs a reference `solution`");
   for (const move of moves) if (!isMove(move)) bad(`move "${move}" is not in web/shared/moves.ts`);
   if (mode === "board" && !moves.length) bad("a board exercise needs `moves`");

@@ -122,17 +122,17 @@ Typed, an induction on a list has the same form as one on a number, with the two
 
 ```lean
 induction xs with
-| nil => simp
+| nil => …
 | cons x xs ih =>
-  simp [ih]
-  omega
+  …
+  …
 ```
 
-After `cons` come your names for the first element, the rest of the list, and the induction hypothesis.
+After `cons` come your names for the first element, the rest of the list, and the induction hypothesis. A case that needs several lines has them underneath, indented.
 
-`simp [ih]` is `simp`, told to use the fact `ih` as well as its library. Anything can go in those brackets: a fact on the board, or a theorem by name.
+One thing is new in typed proofs: `simp [ih]` is `simp`, told to use the fact `ih` as well as its library. It does in one line what `simp` and then `rw [ih]` did on the board. Anything can go in those brackets: a fact on the board, or a theorem by name.
 
-The proof for `total` has the same shape as the one you just did on the board.
+The proof for `total` goes the way the one for `len` went on the board: `simp` for the base case, and in the step simplify, use the induction hypothesis, then arithmetic.
 
 ```exercise
 id: total-app
@@ -148,7 +148,7 @@ def rev : List ℕ → List ℕ
   | x :: xs => app (rev xs) [x]
 ```
 
-A specification for it: reversing does not change the length. Try the proof and you will find that the step has `len (app (rev xs) [x])` in it, the length of a join. You already know what that is. `len_app`, the theorem you proved above, is on hand for this exercise under that name, and `simp [len_app, ih]` may use it.
+A specification for it: reversing does not change the length. Try the proof and you will find that the step has `len (app (rev xs) [x])` in it, the length of a join. You already know what that is. `len_app`, the theorem you proved above, is on hand for this exercise under that name. Give it to `simp` in the brackets, along with whatever else the step needs.
 
 This is how verified programs grow. `rev` is built from `app`, and the proof about `rev` is built from the proof about `app`. A proved theorem about a small function is a tool for every function that uses it.
 

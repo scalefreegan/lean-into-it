@@ -92,6 +92,8 @@ def app : List ℕ → List ℕ → List ℕ
 
 It takes two lists. Joining the empty list to `ys` gives `ys`. Joining `x :: xs` to `ys` keeps `x` in front and joins the rest.
 
+Each exercise in this track can show you the definitions it is about. There they carry a mark in front, `@[simp]`. It changes nothing about what the function does, and the lesson on induction says what it is for.
+
 ## Running it
 
 The first thing anyone does with a new program is run it. In the **Playground**, paste the two definitions and add:

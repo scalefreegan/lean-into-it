@@ -324,8 +324,11 @@ test("an exercise with definitions of its own: goals, error lines and the axiom 
   assert.equal(opened.error, null);
   assert.deepEqual(opened.goals.map((g) => g.caseName), ["nil", "cons"]);
   // rfl cannot do the base case (0 + len ys): the error is on the learner's second line.
-  const wrong = await checkExercise(leanServer(), e, "induction' xs with x xs ih\nrfl");
+  // More lines follow it, so an error placed past the end of the body could not land there by luck.
+  const wrong = await checkExercise(leanServer(), e, "induction' xs with x xs ih\nrfl\nsimp\nsimp\nrw [ih]");
   assert.equal(wrong.error?.line, 1);
+  assert.match(wrong.error?.message ?? "", /^Tactic `rfl` failed/);
+  assert.ok(!wrong.diagnostics.some((d) => /axioms/.test(d.message)), "the axiom report is not shown as a diagnostic");
   // The goal at the cursor is read at the right place too.
   const at = await checkExercise(leanServer(), e, e.solution, { line: 3, character: 0 });
   assert.equal(at.solved, true);

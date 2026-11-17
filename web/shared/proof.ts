@@ -22,8 +22,9 @@
 // An exercise may come with definitions of its own (`given`: the functions a
 // verified-programs lesson proves things about). They are the lesson file's,
 // like the statement, never the learner's, and they sit between the import
-// and the theorem. An axiom or a `sorry` in them would show in the same
-// axiom report.
+// and the theorem. The loader refuses `sorry`, `admit` and `axiom` in them;
+// and if the theorem came to rest on one all the same, the axiom report
+// would name it.
 
 export interface Position {
   line: number;

@@ -16,8 +16,8 @@ export const NOT_SPLITTABLE = "The goal is not of the form A ∧ B or A ↔ B, s
 /** What the board reports for `use` on a goal that is not a "there exists". */
 export const NOT_AN_EXISTS = "The goal is not of the form ∃ x, …, so the board did not send this move to Lean.";
 
-/** What the board reports for `induction` when the goal has no natural number to pick. */
-export const NO_NUMBER = "There is no natural number among this goal's objects, so the board did not send this move to Lean.";
+/** What the board reports for `induction` when the goal has nothing to do induction on. */
+export const NO_NUMBER = "There is no natural number and no list among this goal's objects, so the board did not send this move to Lean.";
 
 /** A plain sentence for a Lean error, or null when there is none for it. */
 export function explain(message: string): string | null {
@@ -70,10 +70,10 @@ export function explain(message: string): string | null {
     return "simp found nothing in its library of facts that makes this goal simpler.";
   }
   if (/^Tactic `induction` failed: major premise type is not an inductive type/.test(first)) {
-    return "Induction is done on a natural number. What was picked is not one.";
+    return "Induction is done on a natural number or on a list. What was picked is neither.";
   }
   if (message === NO_NUMBER) {
-    return "Induction is done on a natural number, and there is none among the objects of this goal.";
+    return "Induction is done on a natural number or on a list, and there is neither among the objects of this goal.";
   }
   if (message === NOT_AN_EXISTS) {
     return "use gives the thing for a “there exists” goal, and this goal is not asking for a thing. If you have already given one and it was the wrong one, Undo takes it back.";
