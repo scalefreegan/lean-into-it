@@ -158,10 +158,12 @@ button:disabled {
 
 /* Lesson prose. */
 .prose-lesson {
-  font-size: 1.0625rem;
+  /* Grows a little with the window, so a wide screen is used without the
+     lines becoming too long to read comfortably. */
+  font-size: clamp(1.0625rem, 0.85rem + 0.3vw, 1.25rem);
   line-height: 1.7;
   color: var(--fg-2);
-  max-width: 68ch;
+  max-width: 96ch;
 }
 .prose-lesson > * + * {
   margin-top: 0.9em;
