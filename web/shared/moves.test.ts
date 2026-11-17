@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import { NOT_SPLITTABLE } from "./explain.ts";
 import { parseGoal } from "./goals.ts";
-import { MOVES, contraName, introName, isMove, moveLine, obtainLine, oneLine, shapeOf } from "./moves.ts";
+import { MOVES, contraName, misfit, introName, isMove, moveLine, obtainLine, oneLine, shapeOf } from "./moves.ts";
 
 test("every move is keyed by its own id and says what it does", () => {
   for (const [key, move] of Object.entries(MOVES)) {
@@ -88,4 +89,21 @@ test("typed text for a move is one line", () => {
   assert.equal(moveLine(MOVES.use, parseGoal("⊢ ∃ n, n + 3 = 5"), " 2 "), "use 2");
   assert.equal(oneLine("2\n  exact sorry"), "2 exact sorry");
   assert.equal(moveLine(MOVES["constructor" as string], parseGoal("⊢ P ∧ Q")), "constructor");
+});
+
+test("constructor is only sent to Lean for an and or an iff", () => {
+  const c = MOVES["constructor" as string];
+  assert.equal(misfit(c, parseGoal("⊢ P ∧ Q")), null);
+  assert.equal(misfit(c, parseGoal("⊢ P ↔ Q")), null);
+  assert.equal(misfit(c, parseGoal("⊢ 12 > 10 ∧ Even 12")), null);
+  // Lean accepts constructor on each of these, and leaves goals no lesson has explained.
+  for (const goal of ["⊢ ∃ n, n > 10 ∧ Even n", "⊢ 12 > 10", "⊢ Even 12", "⊢ P ∨ Q", "⊢ P → Q ∧ R"]) assert.equal(misfit(c, parseGoal(goal)), NOT_SPLITTABLE, goal);
+  assert.equal(misfit(MOVES.left, parseGoal("⊢ P")), null);
+});
+
+test("shapes the review found misread", () => {
+  assert.deepEqual(shapeOf("P ∧ ¬∃ x, Q x ∨ R x"), { kind: "and", left: "P", right: "¬∃ x, Q x ∨ R x" });
+  assert.deepEqual(shapeOf("P ∧ (∀ x, Q x ∨ R x)"), { kind: "and", left: "P", right: "∀ x, Q x ∨ R x" });
+  assert.deepEqual(shapeOf("∃! n, P n"), { kind: "other" });
+  assert.equal(contraName(parseGoal("⊢ False")), "h");
 });

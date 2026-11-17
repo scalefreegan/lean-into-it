@@ -84,7 +84,7 @@ id: both-ways
 
 ## Using one
 
-**obtain** takes `h : P ↔ Q` apart into its two if-thens. Then each is an ordinary if-then, to apply as before.
+**obtain** takes `h : P ↔ Q` apart into its two if-thens. Then each is an ordinary if-then, to apply as before. The if-and-only-if itself cannot be applied whole: take it apart first.
 
 ```exercise
 id: forwards

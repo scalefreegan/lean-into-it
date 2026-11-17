@@ -27,14 +27,7 @@ levels:
     summary: And, or, not, if-then, for-all and there-exists, each with the moves that prove it and the moves that use it.
     moves: [intro, apply, constructor, obtain, left, right, exfalso, contradiction, by_contra, use]
     topics:
-      - "And: proving both parts, using either part"
-      - "Or: choosing a side, arguing by cases"
-      - "Not, and proof by contradiction"
-      - "If and only if"
-      - "For all: proving it for an arbitrary thing, using it on a particular one"
-      - "There exists: giving a witness, using a witness"
-      - "Proof craft: working backwards from the goal"
-      - "Reading a goal state; proofs as things you can build"
+      - "Truth tables against proofs"
   - id: 2
     title: Numbers and induction
     status: outline

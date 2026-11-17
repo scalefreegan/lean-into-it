@@ -57,7 +57,7 @@ exercises:
       exact hQ
 ---
 
-"**Every** even number greater than 2 is a sum of two primes." "**For all** real numbers x, x² ≥ 0." Statements about everything of some kind are what mathematics is mostly after, and they are exactly the ones no amount of checking cases can prove. Logicians write `∀ x, …`, read "for all x".
+"**Every** whole number greater than 1 is divisible by some prime." "**For all** real numbers x, x² ≥ 0." Statements about everything of some kind are what mathematics is mostly after, and they are exactly the ones no amount of checking cases can prove. Logicians write `∀ x, …`, read "for all x".
 
 A word on notation first. Lean writes a function applied to a number without brackets: `f 2` is what you would write f(2). And `P n` says "n has the property P": P is a statement with a gap in it, and n fills the gap.
 

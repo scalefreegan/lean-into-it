@@ -39,7 +39,7 @@ exercises:
     mode: board
     says: Suppose 4 has the property P. Then some natural number has P.
     statement: "(P : ℕ → Prop) (h4 : P 4) : ∃ n, P n"
-    moves: [use, exact]
+    moves: [use]
     solution: |
       use 4
   - id: pass-it-on
@@ -72,7 +72,7 @@ exercises:
 
 The most direct way to prove that something exists is to **show one**. The thing you show is called a *witness*. The move is **use**: you tell Lean your witness, and the goal becomes "check that it works".
 
-This is the first move where you type something. Click **use**, type the number, and press Enter.
+This is the first move where you type something. Click **use**, type the number, and press Enter. If the number turns out to be the wrong one, **Undo** takes the move back.
 
 ```exercise
 id: show-one

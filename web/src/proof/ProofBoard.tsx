@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
 import { UNCHANGED, explain } from "../../shared/explain.ts";
 import { namesIn, type Goal } from "../../shared/goals.ts";
-import { MOVES, moveLine, type Move } from "../../shared/moves.ts";
+import { MOVES, misfit, moveLine, type Move } from "../../shared/moves.ts";
 import { ApiError, check } from "../api/client.ts";
 import { Button, cx, Notice } from "../ui.tsx";
 import { Closed, GoalView, Refusal } from "./GoalCards.tsx";
@@ -85,7 +85,8 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
   // set at once, and keeps a double click from playing a move twice.
   const playing = useRef(false);
 
-  async function play(line: string) {
+  /** `again`: a move that needed text, kept open with what was typed if the move is refused. */
+  async function play(line: string, again?: Move) {
     if (!now || busy || solved || playing.current) return;
     playing.current = true;
     const mine = ++seq.current;
@@ -97,20 +98,12 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
     try {
       const reply = await check({ lessonId, exerciseId: exercise.id, body: lines.join("\n"), record: "rejected" });
       if (mine !== seq.current) return;
-      if (reply.error) {
-        setRefusal({ line, raw: reply.error.message });
-        setShake((n) => n + 1);
-        return;
-      }
-      if (reply.refusal) {
-        setRefusal({ line, raw: reply.refusal });
-        setShake((n) => n + 1);
-        return;
-      }
       // A move Lean accepts but that leaves everything as it was is not a step.
-      if (!reply.solved && JSON.stringify(reply.goals) === JSON.stringify(now.goals)) {
-        setRefusal({ line, raw: UNCHANGED });
+      const refused = reply.error?.message ?? reply.refusal ?? (!reply.solved && JSON.stringify(reply.goals) === JSON.stringify(now.goals) ? UNCHANGED : null);
+      if (refused !== null) {
+        setRefusal({ line, raw: refused });
         setShake((n) => n + 1);
+        if (again) setPending(again);
         return;
       }
       setHistory((h) => [...h, { lines, goals: reply.goals }]);
@@ -134,12 +127,19 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
       setPending((p) => (p?.id === move.id ? null : move));
       return;
     }
-    void play(moveLine(move, now.goals[0] ?? { hypotheses: [], target: "" }));
+    const goal = now.goals[0] ?? { hypotheses: [], target: "" };
+    const no = misfit(move, goal);
+    if (no) {
+      setRefusal({ line: move.label, raw: no });
+      setShake((n) => n + 1);
+      return;
+    }
+    void play(moveLine(move, goal));
   }
 
   function submitText() {
     if (!now || !pending || !text.trim()) return;
-    void play(moveLine(pending, now.goals[0] ?? { hypotheses: [], target: "" }, text));
+    void play(moveLine(pending, now.goals[0] ?? { hypotheses: [], target: "" }, text), pending);
   }
 
   function pickFact(name: string) {

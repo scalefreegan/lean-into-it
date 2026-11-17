@@ -32,9 +32,8 @@ Landed in the first PR, the foundation slice:
 - Board moves: `rfl`, `norm_num`, `intro`, `exact`, `apply`, `constructor`,
   `obtain` (writes the pattern and names for the fact's shape), `left`,
   `right`, `exfalso`, `contradiction`, `by_contra`, `use` (the witness is
-  typed).
-- Board moves: `exact`, `rfl`, `norm_num`, `intro`, `apply`. A move that Lean
-  accepts but that changes nothing is refused as such.
+  typed). A move that Lean accepts but that changes nothing is refused as
+  such, and `constructor` is only sent to Lean for an and or an iff.
 - Path page (home): levels, lessons and what has been completed.
 - Lesson page.
 - Proof board: hypothesis and goal cards, clickable moves, "Lean written so far".
@@ -47,7 +46,8 @@ Landed in the first PR, the foundation slice:
   changes Lean's settings or tries to write commands of its own is refused
   with the reason (`lii-1ou.1`).
 - A move Lean refuses is explained in plain words, with Lean's own message
-  one click away (covers every board move).
+  one click away (covers the refusals the written lessons can produce; any
+  other message is shown as Lean wrote it).
 - Symbol shortcuts in the editor (`\to` then a space gives `→`).
 - Attempts and exercise and lesson completion stored in Postgres
   (`lean_into_it`, one implicit learner, no login) and shown on the Path.
@@ -55,7 +55,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 94, including every reference solution checked by the real Lean,
+- Tests: 99, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -92,6 +92,7 @@ land first.
 | `lii-8wq.3` | Lean editor: syntax colouring, completion and inline error marks | 2 | |
 | `lii-8wq.4` | Plain-word explanations for every move the curriculum introduces | 2 | |
 | `lii-8wq.5` | Typed proofs: show the goals still open when none is at the cursor | 2 | |
+| `lii-8wq.6` | obtain on a fact that is not an and, or, iff or exists | 3 | |
 
 ### Widgets (epic `lii-53v`)
 

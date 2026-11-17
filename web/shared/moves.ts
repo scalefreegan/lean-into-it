@@ -4,6 +4,7 @@
 //
 // Adding a move starts here; the board renders whatever is listed.
 
+import { NOT_SPLITTABLE } from "./explain.ts";
 import { namesIn, type Goal } from "./goals.ts";
 
 export interface Move {
@@ -174,6 +175,7 @@ export type Shape =
  */
 export function shapeOf(type: string): Shape {
   const t = unwrap(type.replace(/\s+/g, " "));
+  if (t.startsWith("∃!")) return { kind: "other" };
   if (t.startsWith("∃")) {
     // "∃ x, …", "∃ x y, …", "∃ (x : ℕ), …", "∃ x > 0, …"
     let depth = 0;
@@ -203,7 +205,7 @@ export function shapeOf(type: string): Shape {
     if ("([{⟨".includes(c)) depth++;
     else if (")]}⟩".includes(c)) depth--;
     else if (depth === 0) {
-      if ((c === "∃" || c === "∀" || c === "λ" || t.startsWith("fun ", i)) && (i === 0 || t[i - 1] === " ")) break;
+      if ((c === "∃" || c === "∀" || c === "λ" || t.startsWith("fun ", i)) && (i === 0 || " ¬(".includes(t[i - 1]))) break;
       if ("↔→∨∧".includes(c) && found[c] === undefined) found[c] = i;
     }
   }
@@ -255,7 +257,19 @@ export function obtainLine(goal: Goal, fact: string): string {
 export function contraName(goal: Goal): string {
   const taken = new Set(namesIn(goal));
   const target = unwrap(goal.target);
-  return freshIn(taken, ATOM.test(target) ? `hn${target}` : "h");
+  return freshIn(taken, ATOM.test(target) && target !== "False" && target !== "True" ? `hn${target}` : "h");
+}
+
+/**
+ * Why the board should not send this move to Lean on this goal, as a message
+ * `explain` knows, or null. Only for a move Lean would accept and then do
+ * something other than what the move's `does` says: `constructor` on a goal
+ * that is not an "and" or an "if and only if".
+ */
+export function misfit(move: Move, goal: Goal): string | null {
+  if (move.id !== "constructor") return null;
+  const kind = shapeOf(goal.target).kind;
+  return kind === "and" || kind === "iff" ? null : NOT_SPLITTABLE;
 }
 
 /** What was typed for a move, as one line with no way to start another. */
