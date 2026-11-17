@@ -89,8 +89,8 @@ export function isObject(h: Hypothesis): boolean {
   return h.type.split("→").every((part) => SORT.test(part.trim()));
 }
 
-/** True for `n : ℕ`: something induction can be done on. */
+/** True for `n : ℕ` or `xs : List ℕ`: something the board can do induction on. */
 export function isNatural(h: Hypothesis): boolean {
   // A name Lean made up and marked with a dagger cannot be written in a proof.
-  return /^(ℕ|Nat)$/.test(h.type.trim()) && h.names.some((n) => !n.includes("✝"));
+  return /^(ℕ|Nat|List\s[^→]+)$/.test(h.type.trim()) && h.names.some((n) => !n.includes("✝"));
 }

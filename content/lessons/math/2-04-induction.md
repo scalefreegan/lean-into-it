@@ -119,6 +119,8 @@ For the step you will need `Nat.add_succ`: a + (b + 1) = (a + b) + 1. After that
 id: zero-add
 ```
 
+Induction is not only for numbers. Anything built up from a starting point by a "one more" step can be reasoned about this way. The verified-programs lessons of this level do it for lists, in "Induction on a list".
+
 ## What you used
 
 - Induction: prove it for 0, then prove it for n + 1 using it for n.

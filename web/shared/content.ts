@@ -34,6 +34,9 @@ export interface Exercise {
   /** The Lean statement after the keyword: binders, a colon and the claim,
    *  e.g. `(P Q : Prop) (hP : P) (hPQ : P → Q) : Q`. */
   statement: string;
+  /** Lean definitions the statement is about (the functions of a
+   *  verified-programs lesson), placed before the theorem. Empty for most. */
+  given: string;
   /** Board mode: the move ids (web/shared/moves.ts) on offer. */
   moves: string[];
   /** Tactic names that may not appear in an answer (e.g. `tauto`). */

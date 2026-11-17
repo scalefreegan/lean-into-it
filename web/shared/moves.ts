@@ -146,8 +146,8 @@ export const MOVES: Record<string, Move> = {
     id: "induction",
     label: "induction",
     needs: "object",
-    does: "Prove a claim about every natural number n in two steps: first for 0, then for n + 1, where you may use the claim for n.",
-    prompt: "Click the number to do induction on.",
+    does: "Prove a claim about every natural number n in two steps: first for 0, then for n + 1, where you may use the claim for n. For a list: first for the empty list, then for a list with one more element in front.",
+    prompt: "Click the number, or the list, to do induction on.",
   },
 };
 
@@ -348,7 +348,11 @@ export function oneLine(text: string): string {
  */
 export function inductionLine(goal: Goal, n: string): string {
   const taken = new Set(namesIn(goal));
-  return `induction' ${n} with ${n} ${freshIn(taken, "ih")}`;
+  const ih = freshIn(taken, "ih");
+  // A list is empty, or a first element in front of a shorter list: the
+  // step's goal is about `x :: xs`, and the element needs a name too.
+  const list = /^List\s/.test(goal.hypotheses.find((h) => h.names.includes(n))?.type.trim() ?? "");
+  return list ? `induction' ${n} with ${freshIn(taken, "x")} ${n} ${ih}` : `induction' ${n} with ${n} ${ih}`;
 }
 
 /** The move that wrote a line of a board proof, and what was clicked or typed for it. */

@@ -231,3 +231,23 @@ test("a forbidden name without a dot is found after one; a tactic's relatives ar
   assert.deepEqual(forbiddenIn("rw?", ["rw?"]), ["rw?"]);
   assert.deepEqual(forbiddenIn("rw [h]", ["rw?"]), []);
 });
+
+test("an exercise's own definitions sit between the import and the theorem, and every line number moves with them", () => {
+  const given = "def twice (n : ℕ) : ℕ := n + n\n\ndef thrice (n : ℕ) : ℕ := n + n + n\n";
+  const source = assemble(": twice 2 = 4", "rfl", given).split("\n");
+  assert.deepEqual(source.slice(0, 8), ["import Mathlib", "", "def twice (n : ℕ) : ℕ := n + n", "", "def thrice (n : ℕ) : ℕ := n + n + n", "", "theorem lii_exercise : twice 2 = 4 := by", "  ("]);
+  // Three lines of definitions and a blank: the body starts four lines further down.
+  assert.deepEqual(toSource({ line: 0, character: 0 }, given), { line: 8, character: 4 });
+  assert.equal(source[8], "    rfl");
+  assert.equal(source[11], "#print axioms lii_exercise");
+  const at = (line: number): Diagnostic => ({ severity: "info", message: "'lii_exercise' does not depend on any axioms", start: { line, character: 0 }, end: { line, character: 1 } });
+  assert.deepEqual(axiomsOf([at(11)], "rfl", given), []);
+  // The report on the line it would be on without the definitions does not count.
+  assert.equal(axiomsOf([at(7)], "rfl", given), null);
+  const err: Diagnostic = { severity: "error", message: "boom", start: { line: 8, character: 4 }, end: { line: 8, character: 7 } };
+  assert.equal(toBody([err], "rfl", given)[0].line, 0);
+  // An error inside the definitions is not on any line of the learner's.
+  assert.equal(toBody([{ ...err, start: { line: 2, character: 0 } }], "rfl", given)[0].line, null);
+  // No definitions: the source is what it always was.
+  assert.equal(assemble(": 1 = 1", "rfl", ""), assemble(": 1 = 1", "rfl"));
+});

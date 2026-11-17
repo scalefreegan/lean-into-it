@@ -155,3 +155,10 @@ test("induction is only offered a number that can be named", () => {
   assert.equal(misfit(MOVES.induction, parseGoal("n✝ : ℕ\n⊢ P")), NO_NUMBER);
   assert.match(explain(NO_NUMBER) ?? "", /natural number/);
 });
+
+test("induction on a list names the first element as well", () => {
+  const goal = parseGoal("xs ys : List ℕ\n⊢ len (app xs ys) = len xs + len ys");
+  assert.equal(moveLine(MOVES.induction, goal, "xs"), "induction' xs with x xs ih");
+  assert.equal(misfit(MOVES.induction, goal), null);
+  assert.equal(moveLine(MOVES.induction, parseGoal("x : ℕ\nxs : List ℕ\n⊢ P"), "xs"), "induction' xs with x1 xs ih");
+});

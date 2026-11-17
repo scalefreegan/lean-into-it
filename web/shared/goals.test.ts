@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { isObject, namesIn, parseGoal, parseGoals } from "./goals.ts";
+import { isNatural, isObject, namesIn, parseGoal, parseGoals } from "./goals.ts";
 
 test("a goal's hypotheses and target are read as Lean prints them", () => {
   const g = parseGoal("P Q : Prop\nhP : P\nhPQ : P → Q\n⊢ Q");
@@ -50,4 +50,11 @@ test("objects are told apart from facts", () => {
   assert.equal(isObject({ names: ["f"], type: "ℕ → ℕ" }), true);
   assert.equal(isObject({ names: ["P"], type: "ℕ → Prop" }), true);
   assert.equal(isObject({ names: ["h"], type: "∀ (n : ℕ), P n" }), false);
+});
+
+test("induction is offered a number or a list, not a function on them", () => {
+  assert.equal(isNatural({ names: ["n"], type: "ℕ" }), true);
+  assert.equal(isNatural({ names: ["xs", "ys"], type: "List ℕ" }), true);
+  assert.equal(isNatural({ names: ["f"], type: "List ℕ → ℕ" }), false);
+  assert.equal(isNatural({ names: ["n✝"], type: "ℕ" }), false);
 });
