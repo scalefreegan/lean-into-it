@@ -18,6 +18,12 @@
 //      ordinary mathematics. No report (Lean was stopped early) is a refusal.
 //
 // `solved` means: none of the above, no error, and no `sorry`.
+//
+// An exercise may come with definitions of its own (`given`: the functions a
+// verified-programs lesson proves things about). They are the lesson file's,
+// like the statement, never the learner's, and they sit between the import
+// and the theorem. An axiom or a `sorry` in them would show in the same
+// axiom report.
 
 export interface Position {
   line: number;
@@ -61,6 +67,7 @@ export function bodyLines(body: string): string[] {
  *
  *     import Mathlib
  *
+ *     <given, and a blank line, when the exercise has definitions>
  *     theorem lii_exercise <statement> := by
  *       (
  *         <body>
@@ -68,11 +75,12 @@ export function bodyLines(body: string): string[] {
  *
  *     #print axioms lii_exercise
  */
-export function assemble(statement: string, body: string): string {
+export function assemble(statement: string, body: string, given = ""): string {
   const lines = bodyLines(body);
   // Comments alone are not a tactic block: the placeholder goes in front of them.
   const shown = !lines.length ? [PLACEHOLDER] : isBlank(body) ? [`${PLACEHOLDER} ${lines[0]}`, ...lines.slice(1)] : lines;
-  return `${HEADER}theorem ${THEOREM} ${statement.replace(/\s+/g, " ").trim()} := by\n  (\n${shown.map((l) => INDENT + l).join("\n")}\n  )\n\n#print axioms ${THEOREM}\n`;
+  const before = bodyLines(given);
+  return `${HEADER}${before.length ? `${before.join("\n")}\n\n` : ""}theorem ${THEOREM} ${statement.replace(/\s+/g, " ").trim()} := by\n  (\n${shown.map((l) => INDENT + l).join("\n")}\n  )\n\n#print axioms ${THEOREM}\n`;
 }
 
 /** True when a body has no tactic in it: nothing at all, or only comments. */
@@ -80,14 +88,20 @@ export function isBlank(body: string): boolean {
   return !lex(body).code.trim();
 }
 
+/** The source line of the body's first line: further down by the given definitions and their blank line. */
+function bodyLine(given: string): number {
+  const before = bodyLines(given).length;
+  return BODY_LINE + (before ? before + 1 : 0);
+}
+
 /** The source line of the axiom report: after the body, the closing bracket and a blank. */
-function auditLine(body: string): number {
-  return BODY_LINE + Math.max(bodyLines(body).length, 1) + 2;
+function auditLine(body: string, given: string): number {
+  return bodyLine(given) + Math.max(bodyLines(body).length, 1) + 2;
 }
 
 /** Where, in the assembled source, a body position is. */
-export function toSource(p: Position): Position {
-  return { line: p.line + BODY_LINE, character: p.character + INDENT.length };
+export function toSource(p: Position, given = ""): Position {
+  return { line: p.line + bodyLine(given), character: p.character + INDENT.length };
 }
 
 /** The end of the proof: after the last tactic, where Lean reports what is left. */
@@ -231,8 +245,8 @@ export const ALLOWED_AXIOMS = ["propext", "Classical.choice", "Quot.sound"];
  * missing. Only a note on the report's own line counts: a message from
  * anywhere in the body cannot stand in for it.
  */
-export function axiomsOf(diagnostics: Diagnostic[], body: string): string[] | null {
-  const line = auditLine(body);
+export function axiomsOf(diagnostics: Diagnostic[], body: string, given = ""): string[] | null {
+  const line = auditLine(body, given);
   for (const d of diagnostics) {
     if (d.severity !== "info" || d.start.line !== line) continue;
     if (d.message.trim() === `'${THEOREM}' does not depend on any axioms`) return [];
@@ -303,12 +317,13 @@ function blame(message: string, line: number, body: string): number {
 /** Lean's diagnostics in body coordinates, without the linters' remarks
  *  (a learner's spacing and unused names are not the lesson) and without
  *  the axiom report, which `axiomsOf` reads. */
-export function toBody(diagnostics: Diagnostic[], body: string): BodyDiagnostic[] {
-  const audit = auditLine(body);
+export function toBody(diagnostics: Diagnostic[], body: string, given = ""): BodyDiagnostic[] {
+  const audit = auditLine(body, given);
+  const first = bodyLine(given);
   return diagnostics
     .filter((d) => !isLinterRemark(d) && !(d.severity === "info" && d.start.line === audit))
     .map((d) => {
-      const line = d.start.line - BODY_LINE;
+      const line = d.start.line - first;
       return { severity: d.severity, message: d.message, line: line < 0 ? null : blame(d.message, line, body) };
     });
 }

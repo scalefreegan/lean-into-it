@@ -90,6 +90,12 @@ function ExerciseBlock({ lesson, exercise, number, solution, onSolved }: { lesso
         </div>
         <h3 className="text-xl font-semibold text-fg">{exercise.title}</h3>
         <p className="mt-1 font-display text-lg italic text-fg-2">{exercise.says}</p>
+        {exercise.given && (
+          <details className="mt-2" data-given>
+            <summary className="cursor-pointer text-sm font-semibold text-fg-3">The definitions this is about</summary>
+            <pre className="lean mt-2 overflow-x-auto rounded-xl border border-line bg-raised px-4 py-3 text-sm leading-6 text-fg-2">{exercise.given}</pre>
+          </details>
+        )}
       </div>
       <ErrorBoundary label={`exercise ${exercise.id}`}>{exercise.mode === "board" ? <ProofBoard {...props} /> : <TypedProof {...props} />}</ErrorBoundary>
     </section>

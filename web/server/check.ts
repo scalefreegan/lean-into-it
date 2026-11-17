@@ -44,11 +44,12 @@ export async function checkExercise(lean: LeanServer, exercise: Exercise, body: 
   if (escapes.length) {
     return { solved: false, goals: [], cursorGoals: null, error: null, diagnostics: [], forbidden: [], refusal: escapes[0].message };
   }
-  const end = toSource(endOfBody(body));
-  const positions = cursor ? [end, toSource(cursor)] : [end];
-  const result = await lean.check("exercise", assemble(exercise.statement, body), positions);
-  const diagnostics = toBody(result.diagnostics, body);
-  const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body));
+  const given = exercise.given;
+  const end = toSource(endOfBody(body), given);
+  const positions = cursor ? [end, toSource(cursor, given)] : [end];
+  const result = await lean.check("exercise", assemble(exercise.statement, body, given), positions);
+  const diagnostics = toBody(result.diagnostics, body, given);
+  const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body, given));
   return {
     solved: verdict.solved,
     goals: parseGoals(result.goals[0] ?? []),

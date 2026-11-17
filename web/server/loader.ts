@@ -142,10 +142,12 @@ export function parseLesson(
   if (!known.tracks.some((t) => t.id === track)) problem(file, `track "${track}" is not in curriculum.yaml`);
   if (typeof level !== "number" || !known.levels.some((l) => l.id === level)) problem(file, `level ${JSON.stringify(level)} is not in curriculum.yaml`);
   const concepts = strings(front.concepts);
+  // Definitions every exercise of the lesson is about; an exercise may add its own.
+  const lessonGiven = typeof front.given === "string" ? front.given.replace(/\s+$/, "") : "";
 
   const exercises: Exercise[] = [];
   for (const e of Array.isArray(front.exercises) ? front.exercises : []) {
-    const ex = parseExercise(e, concepts, (message) => problem(file, message));
+    const ex = parseExercise(e, concepts, lessonGiven, (message) => problem(file, message));
     if (!ex) continue;
     if (exercises.some((x) => x.id === ex.id)) {
       problem(file, `exercise id "${ex.id}" is used twice`);
@@ -169,7 +171,7 @@ export function parseLesson(
   };
 }
 
-function parseExercise(e: unknown, concepts: string[], problem: (message: string) => void): Exercise | null {
+function parseExercise(e: unknown, concepts: string[], lessonGiven: string, problem: (message: string) => void): Exercise | null {
   if (!isRecord(e)) {
     problem("an exercise must be a set of key: value lines");
     return null;
@@ -193,6 +195,8 @@ function parseExercise(e: unknown, concepts: string[], problem: (message: string
   const statement = str(e.statement).replace(/\s+/g, " ");
   const solution = typeof e.solution === "string" ? e.solution.replace(/\s+$/, "") : "";
   const moves = strings(e.moves);
+  const own = typeof e.given === "string" ? e.given.replace(/\s+$/, "") : "";
+  const given = [lessonGiven, own].filter(Boolean).join("\n\n");
   let ok = true;
   const bad = (message: string) => {
     problem(`${where}: ${message}`);
@@ -202,13 +206,14 @@ function parseExercise(e: unknown, concepts: string[], problem: (message: string
   if (!str(e.says)) bad("needs `says`, the claim in plain English");
   if (!statement.includes(":")) bad("needs a Lean `statement` (binders, a colon, the claim)");
   if (/:=|\bsorry\b/.test(statement)) bad("the statement must not contain := or sorry");
+  if (/\bsorry\b|\baxiom\b/.test(given)) bad("`given` must not contain sorry or an axiom");
   if (!solution.trim()) bad("needs a reference `solution`");
   for (const move of moves) if (!isMove(move)) bad(`move "${move}" is not in web/shared/moves.ts`);
   if (mode === "board" && !moves.length) bad("a board exercise needs `moves`");
   const concept = str(e.concept) || concepts[0] || "";
   if (!concept) bad("needs a concept (or the lesson must list concepts)");
   if (!ok) return null;
-  return { id, kind: "prove", mode, title: str(e.title), says: str(e.says), statement, moves, forbid: strings(e.forbid), solution, concept };
+  return { id, kind: "prove", mode, title: str(e.title), says: str(e.says), statement, given, moves, forbid: strings(e.forbid), solution, concept };
 }
 
 const FENCE = /^```exercise[ \t]*\r?\n([\s\S]*?)\r?\n```[ \t]*$/gm;

@@ -316,3 +316,21 @@ test("a bracket left open, and a body of comments only, are unfinished proofs wi
   assert.equal(comment.error, null, JSON.stringify(comment.diagnostics));
   assert.equal(comment.goals[0]?.target, "Q");
 });
+
+test("an exercise with definitions of its own: goals, error lines and the axiom report all land where they should", { skip }, async () => {
+  const e = content.lessons.find((l) => l.id === "programs-2-list-induction")!.exercises.find((x) => x.id === "len-app")!;
+  assert.match(e.given, /def len/);
+  const opened = await checkExercise(leanServer(), e, "induction' xs with x xs ih");
+  assert.equal(opened.error, null);
+  assert.deepEqual(opened.goals.map((g) => g.caseName), ["nil", "cons"]);
+  // rfl cannot do the base case (0 + len ys): the error is on the learner's second line.
+  const wrong = await checkExercise(leanServer(), e, "induction' xs with x xs ih\nrfl");
+  assert.equal(wrong.error?.line, 1);
+  // The goal at the cursor is read at the right place too.
+  const at = await checkExercise(leanServer(), e, e.solution, { line: 3, character: 0 });
+  assert.equal(at.solved, true);
+  assert.match(at.cursorGoals?.[0]?.target ?? "", /len \(app xs ys\) \+ 1/);
+  // A learner cannot lean on a definition that is not the exercise's.
+  const other = content.lessons.find((l) => l.id === "programs-2-first-function")!.exercises.find((x) => x.id === "test-len")!;
+  assert.equal((await checkExercise(leanServer(), other, "exact len_app [] []")).solved, false);
+});
