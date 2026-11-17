@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 //   #/                 home (the Path)
 //   #/lesson/<id>      a lesson
 //   #/playground       free Lean, nothing scored
+//   #/gallery          every widget and exercise kind in the registry;
+//                      #/gallery/<widget> for one widget
 
 export interface Route {
   name: string;

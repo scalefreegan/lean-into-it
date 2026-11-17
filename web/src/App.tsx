@@ -1,4 +1,5 @@
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
+import { Gallery } from "./pages/Gallery.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Lesson } from "./pages/Lesson.tsx";
 import { Playground } from "./pages/Playground.tsx";
@@ -56,7 +57,15 @@ function Shell() {
           </div>
         )}
         <ErrorBoundary label={route.name} key={`${route.name}/${route.arg ?? ""}`}>
-          {route.name === "lesson" && route.arg ? <Lesson id={route.arg} /> : route.name === "playground" ? <Playground /> : <Home />}
+          {route.name === "lesson" && route.arg ? (
+            <Lesson id={route.arg} />
+          ) : route.name === "playground" ? (
+            <Playground />
+          ) : route.name === "gallery" ? (
+            <Gallery {...(route.arg ? { only: route.arg } : {})} />
+          ) : (
+            <Home />
+          )}
         </ErrorBoundary>
       </main>
     </div>

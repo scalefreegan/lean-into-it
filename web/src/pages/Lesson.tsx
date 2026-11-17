@@ -1,13 +1,14 @@
 import type { Exercise, Lesson as LessonType } from "../../shared/content.ts";
 import { ErrorBoundary } from "../ErrorBoundary.tsx";
 import { Markdown } from "../markdown.tsx";
-import { ProofBoard } from "../proof/ProofBoard.tsx";
-import { TypedProof } from "../proof/TypedProof.tsx";
+import { EXERCISES } from "../../shared/registry.ts";
+import { EXERCISE_COMPONENTS } from "../exercises/registry.ts";
 import { href } from "../router.ts";
 import { lessonProgress, useApp } from "../state.tsx";
 import { Notice, Tick } from "../ui.tsx";
+import { RenderWidget } from "../widgets/RenderWidget.tsx";
 
-// A lesson: prose and exercises in the order the file gives them. Lean
+// A lesson: prose, widgets and exercises in the order the file gives them. Lean
 // checks each exercise; a solved one is remembered (state.tsx markSolved,
 // and the server has already stored it).
 
@@ -52,6 +53,7 @@ export function Lesson({ id }: { id: string }) {
             </div>
           );
         }
+        if (block.type === "widget") return <RenderWidget key={i} type={block.widget} params={block.params} />;
         const exercise = lesson.exercises.find((e) => e.id === block.id);
         if (!exercise) return null;
         return (
@@ -80,24 +82,21 @@ export function Lesson({ id }: { id: string }) {
 }
 
 function ExerciseBlock({ lesson, exercise, number, solution, onSolved }: { lesson: LessonType; exercise: Exercise; number: number; solution?: string; onSolved: (body: string) => void }) {
-  const props = { lessonId: lesson.id, exercise, onSolved, ...(solution !== undefined ? { solution } : {}) };
+  // What kind of exercise this is, and so what it is called and how it is
+  // drawn, comes from the registry and its table of components.
+  const Kind = EXERCISE_COMPONENTS[exercise.kind];
   return (
     <section data-exercise={exercise.id} className="flex flex-col gap-3">
       <div>
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-accent">
-          Prove it · {number}
+          {EXERCISES[exercise.kind].label} · {number}
           {solution !== undefined && <Tick className="h-4 w-4 text-good" />}
         </div>
         <h3 className="text-xl font-semibold text-fg">{exercise.title}</h3>
-        <p className="mt-1 font-display text-lg italic text-fg-2">{exercise.says}</p>
-        {exercise.given && (
-          <details className="mt-2" data-given>
-            <summary className="cursor-pointer text-sm font-semibold text-fg-3">The definitions this is about</summary>
-            <pre className="lean mt-2 overflow-x-auto rounded-xl border border-line bg-raised px-4 py-3 text-sm leading-6 text-fg-2">{exercise.given}</pre>
-          </details>
-        )}
       </div>
-      <ErrorBoundary label={`exercise ${exercise.id}`}>{exercise.mode === "board" ? <ProofBoard {...props} /> : <TypedProof {...props} />}</ErrorBoundary>
+      <ErrorBoundary label={`exercise ${exercise.id}`}>
+        <Kind lessonId={lesson.id} exercise={exercise} onSolved={onSolved} {...(solution !== undefined ? { solution } : {})} />
+      </ErrorBoundary>
     </section>
   );
 }

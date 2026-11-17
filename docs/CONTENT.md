@@ -2,9 +2,12 @@
 
 How the curriculum is written, as the loader (`web/server/loader.ts`) reads
 it today. A file that breaks a rule here is not served; the Path page lists
-it with the reason. This covers what exists: one exercise kind and no
-widgets yet. Widgets, more exercise kinds and a generated reference of both
-are tracked in `docs/STATUS.md`.
+it with the reason. What a widget or an exercise kind takes is declared in
+one place, `web/shared/registry.ts`, and the loader checks lessons against
+it; the Gallery page of the running app (`#/gallery`) draws every widget
+and lists every parameter. This file describes the format around them. More
+widgets, more exercise kinds and a generated reference are tracked in
+`docs/STATUS.md`.
 
 ## Layout
 
@@ -68,7 +71,7 @@ exercises:
 | Field | Meaning |
 |---|---|
 | `id` | Lowercase letters, digits and hyphens. Unique within the lesson. |
-| `kind` | `prove` (the default, and the only kind so far). |
+| `kind` | `prove` (the default, and the only kind so far). The fields below from `mode` to `solution` are the parameters of `prove` in the registry; a field the kind does not take is refused, so a misspelt `forbid` cannot pass unnoticed. |
 | `mode` | `board` or `typed`. Default `board`. |
 | `title` | A short heading. |
 | `says` | The claim in plain English, as a mathematician would say it. Shown above the exercise. |
@@ -97,6 +100,47 @@ id: use-it
 ````
 
 Exercises not placed in the body follow at the end, in declared order.
+
+### Widgets
+
+A widget is embedded with a fence that names it with `type:` and gives its
+parameters as YAML:
+
+````
+```widget
+type: proof-state
+state: |
+  P Q : Prop
+  hP : P
+  hPQ : P → Q
+  ⊢ Q
+caption: Where the proof starts.
+```
+````
+
+| Widget | What it shows | Parameters |
+|---|---|---|
+| `proof-state` | A proof state as the board draws it: the objects, the facts on teal cards, the goal on an amber card. | `state` (required): the state as Lean prints it, one `name : statement` line per fact and then `⊢ goal`; a blank line starts another goal. `caption`: one line under the cards. |
+| `move-list` | Some of the board's moves, each with the sentence that says what it does. | `moves` (required): move ids, like `[intro, exact]`. |
+
+A block with no `type`, an unknown widget, a missing or misspelt parameter,
+or a value of the wrong kind is refused, and the Path page says which block
+(`widget block 2 (move-list): …`) and why.
+
+### Adding a widget or an exercise kind
+
+1. Add the entry to `WIDGETS` or `EXERCISES` in `web/shared/registry.ts`,
+   and its name to `WidgetType` or `ExerciseKind`: what it is, each
+   parameter with its kind and a one-line `doc`, and for a widget at least
+   one set of example parameters.
+2. TypeScript now refuses to build until the component exists in
+   `web/src/widgets/registry.ts` or `web/src/exercises/registry.ts`.
+3. `npm test` checks that the examples pass the entry's own checks, and
+   `#/gallery` draws them.
+
+A widget parameter may not be called `type`, and an exercise kind's
+parameter may not be called `id`, `kind`, `title` or `concept`: those
+belong to the block.
 
 ## Writing a lesson
 

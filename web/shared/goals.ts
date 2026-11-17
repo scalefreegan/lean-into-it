@@ -75,6 +75,20 @@ export function parseGoals(texts: string[]): Goal[] {
   return texts.map(parseGoal);
 }
 
+/** A proof state written out by hand (a `proof-state` widget), cut into its
+ *  goals: one block per goal, as Lean prints them, a blank line between. */
+export function stateBlocks(text: string): string[] {
+  return text
+    .replace(/\r/g, "")
+    .split(/\n[ \t]*\n/)
+    .map((block) => block.replace(/^\n+|\s+$/g, ""))
+    .filter((block) => block.trim());
+}
+
+export function parseState(text: string): Goal[] {
+  return parseGoals(stateBlocks(text));
+}
+
 /** Every hypothesis name in a goal, in order. */
 export function namesIn(goal: Goal): string[] {
   return goal.hypotheses.flatMap((h) => h.names);

@@ -86,12 +86,39 @@ test("a lesson's exercises are placed where the file puts them, the rest after",
   assert.equal(content.levels[1].status, "outline");
 });
 
+test("a widget block becomes a block with its checked parameters, in its place", () => {
+  const withWidgets = LESSON.replace(
+    "Closing prose.",
+    "```widget\ntype: proof-state\nstate: |\n  P : Prop\n  hP : P\n  ⊢ P\ncaption: Where the proof starts.\n```\n\nBetween.\n\n```widget\ntype: move-list\nmoves: [intro, exact]\n```",
+  );
+  const content = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": withWidgets }));
+  assert.deepEqual(content.problems, []);
+  assert.deepEqual(content.lessons[0].blocks, [
+    { type: "prose", markdown: "Opening prose." },
+    { type: "exercise", id: "second" },
+    { type: "widget", widget: "proof-state", params: { state: "P : Prop\nhP : P\n⊢ P\n", caption: "Where the proof starts." } },
+    { type: "prose", markdown: "Between." },
+    { type: "widget", widget: "move-list", params: { moves: ["intro", "exact"] } },
+    { type: "exercise", id: "first" },
+  ]);
+});
+
 const broken: [string, (lesson: string) => string, RegExp][] = [
   ["an unknown track", (l) => l.replace("track: logic", "track: music"), /track "music" is not in curriculum/],
   ["an unknown level", (l) => l.replace("level: 1", "level: 9"), /level 9 is not in curriculum/],
   ["an unknown move", (l) => l.replace("moves: [intro, exact]", "moves: [intro, teleport]"), /move "teleport"/],
   ["a board exercise with no moves", (l) => l.replace("    moves: [intro, exact]\n", ""), /needs `moves`/],
-  ["no reference solution", (l) => l.replace("    solution: exact hP\n", ""), /needs a reference `solution`/],
+  ["no reference solution", (l) => l.replace("    solution: exact hP\n", ""), /exercise "second": needs `solution`/],
+  ["an exercise field that does not exist", (l) => l.replace("    forbid: [tauto]\n", "    forbids: [tauto]\n"), /exercise "second": has no parameter `forbids`/],
+  ["an unknown exercise kind", (l) => l.replace("    mode: typed\n", "    mode: typed\n    kind: guess\n"), /kind "guess" is not known/],
+  ["an unknown widget", (l) => l.replace("Closing prose.", "```widget\ntype: hologram\n```"), /widget block 1 \(hologram\): there is no widget called "hologram".*proof-state/],
+  ["a widget block with no type", (l) => l.replace("Closing prose.", "```widget\nstate: x\n```"), /widget block 1 \(no type\): needs `type`/],
+  ["a widget missing what it needs", (l) => l.replace("Closing prose.", "```widget\ntype: proof-state\ncaption: A state.\n```"), /widget block 1 \(proof-state\): needs `state`/],
+  ["a widget parameter of the wrong kind", (l) => l.replace("Closing prose.", "```widget\ntype: move-list\nmoves: [intro, teleport]\n```"), /widget block 1 \(move-list\): `moves`: move "teleport"/],
+  ["a widget parameter that does not exist", (l) => l.replace("Closing prose.", "```widget\ntype: move-list\nmoves: [intro]\ncolour: red\n```"), /widget block 1 \(move-list\): has no parameter `colour`/],
+  ["a proof state with no goal", (l) => l.replace("Closing prose.", "```widget\ntype: proof-state\nstate: |\n  hP : P\n```"), /widget block 1 \(proof-state\): `state` has no line starting with ⊢/],
+  ["a second widget that is wrong", (l) => l.replace("Closing prose.", "```widget\ntype: move-list\nmoves: [intro]\n```\n\n```widget\ntype: move-list\n```"), /widget block 2 \(move-list\): needs `moves`/],
+  ["a widget block that is not YAML", (l) => l.replace("Closing prose.", "```widget\ntype: [unclosed\n```"), /widget block 1: is not valid YAML/],
   ["a statement that smuggles in a proof", (l) => l.replace('"(P : Prop) (hP : P) : P"', '"(P : Prop) : P := sorry"'), /must not contain := or sorry/],
   ["a duplicate exercise id", (l) => l.replace("id: second\n    title", "id: first\n    title"), /used twice|not in the frontmatter/],
   ["a block naming no exercise", (l) => l.replace("```exercise\nid: second", "```exercise\nid: nope"), /names "nope"/],
