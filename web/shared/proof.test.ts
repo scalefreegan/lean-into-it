@@ -190,3 +190,13 @@ test("an error past the end of the body is put on the body's last line", () => {
   const body = "apply hPQ\nexact (hP"; // source lines 4 and 5; Lean stumbles at the axiom line, 8
   assert.deepEqual(toBody([at(8, "unexpected token '#print'; expected ')'")], body), [{ severity: "error", message: "unexpected token '#print'; expected ')'", line: 1 }]);
 });
+
+test("a bracket left open is blamed on its own line, not on a later line that is fine", () => {
+  const late = at(9, "unexpected token '#print'; expected ')'");
+  assert.equal(toBody([late], "apply (hPQ\nexact hP")[0].line, 0);
+  assert.equal(toBody([late], "exact (hPQ hP\n-- a note")[0].line, 0);
+  assert.equal(toBody([late], "intro h\nexact f (g x) (h\n")[0].line, 1);
+  assert.equal(toBody([late], "exact ⟨a, b")[0].line, 0);
+  // Nothing open that this can see: the last line with code on it.
+  assert.equal(toBody([late], "intro h\nexact h |>.\n-- note")[0].line, 1);
+});

@@ -29,7 +29,7 @@ test("a message with no explanation is left to Lean's own words", () => {
 
 test("rfl on two sides that differ, and on a goal that is not an equation", () => {
   // Both messages as Lean 4.36 prints them (checked against the real Lean).
-  assert.match(explain("Tactic `rfl` failed: The left-hand side\n  2 + 2\nis not definitionally equal to the right-hand side\n  5\n\n⊢ 2 + 2 = 5") ?? "", /“2 \+ 2” and “5” are not the same/);
+  assert.match(explain("Tactic `rfl` failed: The left-hand side\n  2 + 2\nis not definitionally equal to the right-hand side\n  5\n\n⊢ 2 + 2 = 5") ?? "", /“2 \+ 2” and “5” out to the same thing/);
   assert.match(explain("Tactic `rfl` failed: The left-hand side\n  a\nis not definitionally equal to the right-hand side\n  b\n\na b : ℕ\nh : a = b\n⊢ a = b") ?? "", /“a” and “b”/);
   assert.match(explain("Tactic `rfl` failed: Expected the goal to be a binary relation\n\nHint: Reflexivity tactics can only be used on goals of the form `x ~ x` or `R x x`\n\n⊢ 2 + 2 ≠ 5") ?? "", /not an equation/);
 });

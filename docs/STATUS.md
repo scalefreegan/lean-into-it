@@ -47,7 +47,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 88, including every reference solution checked by the real Lean,
+- Tests: 89, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

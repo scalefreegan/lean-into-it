@@ -38,7 +38,7 @@ levels:
     title: Numbers and induction
     status: outline
     summary: The natural numbers from the ground up, equality and rewriting, proof by induction, and the first programs proved correct.
-    moves: [rfl, rw, simp, induction, omega, decide]
+    moves: [rw, simp, induction, omega, decide]
     topics:
       - What a natural number is, zero and successor
       - Equality, and rewriting with a known equation
@@ -53,7 +53,7 @@ levels:
     title: Algebra and inequalities
     status: outline
     summary: The real numbers, equations and inequalities, absolute value and functions, proved the way a textbook argues them.
-    moves: [ring, linarith, nlinarith, calc, norm_num, positivity, field_simp]
+    moves: [ring, linarith, nlinarith, calc, positivity, field_simp]
     topics:
       - The real numbers and what Lean knows about them
       - Identities, and letting ring do the algebra

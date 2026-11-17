@@ -104,8 +104,10 @@ test("a folder with no Lean project is a reason, not a hang", async () => {
   lean.stop();
 });
 
-test("a closed server stays closed: a check that was waiting does not start Lean again", { skip }, async () => {
+test("a closed server stays closed: a check that was waiting does not start Lean again", { skip }, async (t) => {
   const lean = new LeanServer();
+  // Were the guard ever lost, this keeps the test from leaving a Lean running.
+  t.after(() => lean.stop());
   const waiting = lean.check("exercise", source("exact hP"), []);
   waiting.catch(() => {});
   lean.close();

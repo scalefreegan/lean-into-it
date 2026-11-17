@@ -251,6 +251,26 @@ export function isLinterRemark(d: { severity: string; message: string }): boolea
   return d.severity !== "error" && LINTER_FOOTER.test(d.message);
 }
 
+/**
+ * The body line to blame when Lean only notices past the end of the body
+ * that something was left open: the line of the last bracket that is never
+ * closed, or failing that the last line with any code on it.
+ */
+function unfinishedLine(body: string): number {
+  const { code, bare } = lex(bodyLines(body).join("\n"));
+  const open: number[] = [];
+  let line = 0;
+  for (const c of bare) {
+    if (c === "\n") line++;
+    else if (c === "(" || c === "[" || c === "{" || c === "⟨") open.push(line);
+    else if (c === ")" || c === "]" || c === "}" || c === "⟩") open.pop();
+  }
+  if (open.length) return open[open.length - 1];
+  const lines = code.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) if (lines[i].trim()) return i;
+  return 0;
+}
+
 /** Lean's diagnostics in body coordinates, without the linters' remarks
  *  (a learner's spacing and unused names are not the lesson) and without
  *  the axiom report, which `axiomsOf` reads. */
@@ -262,8 +282,8 @@ export function toBody(diagnostics: Diagnostic[], body: string): BodyDiagnostic[
     .map((d) => {
       const line = d.start.line - BODY_LINE;
       // Past the end of the body is the closing bracket and the axiom line:
-      // Lean stumbling there means the body's last line left something open.
-      return { severity: d.severity, message: d.message, line: line < 0 ? null : Math.min(line, count - 1) };
+      // Lean stumbling there means the body left something open.
+      return { severity: d.severity, message: d.message, line: line < 0 ? null : line < count ? line : unfinishedLine(body) };
     });
 }
 

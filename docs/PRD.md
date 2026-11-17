@@ -123,7 +123,7 @@ Fully written for v1:
   many cases is not a proof; a pattern can break late); true, false and not
   yet known; hypotheses and goals. `lean`: what Lean is and what "checked"
   means; reading a statement; the proof board. First click-proofs. No typing.
-  Moves: `exact`, `rfl`.
+  Moves: `exact`, `rfl`, `norm_num`.
 - **Level 1 — Logic you can see.**
   `logic`: and, or, not and false; if… then; if and only if; for all; there
   exists; proof by cases; proof by contradiction and where classical logic

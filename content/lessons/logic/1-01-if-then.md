@@ -65,11 +65,9 @@ Most of mathematics is made of sentences shaped like **if A then B**. If a numbe
 
 There are only two things you ever do with an implication: you **use** one you already have, or you **prove** a new one. This lesson is those two skills, and the three moves that carry them out.
 
-## Reading the board
+## The board, again
 
-A proof in progress has two parts. Above are the **facts**: what you know, or have assumed, each with a short name. Below is the **goal**: the one statement you are trying to reach. Lean writes the goal after the symbol `⊢`, read "it remains to show".
-
-Each move changes the board. A proof is finished when no goal is left.
+You know the board from Level 0: the **facts** you have, each with a short name, and below them the **goal**, written after `⊢`. Until now one move finished the proof. From here on a move usually *changes* the board, and a proof takes several.
 
 > A proof is a sequence of moves that turns "here is what I know, here is what I want" into "nothing left to show". Lean checks every move.
 

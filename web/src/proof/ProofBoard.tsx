@@ -204,7 +204,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
             ))}
           </div>
           <p className="mt-2 min-h-5 text-sm text-fg-2">{pending ? (pending.prompt ?? "Click a fact.") : busy ? "Lean is checking…" : "Pick a move. Hover over one to see what it does."}</p>
-          {refusal && <Refusal className="mt-2" plain={`“${refusal.line}” does not work here. ${explain(refusal.raw) ?? ""}`.trim()} raw={refusal.raw} />}
+          {refusal && <Refusal className="mt-2" plain={`“${refusal.line}” ${refusal.raw === UNCHANGED ? "gets you no further here." : "does not work here."} ${explain(refusal.raw) ?? ""}`.trim()} raw={refusal.raw} />}
         </div>
       )}
 

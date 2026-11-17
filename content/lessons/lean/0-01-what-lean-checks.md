@@ -5,7 +5,7 @@ track: lean
 level: 0
 order: 1
 concepts: [checking]
-summary: What Lean is, what it means when it accepts a proof, and why stating a claim is not the same as proving it. A second way to finish a goal, by computing.
+summary: What Lean is, what it means when it accepts a proof, and why stating a claim is not the same as proving it. The move rfl, and how it differs from norm_num.
 exercises:
   - id: compute
     title: Two sides that are the same number
@@ -43,9 +43,9 @@ exercises:
 
 **Lean** is a programming language with one unusual ability: you can write a mathematical statement in it, write a proof of that statement, and have the computer check that the proof is correct. Software that does this is called a *proof assistant*.
 
-The checking is done by a small program at the centre of Lean called the **kernel**. The kernel knows the rules of logic and nothing else. It does not judge whether an argument is convincing or elegant. It checks, step by step, that each step is one the rules allow.
+The checking is done by a small program at the centre of Lean called the **kernel**. The kernel knows the rules of logic and how to compute, and very little else. It does not judge whether an argument is convincing or elegant. Each move you make adds to a complete, fully detailed proof, and when you finish, the kernel checks that whole proof against the rules.
 
-> When Lean accepts a proof, it means every step was checked against the rules of logic by a program, and none was skipped. It does not mean somebody read it and agreed.
+> When Lean accepts a proof, it means the complete proof was checked against the rules of logic by a program, with nothing skipped. It does not mean somebody read it and agreed.
 
 That is why the proofs in this course are graded by Lean and by nothing else. If the board says there is no goal left, the proof is correct.
 
@@ -69,13 +69,13 @@ Lean does not make you start from nothing each time. **Mathlib** is a library of
 
 In the last lesson a goal was finished by pointing at a fact that said the same thing. Some goals need no fact at all. `2 + 2 = 4` is true because when you work out the left side you get the right side.
 
-The move for that is **rfl**, short for *reflexivity*: a thing is equal to itself. Lean computes both sides, and if they come out as the very same number, the equation is proved.
+The move for that is **rfl**, short for *reflexivity*: a thing is equal to itself. Lean works out both sides from the definitions of `+`, `*` and `^` on whole numbers, and if they come out as the very same number, the equation is proved.
 
 ```exercise
 id: compute
 ```
 
-It makes no difference how long the calculation is.
+Lean does not tire: a long calculation with whole numbers is as easy for it as a short one.
 
 ```exercise
 id: power
@@ -84,6 +84,15 @@ id: power
 ```exercise
 id: sum
 ```
+
+## Two moves that calculate
+
+You have now met two moves that calculate, and they are not the same.
+
+- **rfl** works both sides out by their definitions and needs them to come out identical. It is the simplest reason an equation can be true. It can only do this where there is something to compute: with whole numbers, yes; with real numbers, no, because a real number is not something Lean can work out digit by digit.
+- **norm_num** uses facts about numbers that have already been proved. It handles more: real numbers, inequalities such as 3 < 5, and questions such as whether a number is prime.
+
+So `2 + 2 = 4` about real numbers is true, and **norm_num** proves it, but **rfl** does not. When a goal is a calculation and **rfl** refuses it, **norm_num** is the move to try.
 
 ## Computing is not always enough
 
@@ -99,6 +108,6 @@ Those are two different reasons for something to be true. `2 + 2 = 4` is true by
 
 ## What you used
 
-- `rfl` finishes an equation whose two sides compute to the same thing.
+- `rfl` finishes an equation between whole numbers whose two sides work out to the same thing.
 - `exact h` finishes a goal that a fact `h` states.
-- `norm_num`, from the first lesson, calculates with particular numbers, and can also settle things like whether a number is prime.
+- `norm_num`, from the first lesson, calculates using proved facts about numbers. It reaches further than `rfl`: real numbers, inequalities, whether a number is prime.

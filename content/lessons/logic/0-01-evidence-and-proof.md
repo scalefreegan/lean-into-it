@@ -56,7 +56,9 @@ Take a whole number n and work out n² + n + 41.
 
 It keeps going. So here is a claim: **for every whole number n, the number n² + n + 41 is prime.**
 
-Check a case yourself. The box below holds one statement, written the way Lean writes it. `Nat.Prime` means "is a prime number" and `5 ^ 2` means 5². The move **norm_num** tells Lean to calculate.
+Check a case yourself. The box below is a **proof board**. The amber card is the **goal**: the statement to be shown, written the way Lean writes it after the symbol `⊢`. `Nat.Prime` means "is a prime number" and `5 ^ 2` means 5². There are no facts to start from here, so that part of the board is empty. The next lesson goes through the board properly.
+
+The button is a **move**. This one, **norm_num**, tells Lean to calculate. Click it.
 
 ```exercise
 id: check-a-case
@@ -74,19 +76,19 @@ That is forty cases in a row, n = 0 up to n = 39, every one of them prime. Most 
 
 ## Where it breaks
 
-Try n = 40.
+Try n = 40. Lean writes multiplication with a star, so `41 * 41` is 41 × 41.
 
 ```exercise
 id: it-factors
 ```
 
-So 40² + 40 + 41 is 41 × 41. A number that is 41 times 41 is certainly not prime.
+So 40² + 40 + 41 is 41 × 41. A number that is 41 times 41 is certainly not prime. In the next goal the symbol `¬` is read "not".
 
 ```exercise
 id: it-breaks
 ```
 
-The symbol `¬` is read "not". You have just proved that the claim "for every n, n² + n + 41 is prime" is **false**. One case where it fails is enough. Such a case is called a **counterexample**.
+You have just proved that the claim "for every n, n² + n + 41 is prime" is **false**. One case where it fails is enough. Such a case is called a **counterexample**.
 
 > Checking cases can show that a claim about all numbers is false: one counterexample does it. Checking cases can never show that it is true.
 
@@ -94,7 +96,7 @@ The symbol `¬` is read "not". You have just proved that the claim "for every n,
 
 Forty cases is not many. But there is no number of cases that makes you safe.
 
-In 1919 George Pólya noticed a pattern in how numbers factor into primes, and it became known as the Pólya conjecture. It was checked for every number anyone tried, into the millions. It is false. The first number at which it fails is 906,150,257.
+In 1919 George Pólya noticed a pattern in how numbers factor into primes, and it became known as the Pólya conjecture. It holds for every number you are ever likely to try by hand or by a short program. It is false. In 1958 it was shown that it must fail somewhere, and the first number at which it does was later found to be 906,150,257.
 
 Other claims have been checked much further than that and are still open. The claim from the top of this page, that every even number bigger than 2 is the sum of two primes, is called Goldbach's conjecture. Computers have confirmed it for every even number up to 4,000,000,000,000,000,000. Nobody knows whether it is true.
 

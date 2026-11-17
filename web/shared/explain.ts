@@ -21,7 +21,7 @@ export function explain(message: string): string | null {
     return `${m[1].trim()} says “${m[2].trim()}”, but the goal is “${m[3].trim()}”. exact needs a fact that says exactly what the goal says.`;
   }
   if ((m = /^Tactic `rfl` failed: The left-hand side\n\s*(.+)\nis not definitionally equal to the right-hand side\n\s*(.+)/.exec(message))) {
-    return `Worked out, “${m[1].trim()}” and “${m[2].trim()}” are not the same thing as far as Lean can compute. rfl only finishes an equation whose two sides come out identical.`;
+    return `Lean cannot work “${m[1].trim()}” and “${m[2].trim()}” out to the same thing. rfl only finishes an equation whose two sides compute to something identical.`;
   }
   if (/^Tactic `rfl` failed: Expected the goal to be a binary relation/.test(first)) {
     return "rfl finishes a goal of the form A = B. This goal is not an equation.";
