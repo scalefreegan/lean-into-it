@@ -1,4 +1,4 @@
-import { isObject, type Goal, type Hypothesis } from "../../shared/goals.ts";
+import { isNatural, isObject, type Goal, type Hypothesis } from "../../shared/goals.ts";
 import { cx } from "../ui.tsx";
 
 // A proof state as cards, used by the proof board and by the panel beside
@@ -6,16 +6,31 @@ import { cx } from "../ui.tsx";
 // (index.css): the same three colours wherever a proof state is drawn.
 
 /** `P Q : Prop`, `n : ℕ`: the things the statement is about. */
-function Objects({ items }: { items: Hypothesis[] }) {
+function Objects({ items, onPick }: { items: Hypothesis[]; onPick?: (name: string) => void }) {
   if (!items.length) return null;
   return (
     <div className="flex flex-wrap items-center gap-2 text-sm text-fg-3">
       <span className="text-xs font-semibold uppercase tracking-wide">About</span>
-      {items.map((h) => (
-        <span key={h.names.join(" ")} className="lean rounded-md border border-line bg-raised px-2 py-0.5 text-fg-2">
-          {h.names.join(" ")} : {h.type}
-        </span>
-      ))}
+      {items.map((h) =>
+        // While induction waits for a number, each natural number is its own button.
+        onPick && isNatural(h) ? (
+          h.names.filter((name) => !name.includes("✝")).map((name) => (
+            <button
+              key={name}
+              type="button"
+              data-object={name}
+              onClick={() => onPick(name)}
+              className="lean rounded-md border border-line bg-raised px-2 py-0.5 text-fg-2 ring-2 ring-accent ring-offset-2 ring-offset-panel transition-shadow hover:shadow-md"
+            >
+              {name} : {h.type}
+            </button>
+          ))
+        ) : (
+          <span key={h.names.join(" ")} className="lean rounded-md border border-line bg-raised px-2 py-0.5 text-fg-2">
+            {h.names.join(" ")} : {h.type}
+          </span>
+        ),
+      )}
     </div>
   );
 }
@@ -65,10 +80,22 @@ export function Closed({ children }: { children?: React.ReactNode }) {
 /**
  * The first goal in full (its facts, then what remains to show) and any
  * further goals below it, smaller: Lean works on the first one.
- * `onPickFact` makes the fact cards clickable; `known` is the set of fact
+ * `onPickFact` makes the fact cards clickable, `onPickObject` the objects; `known` is the set of fact
  * names from before the last move, so new arrivals can be animated in.
  */
-export function GoalView({ goals, onPickFact, picking, known }: { goals: Goal[]; onPickFact?: (name: string) => void; picking?: boolean; known?: Set<string> }) {
+export function GoalView({
+  goals,
+  onPickFact,
+  onPickObject,
+  picking,
+  known,
+}: {
+  goals: Goal[];
+  onPickFact?: (name: string) => void;
+  onPickObject?: (name: string) => void;
+  picking?: boolean;
+  known?: Set<string>;
+}) {
   if (!goals.length) return <Closed />;
   const [first, ...rest] = goals;
   // A case name is there to tell goals apart. Alone, or when every goal has
@@ -78,7 +105,7 @@ export function GoalView({ goals, onPickFact, picking, known }: { goals: Goal[];
   const facts = first.hypotheses.filter((h) => !isObject(h));
   return (
     <div className="flex flex-col gap-3">
-      <Objects items={objects} />
+      <Objects items={objects} {...(onPickObject ? { onPick: onPickObject } : {})} />
       <div>
         <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-fact">Facts you have</div>
         {facts.length ? (

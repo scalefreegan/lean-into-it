@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
-import { explain } from "../../shared/explain.ts";
+import { explain, suggestion } from "../../shared/explain.ts";
 import type { Position } from "../../shared/proof.ts";
 import type { CheckReply } from "../../shared/wire.ts";
 import { ApiError, check } from "../api/client.ts";
@@ -58,6 +58,8 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
 
   const solved = !!reply?.solved && !live.checking;
   const errors = reply?.diagnostics.filter((d) => d.severity === "error" && d.line !== null) ?? [];
+  // What `exact?` found, where the exercise allows searching.
+  const found = live.checking || exercise.forbid.includes("exact?") ? [] : (reply?.diagnostics ?? []).flatMap((d) => (d.severity === "info" ? [suggestion(d.message)] : [])).filter((x): x is string => x !== null);
   const verdict = submitted && submitted.body === body ? submitted.reply : null;
   const goals = reply ? (reply.cursorGoals ?? reply.goals) : null;
   const empty = !body.trim();
@@ -110,6 +112,14 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
           )}
         </div>
       </div>
+
+      {found.length > 0 && (
+        <div className="border-t border-line px-4 py-3 sm:px-5" data-suggestion>
+          <Notice tone="good">
+            Lean searched its library and suggests: <code className="font-mono">{found[0]}</code>. In finished work that line goes in place of the search.
+          </Notice>
+        </div>
+      )}
 
       {reply && !solved && (errors.length > 0 || reply.forbidden.length > 0 || reply.refusal || verdict) && (
         <div className="flex flex-col gap-2 border-t border-line px-4 py-3 sm:px-5">

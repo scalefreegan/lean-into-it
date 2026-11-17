@@ -142,6 +142,13 @@ Fully written for v1:
   `#eval`, proof by induction on a list, and how a test differs from a proof.
   Moves: `rw`, `simp`, `induction`, `omega`, `decide`, `exact?`, a first
   `calc`.
+  Build choice: the lessons use Mathlib's own `ℕ` and its lemma names, not
+  a teaching copy of the naturals. What is learned is real Lean, and the
+  names carry over to any other Lean text. The cost is that `simp` or
+  `omega` would close many exercises in one line, so each exercise offers
+  only the moves it is about (board) or switches the automation off
+  (`forbid`, typed). `ring` is borrowed from Level 3 for the algebra at
+  the end of the two sum formulas.
 - **Level 3 — Algebra and inequalities.**
   `math`: the real numbers and what is assumed about them; identities;
   equations; inequalities and how they combine; absolute value as distance

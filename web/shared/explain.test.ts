@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NOT_SPLITTABLE, UNCHANGED, explain } from "./explain.ts";
+import { suggestion, NOT_SPLITTABLE, UNCHANGED, explain } from "./explain.ts";
 
 // The messages are Lean 4.36's own, copied from a real run.
 
@@ -74,4 +74,25 @@ test("messages Lean gave for a fact with a colon in it, a wrong kind of witness,
   assert.match(explain("Tactic `apply` failed: could not unify the type of `h`\n  P ↔ Q\nwith the goal\n  Q\n\nP Q : Prop\nh : P ↔ Q\nhP : P\n⊢ Q") ?? "", /Take it apart with obtain first/);
   assert.match(explain("numerals are data in Lean, but the expected type is a proposition\n  6 * 6 = 49 : Prop") ?? "", /Undo takes it back/);
   assert.match(explain(NOT_SPLITTABLE) ?? "", /^constructor splits/);
+});
+
+test("the Level 2 moves' refusals, from Lean's own messages", () => {
+  assert.match(explain("Tactic `rewrite` failed: Did not find an occurrence of the pattern\n  b\nin the target expression\n  a = c\n\na b c : ℕ\n⊢ a = c") ?? "", /^There is no “b” in the goal “a = c”/);
+  assert.match(explain("Invalid rewrite argument: Expected an equality or iff proof or definition name, but `h` is a proof of\n  a ≤ b") ?? "", /^h says “a ≤ b”, which is not an equation/);
+  assert.match(explain("omega could not prove the goal:\na possible counterexample may satisfy the constraints\n  d ≥ 0") ?? "", /does not multiply two letters/);
+  assert.equal(explain("Tactic `decide` proved that the proposition\n  3 = 5\nis false"), "decide checked it, and “3 = 5” is false.");
+  assert.match(explain("Expected type must not contain free variables\n  n + 1 ≠ 0\n\nHint: Use the `+revert` option") ?? "", /has a letter in it/);
+  assert.match(explain("`simp` made no progress") ?? "", /^simp found nothing/);
+  assert.match(explain("Tactic `rfl` failed: The left-hand side\n  0 + a\nis not definitionally equal to the right-hand side\n  a\n\na : ℕ\n⊢ 0 + a = a") ?? "", /“0 \+ a” and “a”/);
+});
+
+test("the line exact? proposes is read out of Lean's note", () => {
+  assert.equal(suggestion("Try this:\n  [apply] exact Nat.le_trans h1 h2"), "exact Nat.le_trans h1 h2");
+  assert.equal(suggestion("Try this: exact h"), "exact h");
+  assert.equal(suggestion("unsolved goals"), null);
+});
+
+test("a rewrite pattern with a gap in it, and omega with nothing to go on", () => {
+  assert.match(explain("Tactic `rewrite` failed: Did not find an occurrence of the pattern\n  f (?k + 1)\nin the target expression\n  f 0 = 0\n") ?? "", /like \?k, stands for anything/);
+  assert.match(explain("omega could not prove the goal:\nNo usable constraints found. You may need to unfold definitions so `omega` can see linear arithmetic facts") ?? "", /take such a fact apart with obtain/);
 });

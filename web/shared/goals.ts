@@ -82,9 +82,15 @@ export function namesIn(goal: Goal): string[] {
 
 /** Types that say "this is a thing", not "this is a fact": the cards for
  *  them are drawn as objects, and they are never offered to `exact`/`apply`. */
-const SORTS = /^(Prop|Type(\s+\S+)?|Sort(\s+\S+)?|ℕ|ℤ|ℚ|ℝ|ℂ|Nat|Int|Rat|Real|Bool|Set\s.+|List\s.+)$/;
+const SORT = /^(Prop|Type(\s+\S+)?|Sort(\s+\S+)?|ℕ|ℤ|ℚ|ℝ|ℂ|Nat|Int|Rat|Real|Bool|Set\s.+|List\s.+)$/;
 
-/** True for `P : Prop` or `n : ℕ` (an object), false for `h : P` (a fact). */
+/** True for `P : Prop`, `n : ℕ` or `f : ℕ → ℕ` (an object), false for `h : P` (a fact). */
 export function isObject(h: Hypothesis): boolean {
-  return SORTS.test(h.type.trim());
+  return h.type.split("→").every((part) => SORT.test(part.trim()));
+}
+
+/** True for `n : ℕ`: something induction can be done on. */
+export function isNatural(h: Hypothesis): boolean {
+  // A name Lean made up and marked with a dagger cannot be written in a proof.
+  return /^(ℕ|Nat)$/.test(h.type.trim()) && h.names.some((n) => !n.includes("✝"));
 }

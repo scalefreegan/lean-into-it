@@ -30,16 +30,9 @@ levels:
       - "Truth tables against proofs"
   - id: 2
     title: Numbers and induction
-    status: outline
     summary: The natural numbers from the ground up, equality and rewriting, proof by induction, and the first programs proved correct.
-    moves: [rw, simp, induction, omega, decide]
+    moves: [decide, rw, simp, induction, omega, calc, exact?]
     topics:
-      - What a natural number is, zero and successor
-      - Equality, and rewriting with a known equation
-      - Addition and multiplication defined by recursion
-      - Induction, with dominoes
-      - Sums such as 1 + 2 + … + n
-      - Strong induction
       - "Verified programs: a recursive function on lists, its specification as a theorem, and the proof"
       - "A test checks some inputs, a proof covers all of them"
       - "Proof craft: try small cases, guess the pattern, then prove it"

@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NOT_AN_EXISTS, NOT_SPLITTABLE, explain } from "./explain.ts";
+import { NOT_AN_EXISTS, NOT_SPLITTABLE, NO_NUMBER, explain } from "./explain.ts";
 import { parseGoal } from "./goals.ts";
-import { MOVES, contraName, misfit, introName, isMove, moveLine, obtainLine, oneLine, shapeOf } from "./moves.ts";
+import { MOVES, contraName, hiddenExists, misfit, introName, isMove, moveLine, obtainLine, oneLine, readLine, shapeOf } from "./moves.ts";
 
 test("every move is keyed by its own id and says what it does", () => {
   for (const [key, move] of Object.entries(MOVES)) {
     assert.equal(move.id, key);
     assert.ok(move.does.length > 20, key);
-    if (move.needs === "fact" || move.needs === "text") assert.ok(move.prompt, `${key} needs a prompt`);
+    if (move.needs !== "none" && move.needs !== "name") assert.ok(move.prompt, `${key} needs a prompt`);
   }
   assert.equal(isMove("apply"), true);
   assert.equal(isMove("toString"), false);
@@ -112,4 +112,46 @@ test("use is only offered to Lean for a there-exists goal", () => {
   for (const goal of ["⊢ ∃ n, n * n = 49", "⊢ ∃ n > 10, Even n", "⊢ ∃ x y, x + y = 5"]) assert.equal(misfit(MOVES.use, parseGoal(goal)), null, goal);
   for (const goal of ["⊢ 6 * 6 = 49", "⊢ P 11", "⊢ 12 > 10 ∧ Even 12"]) assert.equal(misfit(MOVES.use, parseGoal(goal)), NOT_AN_EXISTS, goal);
   assert.match(explain(NOT_AN_EXISTS) ?? "", /Undo takes it back/);
+});
+
+test("rewriting and induction write the lines Lean reads", () => {
+  const goal = parseGoal("f : ℕ → ℕ\nh0 : f 0 = 0\nn : ℕ\n⊢ f n = 2 * n");
+  assert.equal(moveLine(MOVES.rw, goal, "h0"), "rw [h0]");
+  assert.equal(moveLine(MOVES.rw_back, goal, "h0"), "rw [← h0]");
+  assert.equal(moveLine(MOVES.induction, goal, "n"), "induction' n with n ih");
+  // An induction inside an induction does not reuse the name of the first hypothesis.
+  assert.equal(moveLine(MOVES.induction, parseGoal("m n : ℕ\nih : P n\n⊢ Q m"), "m"), "induction' m with m ih1");
+});
+
+test("a board line is read back as its move and what was clicked", () => {
+  const read = (line: string) => {
+    const r = readLine(line);
+    return r && [r.move.id, r.arg];
+  };
+  assert.deepEqual(read("rw [hstep]"), ["rw", "hstep"]);
+  assert.deepEqual(read("rw [← h]"), ["rw_back", "h"]);
+  assert.deepEqual(read("induction' n with n ih"), ["induction", "n"]);
+  assert.deepEqual(read("obtain ⟨r, hr⟩ := h"), ["obtain", "h"]);
+  assert.deepEqual(read("use r + 1"), ["use", "r + 1"]);
+  assert.deepEqual(read("exact hP"), ["exact", "hP"]);
+  assert.deepEqual(read("omega"), ["omega", undefined]);
+  assert.equal(read("ring"), null);
+});
+
+test("even, odd and divides are taken apart and proved like a there-exists", () => {
+  assert.equal(hiddenExists("Even n"), "r");
+  assert.equal(hiddenExists("Odd (n + 1)"), "k");
+  assert.equal(hiddenExists("a ∣ b"), "c");
+  for (const t of ["Even n → Even (n + 2)", "Even n ∧ Odd m", "¬Even n", "n = 2", "∀ n, Even n"]) assert.equal(hiddenExists(t), null, t);
+  assert.equal(obtainLine(parseGoal("n : ℕ\nh : Even n\n⊢ Even (n + 2)"), "h"), "obtain ⟨r, hr⟩ := h");
+  assert.equal(obtainLine(parseGoal("n : ℕ\nh : Odd n\n⊢ Even (n + 1)"), "h"), "obtain ⟨k, hk⟩ := h");
+  assert.equal(obtainLine(parseGoal("a b c : ℕ\nhab : a ∣ b\nhbc : b ∣ c\n⊢ a ∣ c"), "hab"), "obtain ⟨c1, hc1⟩ := hab");
+  for (const goal of ["⊢ 3 ∣ 12", "⊢ Even 10", "⊢ Odd 7"]) assert.equal(misfit(MOVES.use, parseGoal(goal)), null, goal);
+});
+
+test("induction is only offered a number that can be named", () => {
+  assert.equal(misfit(MOVES.induction, parseGoal("f : ℕ → ℕ\nn : ℕ\n⊢ f n = 0")), null);
+  assert.equal(misfit(MOVES.induction, parseGoal("f : ℕ → ℕ\nh0 : f 0 = 0\n⊢ f 0 = 0")), NO_NUMBER);
+  assert.equal(misfit(MOVES.induction, parseGoal("n✝ : ℕ\n⊢ P")), NO_NUMBER);
+  assert.match(explain(NO_NUMBER) ?? "", /natural number/);
 });

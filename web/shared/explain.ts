@@ -16,6 +16,9 @@ export const NOT_SPLITTABLE = "The goal is not of the form A ∧ B or A ↔ B, s
 /** What the board reports for `use` on a goal that is not a "there exists". */
 export const NOT_AN_EXISTS = "The goal is not of the form ∃ x, …, so the board did not send this move to Lean.";
 
+/** What the board reports for `induction` when the goal has no natural number to pick. */
+export const NO_NUMBER = "There is no natural number among this goal's objects, so the board did not send this move to Lean.";
+
 /** A plain sentence for a Lean error, or null when there is none for it. */
 export function explain(message: string): string | null {
   const first = message.split("\n")[0];
@@ -43,6 +46,34 @@ export function explain(message: string): string | null {
   }
   if (/^Tactic `rfl` failed: Expected the goal to be a binary relation/.test(first)) {
     return "rfl finishes a goal of the form A = B. This goal is not an equation.";
+  }
+  if ((m = /^Tactic `rewrite` failed: Did not find an occurrence of the pattern\n\s*(.+)\nin the target expression\n\s*(.+)/.exec(message))) {
+    const any = /\?[A-Za-z]/.test(m[1]) ? " (A name with a question mark, like ?k, stands for anything at all.)" : "";
+    return `There is no “${m[1].trim()}” in the goal “${m[2].trim()}” to replace.${any} rw replaces the left side of the equation by its right side, and rw ← the right side by the left.`;
+  }
+  if ((m = /^Invalid rewrite argument: Expected an equality or iff proof or definition name, but `([^`]+)` is a proof of\n\s*(.+)/.exec(message))) {
+    return `${m[1]} says “${m[2].trim()}”, which is not an equation. rw needs a fact of the form a = b.`;
+  }
+  if (/^omega could not prove the goal:\nNo usable constraints found/.test(message)) {
+    return "omega sees no arithmetic to work with here. It does not know what words like Even, Odd or “divides” mean: take such a fact apart with obtain, and give the goal its number with use, first.";
+  }
+  if (/^omega could not prove the goal/.test(first)) {
+    return "omega could not get the goal from the facts on the board. It knows adding, comparing and multiplying by a particular number. It does not multiply two letters, and it does not look inside a function.";
+  }
+  if ((m = /^Tactic `decide` proved that the proposition\n\s*(.+)\nis false/.exec(message))) {
+    return `decide checked it, and “${m[1].trim()}” is false.`;
+  }
+  if (/^Expected type must not contain free variables/.test(first)) {
+    return "decide checks a claim about particular numbers by working it out. This goal has a letter in it, which stands for every number at once, so there is nothing to work out.";
+  }
+  if (/^`?simp`? made no progress/.test(first)) {
+    return "simp found nothing in its library of facts that makes this goal simpler.";
+  }
+  if (/^Tactic `induction` failed: major premise type is not an inductive type/.test(first)) {
+    return "Induction is done on a natural number. What was picked is not one.";
+  }
+  if (message === NO_NUMBER) {
+    return "Induction is done on a natural number, and there is none among the objects of this goal.";
   }
   if (message === NOT_AN_EXISTS) {
     return "use gives the thing for a “there exists” goal, and this goal is not asking for a thing. If you have already given one and it was the wrong one, Undo takes it back.";
@@ -84,4 +115,17 @@ export function explain(message: string): string | null {
     return "Lean could not read this line. Check the spelling of the move, and that there is one move per line.";
   }
   return null;
+}
+
+/**
+ * The line Lean proposes in a "Try this" note, as `exact?` writes one:
+ *
+ *     Try this:
+ *       [apply] exact Nat.le_trans h1 h2
+ *
+ * or null when the message is not such a note.
+ */
+export function suggestion(message: string): string | null {
+  const m = /^Try this:\s*(?:\[apply\]\s*)?(\S.*)/.exec(message);
+  return m ? m[1].trim() : null;
 }

@@ -319,7 +319,9 @@ const UNSOLVED = /^unsolved goals/;
 /** Whole-word uses of forbidden tactics in a body, comments removed. */
 export function forbiddenIn(body: string, forbid: string[]): string[] {
   const { code } = lex(body);
-  return forbid.filter((word) => new RegExp(`(^|[^A-Za-z0-9_.'?!])${escapeRegExp(word)}($|[^A-Za-z0-9_'])`).test(code));
+  // A name with no dot in it is also found after a dot: forbidding `zero_add`
+  // forbids `Nat.zero_add` and `n.zero_add`, which are the same theorem.
+  return forbid.filter((word) => new RegExp(`(^|[^A-Za-z0-9_${word.includes(".") ? "." : ""}'?!])${escapeRegExp(word)}($|[^A-Za-z0-9_'])`).test(code));
 }
 
 function escapeRegExp(s: string): string {
