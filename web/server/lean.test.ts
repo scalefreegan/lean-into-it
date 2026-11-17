@@ -6,6 +6,8 @@ import { after, before, test } from "node:test";
 import { attemptCount, ensureLearner, solvedFor } from "../../scripts/db/progress.ts";
 import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { CheckReply, CheckRequest, PlaygroundReply } from "../shared/wire.ts";
+import { explain } from "../shared/explain.ts";
+import { MOVES, misfit, moveLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, toBody } from "../shared/proof.ts";
 import { checkExercise, handleCheck, handlePlayground } from "./check.ts";
 import { setDb, type Db } from "./db.ts";
@@ -73,6 +75,50 @@ test("every exercise's reference solution is accepted by Lean", { skip }, async 
     }
   }
   assert.ok(checked >= 5, `checked ${checked} exercises`);
+});
+
+test("every board solution is what the board's own clicks write, against the goals Lean reports", { skip }, async () => {
+  // The reference solutions are typed by hand; the board writes its lines
+  // with moveLine from Lean's goals. Replaying each solution through moveLine
+  // catches a name or a pattern the board would get wrong.
+  let lines = 0;
+  for (const l of content.lessons) {
+    for (const e of l.exercises.filter((x) => x.mode === "board")) {
+      const solution = e.solution.split("\n").filter((s) => s.trim());
+      for (let i = 0; i < solution.length; i++) {
+        const want = solution[i];
+        const move = MOVES[want.split(" ")[0]];
+        assert.ok(move && e.moves.includes(move.id), `${l.id}/${e.id}: "${want}" is not a move this exercise offers`);
+        const state = await checkExercise(leanServer(), e, solution.slice(0, i).join("\n"));
+        const arg = move.id === "obtain" ? want.split(":= ")[1] : move.needs === "fact" || move.needs === "text" ? want.slice(move.label.length + 1) : undefined;
+        assert.equal(misfit(move, state.goals[0]), null, `${l.id}/${e.id} line ${i + 1}: the board would refuse "${want}"`);
+        assert.equal(moveLine(move, state.goals[0], arg), want, `${l.id}/${e.id} line ${i + 1}`);
+        lines++;
+      }
+    }
+  }
+  assert.ok(lines >= 80, `replayed ${lines} lines`);
+});
+
+test("refusals a learner can reach on the board get a plain sentence, from Lean's real message", { skip }, async () => {
+  const find = (lessonId: string, id: string) => content.lessons.find((l) => l.id === lessonId)!.exercises.find((e) => e.id === id)!;
+  const cases: [string, string, string, RegExp][] = [
+    ["logic-1-there-exists", "pass-it-on", "obtain ⟨h1, h2⟩ := hPQ", /^hPQ says “∀ \(n : ℕ\), P n → Q n”, which has no parts/],
+    ["logic-1-there-exists", "a-square", "use -7", /no negative numbers/],
+    ["logic-1-there-exists", "a-square", "use 2.5", /decimal point/],
+    ["logic-1-there-exists", "from-a-fact", "use h4", /^h4 is a fact/],
+    ["logic-1-iff", "forwards", "apply h", /Take it apart with obtain first/],
+    ["logic-1-not", "anything", "apply hnP", /hnP ends in “False”, but the goal is “Q”/],
+    ["logic-1-or", "go-left", "exact hP", /hP says “P”, but the goal is “P ∨ Q”/],
+    ["logic-1-and", "prove-both", "left", /^left chooses a side/],
+    ["logic-1-and", "take-apart", "obtain ⟨h1, h2⟩ := h\nobtain ⟨h3, h4⟩ := h1", /^h1 says “P”, which has no parts/],
+    ["logic-1-not", "at-once", "exfalso\ncontradiction\ncontradiction", /already finished/],
+  ];
+  for (const [lessonId, id, body, plain] of cases) {
+    const reply = await checkExercise(leanServer(), find(lessonId, id), body);
+    assert.ok(reply.error, `${id}: "${body}" should be refused`);
+    assert.match(explain(reply.error.message) ?? "(no plain sentence)", plain, `${id}: ${reply.error.message}`);
+  }
 });
 
 test("an empty proof is not solved, and Lean reports the opening goal", { skip }, async () => {

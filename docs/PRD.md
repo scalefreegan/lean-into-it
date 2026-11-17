@@ -129,8 +129,9 @@ Fully written for v1:
   exists; proof by cases; proof by contradiction and where classical logic
   comes in; truth tables against proofs. `lean`: reading a goal state;
   propositions as types and proofs as terms.
-  Moves: `intro`, `apply`, `constructor`, `cases` (and `obtain`),
-  `left`, `right`, `use`, `by_contra`, `contradiction`, `exfalso`.
+  Moves: `intro`, `apply`, `constructor`, `obtain` (the one move for taking
+  a fact apart, in place of `cases`), `left`, `right`, `use`, `by_contra`,
+  `contradiction`, `exfalso`.
 - **Level 2 — Numbers and induction.**
   `math`: the natural numbers as zero and successor; equality and rewriting;
   addition and multiplication defined by recursion; proof by induction and

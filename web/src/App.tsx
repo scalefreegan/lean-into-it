@@ -28,7 +28,7 @@ function Shell() {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-10 border-b border-line bg-panel/95 px-4 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-[1440px] items-center gap-6 py-3">
+        <div className="mx-auto flex max-w-[2400px] items-center gap-6 py-3">
           <a href={href("home")} className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent font-mono text-lg font-bold text-accent-ink">⊢</span>
             <span className="font-display text-xl font-semibold text-fg">Lean Into It</span>
@@ -49,7 +49,7 @@ function Shell() {
       </header>
       <main className="px-4 py-8 sm:px-6">
         {!lean.ready && (
-          <div className="mx-auto mb-6 max-w-[1440px]">
+          <div className="mx-auto mb-6 max-w-[2400px]">
             <Notice tone="warn">
               <strong>Lean is not set up yet.</strong> {lean.problem} Lessons can be read, but proofs cannot be checked until then.
             </Notice>

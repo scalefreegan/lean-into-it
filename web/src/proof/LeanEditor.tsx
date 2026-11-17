@@ -84,7 +84,7 @@ export function LeanEditor({ value, onChange, onCaret, errorLines = [], rows = 8
 
 /** The symbols worth knowing, shown under an editor. */
 export function SymbolHelp() {
-  const items: [string, string][] = [["\\to", "→"], ["\\and", "∧"], ["\\or", "∨"], ["\\not", "¬"], ["\\forall", "∀"], ["\\exists", "∃"], ["\\R", "ℝ"], ["\\N", "ℕ"], ["\\le", "≤"], ["\\ne", "≠"]];
+  const items: [string, string][] = [["\\to", "→"], ["\\and", "∧"], ["\\or", "∨"], ["\\not", "¬"], ["\\iff", "↔"], ["\\<", "⟨"], ["\\>", "⟩"], ["\\forall", "∀"], ["\\exists", "∃"], ["\\R", "ℝ"], ["\\N", "ℕ"], ["\\le", "≤"], ["\\ne", "≠"]];
   return (
     <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-fg-3">
       <span>Symbols: type a name, then a space.</span>

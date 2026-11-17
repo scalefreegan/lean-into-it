@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { UNCHANGED, explain } from "./explain.ts";
+import { NOT_SPLITTABLE, UNCHANGED, explain } from "./explain.ts";
 
 // The messages are Lean 4.36's own, copied from a real run.
 
@@ -41,4 +41,37 @@ test("a move that changed nothing is said to have changed nothing", () => {
 test("a bracket left open is said as that, not as Lean's complaint about what follows the proof", () => {
   assert.match(explain("unexpected token '#print'; expected ')'") ?? "", /bracket is still open/);
   assert.match(explain("unexpected token ')'; expected '{' or tactic") ?? "", /not finished/);
+});
+
+test("the Level 1 moves' refusals, with the messages Lean really gives", () => {
+  assert.match(explain("Tactic `constructor` failed: target is not an inductive datatype\n\nP Q : Prop\nhP : P\n⊢ P") ?? "", /constructor splits/);
+  assert.match(explain("Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors\n\n⊢ P ∧ Q") ?? "", /^left chooses a side/);
+  assert.match(explain("Tactic `right` failed: target is not an inductive datatype\n\n⊢ P") ?? "", /^right chooses a side/);
+  assert.equal(
+    explain("Tactic `rcases` failed: `hP : P → Q` is not an inductive datatype"),
+    "hP says “P → Q”, which has no parts to take apart. obtain works on an “and”, an “or”, an “if and only if” or a “there exists”.",
+  );
+  assert.match(explain("Tactic `contradiction` failed\n\nP Q : Prop\nhP : P\n⊢ P ∧ Q") ?? "", /contradict each other/);
+  assert.match(explain("numerals are data in Lean, but the expected type is a proposition\n  P : Prop") ?? "", /A number was given/);
+  assert.match(
+    explain("Tactic `apply` failed: could not unify the conclusion of `hnP`\n  False\nwith the goal\n  Q\n\nNote: The full type of `hnP` is\n  ¬P\n\n⊢ Q") ?? "",
+    /hnP ends in “False”, but the goal is “Q”/,
+  );
+});
+
+test("messages Lean gave for a fact with a colon in it, a wrong kind of witness, and an iff applied whole", () => {
+  assert.equal(
+    explain("Tactic `rcases` failed: `hPQ : ∀ (n : ℕ), P n → Q n` is not an inductive datatype"),
+    "hPQ says “∀ (n : ℕ), P n → Q n”, which has no parts to take apart. obtain works on an “and”, an “or”, an “if and only if” or a “there exists”.",
+  );
+  assert.equal(
+    explain("Type mismatch\n  h4\nhas type\n  P 4\nof sort `Prop` but is expected to have type\n  ℕ\nof sort `Type`"),
+    "h4 is a fact (it says “P 4”), but what is wanted here is a thing of the kind ℕ, such as a number.",
+  );
+  const hint = "\n\nHint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.";
+  assert.match(explain(`failed to synthesize instance of type class\n  Neg ℕ${hint}`) ?? "", /ℕ has no negative numbers/);
+  assert.match(explain(`failed to synthesize instance of type class\n  OfScientific ℕ${hint}`) ?? "", /no numbers with a decimal point/);
+  assert.match(explain("Tactic `apply` failed: could not unify the type of `h`\n  P ↔ Q\nwith the goal\n  Q\n\nP Q : Prop\nh : P ↔ Q\nhP : P\n⊢ Q") ?? "", /Take it apart with obtain first/);
+  assert.match(explain("numerals are data in Lean, but the expected type is a proposition\n  6 * 6 = 49 : Prop") ?? "", /Undo takes it back/);
+  assert.match(explain(NOT_SPLITTABLE) ?? "", /^constructor splits/);
 });

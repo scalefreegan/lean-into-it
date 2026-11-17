@@ -13,7 +13,7 @@ export function Home() {
   const done = content.lessons.reduce((n, l) => n + lessonProgress(l, solved).done, 0);
 
   return (
-    <div className="mx-auto flex max-w-[1440px] flex-col gap-6">
+    <div className="mx-auto flex max-w-[2400px] flex-col gap-6">
       <header>
         <h1 className="text-4xl font-semibold text-fg">The Path</h1>
         <p className="mt-2 max-w-2xl text-lg text-fg-2">
