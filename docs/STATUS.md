@@ -31,6 +31,10 @@ Landed in the first PR, the foundation slice:
 - Playground: a free editor and goal panel, nothing scored.
 - "Prove it" exercises graded by Lean; an error or a `sorry` fails. An
   exercise can switch off tactics that would skip the lesson (`forbid`).
+- A passing proof must rest only on the three standard axioms (Lean's own
+  report, read after every check), and a proof body that runs a program,
+  changes Lean's settings or tries to write commands of its own is refused
+  with the reason (`lii-1ou.1`).
 - A move Lean refuses is explained in plain words, with Lean's own message
   one click away (covers `intro`, `apply`, `exact`).
 - Symbol shortcuts in the editor (`\to` then a space gives `→`).
@@ -40,10 +44,12 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 64, including every reference solution checked by the real Lean,
+- Tests: 77, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
-  error dressed up as a linter remark), the origin guard on every mounted
-  route, and the Lean client's stop and timeout paths.
+  error dressed up as a linter remark, an added axiom, a command smuggled
+  into a proof, Lean stopped before its axiom report), the origin guard on
+  every mounted route, and the Lean client's stop, restart, eviction and
+  timeout paths.
 - Docs: PRD, this file, `CONTENT.md` (the lesson format as built; the
   generated reference remains, `lii-2zf.1`), the hero-image prompt, README
   with four screenshots, `CLAUDE.md`.
@@ -61,7 +67,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-1ou.1` | Axiom check for graded proofs (`#print axioms`) | 1 | |
+| `lii-1ou.4` | Re-check a passing proof in a fresh kernel | 2 | |
 | `lii-1ou.2` | Lean checker timeouts and a restart path | 1 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
 

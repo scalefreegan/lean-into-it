@@ -101,23 +101,26 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
             <Closed>
               <strong>No goals left.</strong> Lean accepts this proof.
             </Closed>
+          ) : reply?.refusal && goals.length === 0 ? (
+            <div className="py-6 text-sm text-fg-3">Lean was not asked about this proof. The note below says why.</div>
           ) : (
             <GoalView goals={goals} />
           )}
         </div>
       </div>
 
-      {reply && !solved && (errors.length > 0 || reply.forbidden.length > 0 || verdict) && (
+      {reply && !solved && (errors.length > 0 || reply.forbidden.length > 0 || reply.refusal || verdict) && (
         <div className="flex flex-col gap-2 border-t border-line px-4 py-3 sm:px-5">
           {reply.forbidden.length > 0 && (
             <Notice tone="warn">
               This exercise is about doing the steps yourself, so <code className="font-mono">{reply.forbidden.join(", ")}</code> is switched off here.
             </Notice>
           )}
+          {reply.refusal && <Notice tone="warn">{reply.refusal}</Notice>}
           {errors.map((d, i) => (
             <Refusal key={i} plain={`Line ${(d.line as number) + 1}: ${explain(d.message) ?? d.message.split("\n")[0]}`} raw={d.message} />
           ))}
-          {verdict && !verdict.solved && errors.length === 0 && reply.forbidden.length === 0 && (
+          {verdict && !verdict.solved && errors.length === 0 && reply.forbidden.length === 0 && !reply.refusal && (
             <Notice tone="warn">{empty ? "Nothing to check yet." : "Not finished: every line is fine, but there is still something left to show. The panel says what."}</Notice>
           )}
         </div>

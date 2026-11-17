@@ -3,9 +3,21 @@
 // own line numbers. Pure: no Lean here, so the rules are tested without it.
 //
 // The statement is the exercise's, never the learner's: only the proof body
-// comes from the browser, and every line of it is indented into the `by`
-// block. Lean alone decides; `solved` means Lean reported no error and no
-// `sorry` for exactly this statement.
+// comes from the browser. Lean alone decides, and three things keep the body
+// from deciding for it:
+//
+//   1. The body sits inside one pair of brackets in the `by` block, and may
+//      not close a bracket it did not open (`escapesIn`). Inside brackets
+//      Lean reads tactics only, so the body cannot end the theorem and start
+//      commands of its own.
+//   2. The body may not name the ways a tactic block runs a program
+//      (`run_tac` and its relatives, `set_option`, `#` commands): with those
+//      a "proof" can add an axiom, or a theorem the kernel never checked.
+//   3. After the theorem Lean is asked which axioms it rests on. Solved
+//      needs that report, on its own line, naming only the three axioms of
+//      ordinary mathematics. No report (Lean was stopped early) is a refusal.
+//
+// `solved` means: none of the above, no error, and no `sorry`.
 
 export interface Position {
   line: number;
@@ -28,9 +40,11 @@ export interface BodyDiagnostic {
 }
 
 export const HEADER = "import Mathlib\n\n";
-/** Lines before the body's first line: the import, a blank, the statement. */
-const BODY_LINE = 3;
-const INDENT = "  ";
+/** The name the exercise's statement is proved under, so Lean can be asked about it. */
+export const THEOREM = "lii_exercise";
+/** Lines before the body's first line: the import, a blank, the statement, the opening bracket. */
+const BODY_LINE = 4;
+const INDENT = "    ";
 
 /** What an empty proof is sent as: a tactic that does nothing, so Lean still
  *  reports the opening goal. */
@@ -42,11 +56,27 @@ export function bodyLines(body: string): string[] {
   return lines;
 }
 
-/** The Lean source for a statement and a proof body. */
+/**
+ * The Lean source for a statement and a proof body:
+ *
+ *     import Mathlib
+ *
+ *     theorem lii_exercise <statement> := by
+ *       (
+ *         <body>
+ *       )
+ *
+ *     #print axioms lii_exercise
+ */
 export function assemble(statement: string, body: string): string {
   const lines = bodyLines(body);
   const shown = lines.length ? lines : [PLACEHOLDER];
-  return `${HEADER}example ${statement.replace(/\s+/g, " ").trim()} := by\n${shown.map((l) => INDENT + l).join("\n")}\n`;
+  return `${HEADER}theorem ${THEOREM} ${statement.replace(/\s+/g, " ").trim()} := by\n  (\n${shown.map((l) => INDENT + l).join("\n")}\n  )\n\n#print axioms ${THEOREM}\n`;
+}
+
+/** The source line of the axiom report: after the body, the closing bracket and a blank. */
+function auditLine(body: string): number {
+  return BODY_LINE + Math.max(bodyLines(body).length, 1) + 2;
 }
 
 /** Where, in the assembled source, a body position is. */
@@ -59,6 +89,148 @@ export function endOfBody(body: string): Position {
   const lines = bodyLines(body);
   if (!lines.length) return { line: 0, character: PLACEHOLDER.length };
   return { line: lines.length - 1, character: lines[lines.length - 1].length };
+}
+
+const IDENT_CHAR = /[A-Za-z0-9_'!?\u00C0-\uFFFF]/;
+const CHAR_LITERAL = /^'(\\(x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|.)|[^\\'\n])'/;
+
+/**
+ * A body with its comments blanked (`code`), and with its string and
+ * character literals blanked as well (`bare`). Same length and line breaks
+ * as the body. Lean's own rules: `--` to the end of the line, `/- -/`
+ * nesting, `"…"` with backslash escapes, raw strings `r"…"` and `r#"…"#`.
+ * Where this and Lean could disagree it errs toward seeing more code, never
+ * less: the worst a disagreement does is refuse a proof.
+ */
+export function lex(body: string): { code: string; bare: string } {
+  const text = body.replace(/\r/g, "");
+  const code = [...text];
+  const bare = [...text];
+  // Blank [from, to) in the given outputs, keeping line breaks.
+  const blank = (from: number, to: number, outs: string[][]) => {
+    for (let k = from; k < to && k < text.length; k++) if (text[k] !== "\n") for (const o of outs) o[k] = " ";
+  };
+  let i = 0;
+  while (i < text.length) {
+    const c = text[i];
+    const next = text[i + 1];
+    if (c === "-" && next === "-") {
+      let j = i;
+      while (j < text.length && text[j] !== "\n") j++;
+      blank(i, j, [code, bare]);
+      i = j;
+    } else if (c === "/" && next === "-") {
+      let depth = 1;
+      let j = i + 2;
+      while (j < text.length && depth > 0) {
+        const two = text.slice(j, j + 2);
+        if (two === "/-") depth++;
+        else if (two === "-/") depth--;
+        j += two === "/-" || two === "-/" ? 2 : 1;
+      }
+      blank(i, j, [code, bare]);
+      i = j;
+    } else if (c === "r" && (i === 0 || !IDENT_CHAR.test(text[i - 1])) && /^r#*"/.test(text.slice(i, i + 40))) {
+      const hashes = /^r(#*)"/.exec(text.slice(i, i + 40))![1];
+      const close = text.indexOf(`"${hashes}`, i + 2 + hashes.length);
+      const j = close < 0 ? text.length : close + 1 + hashes.length;
+      blank(i, j, [bare]);
+      i = j;
+    } else if (c === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== '"') j += text[j] === "\\" ? 2 : 1;
+      j = Math.min(j + 1, text.length);
+      blank(i, j, [bare]);
+      i = j;
+    } else if (c === "'" && (i === 0 || !IDENT_CHAR.test(text[i - 1]))) {
+      const m = CHAR_LITERAL.exec(text.slice(i, i + 10));
+      if (m) {
+        blank(i, i + m[0].length, [bare]);
+        i += m[0].length;
+      } else i++;
+    } else i++;
+  }
+  return { code: code.join(""), bare: bare.join("") };
+}
+
+/** Ways a tactic block can run a program or change Lean's settings instead of proving. */
+const ESCAPES: { pattern: RegExp; name: string }[] = [
+  ...["run_tac", "run_cmd", "run_elab", "run_meta", "by_elab", "set_option", "native_decide", "unsafe"].map((word) => ({
+    pattern: new RegExp(`(^|[^A-Za-z0-9_.'])${word}($|[^A-Za-z0-9_'])`),
+    name: word,
+  })),
+  { pattern: /\+native($|[^A-Za-z0-9_'])/, name: "+native" },
+  // Lean's own programming interface (Lean.addDecl, open Lean in …).
+  { pattern: /(^|[^A-Za-z0-9_'])Lean($|[^A-Za-z0-9_'])/, name: "Lean" },
+  { pattern: new RegExp(`(^|[^A-Za-z0-9_'])${THEOREM}($|[^A-Za-z0-9_'])`), name: THEOREM },
+];
+/** `#exit`, `#eval`, `#print` …: commands, which have no place in a proof. Not `#[1, 2]`. */
+const HASH_COMMAND = /#[A-Za-z_]+/;
+
+export interface Escape {
+  /** What was found, as written. */
+  name: string;
+  /** 0-based body line. */
+  line: number;
+  /** A sentence for the learner. */
+  message: string;
+}
+
+/**
+ * What in a body would let it step outside a proof: see the notes at the top
+ * of this file. A body with any of these is not sent to Lean at all. Strings
+ * are searched too (an interpolated string holds code), so a string that
+ * merely spells one of these words is refused as well; nothing is lost by it.
+ */
+export function escapesIn(body: string): Escape[] {
+  const { code, bare } = lex(bodyLines(body).join("\n"));
+  const found: Escape[] = [];
+  const codeLines = code.split("\n");
+  for (const [line, text] of codeLines.entries()) {
+    for (const { pattern, name } of ESCAPES) {
+      if (!pattern.test(text)) continue;
+      const message =
+        name === THEOREM
+          ? `“${THEOREM}” is the name this exercise is checked under; a proof cannot use it.`
+          : `“${name}” runs a program or changes Lean's settings rather than making a proof step, so it is not accepted in an exercise. The Playground will run it.`;
+      found.push({ name, line, message });
+    }
+    const hash = HASH_COMMAND.exec(text);
+    if (hash) found.push({ name: hash[0], line, message: `“${hash[0]}” is a command, not a proof step, so it is not accepted in an exercise. The Playground will run it.` });
+    if (/[«»]/.test(text)) found.push({ name: "«»", line, message: "Names written in « » are not accepted in an exercise." });
+  }
+  let depth = 0;
+  let line = 0;
+  for (const c of bare) {
+    if (c === "\n") line++;
+    else if (c === "(") depth++;
+    else if (c === ")" && --depth < 0) {
+      found.push({ name: ")", line, message: "This line closes a bracket that was never opened." });
+      break;
+    }
+  }
+  return found;
+}
+
+/** The axioms ordinary mathematics in Lean rests on. Anything else (an axiom
+ *  of the proof's own, `sorryAx`, the compiler's word for `native_decide`)
+ *  is not a proof of the statement. */
+export const ALLOWED_AXIOMS = ["propext", "Classical.choice", "Quot.sound"];
+
+/**
+ * The axioms Lean reports the theorem rests on, or null when the report is
+ * missing. Only a note on the report's own line counts: a message from
+ * anywhere in the body cannot stand in for it.
+ */
+export function axiomsOf(diagnostics: Diagnostic[], body: string): string[] | null {
+  const line = auditLine(body);
+  for (const d of diagnostics) {
+    if (d.severity !== "info" || d.start.line !== line) continue;
+    if (d.message.trim() === `'${THEOREM}' does not depend on any axioms`) return [];
+    const m = new RegExp(`^'${THEOREM}' depends on axioms: \\[([\\s\\S]*)\\]\\s*$`).exec(d.message.trim());
+    if (m) return m[1].split(",").map((a) => a.trim()).filter(Boolean);
+  }
+  return null;
 }
 
 /**
@@ -74,11 +246,13 @@ export function isLinterRemark(d: { severity: string; message: string }): boolea
 }
 
 /** Lean's diagnostics in body coordinates, without the linters' remarks
- *  (a learner's spacing and unused names are not the lesson). */
+ *  (a learner's spacing and unused names are not the lesson) and without
+ *  the axiom report, which `axiomsOf` reads. */
 export function toBody(diagnostics: Diagnostic[], body: string): BodyDiagnostic[] {
   const count = Math.max(bodyLines(body).length, 1);
+  const audit = auditLine(body);
   return diagnostics
-    .filter((d) => !isLinterRemark(d))
+    .filter((d) => !isLinterRemark(d) && !(d.severity === "info" && d.start.line === audit))
     .map((d) => {
       const line = d.start.line - BODY_LINE;
       return { severity: d.severity, message: d.message, line: line >= 0 && line < count ? line : null };
@@ -90,7 +264,7 @@ const UNSOLVED = /^unsolved goals/;
 
 /** Whole-word uses of forbidden tactics in a body, comments removed. */
 export function forbiddenIn(body: string, forbid: string[]): string[] {
-  const code = body.replace(/\/-[\s\S]*?-\//g, " ").replace(/--.*$/gm, " ");
+  const { code } = lex(body);
   return forbid.filter((word) => new RegExp(`(^|[^A-Za-z0-9_.'?!])${escapeRegExp(word)}($|[^A-Za-z0-9_'])`).test(code));
 }
 
@@ -99,7 +273,8 @@ function escapeRegExp(s: string): string {
 }
 
 export interface Verdict {
-  /** Lean accepted the proof of the exercise's statement, with no `sorry`. */
+  /** Lean accepted the proof of the exercise's statement, with no `sorry`,
+   *  resting only on the allowed axioms. */
   solved: boolean;
   /** The first real error (not "unsolved goals"): the last move was wrong. */
   error: BodyDiagnostic | null;
@@ -107,14 +282,29 @@ export interface Verdict {
   unfinished: boolean;
   /** Forbidden tactics that were used; a proof using one is not solved. */
   forbidden: string[];
+  /** Why a proof Lean raised no error for is still not accepted: it steps
+   *  outside a proof, rests on an axiom of its own, or Lean's axiom report
+   *  never arrived. Null when there is nothing of the kind to say. */
+  refusal: string | null;
 }
 
-export function judge(diagnostics: BodyDiagnostic[], body: string, forbid: string[] = []): Verdict {
+/**
+ * `axioms` is what `axiomsOf` read from the same check: the axioms the
+ * theorem rests on, or null when Lean gave no report.
+ */
+export function judge(diagnostics: BodyDiagnostic[], body: string, forbid: string[], axioms: string[] | null): Verdict {
   const errors = diagnostics.filter((d) => d.severity === "error");
   const error = errors.find((d) => !UNSOLVED.test(d.message)) ?? null;
   const unfinished = !error && errors.some((d) => UNSOLVED.test(d.message));
   const sorry = diagnostics.some((d) => USES_SORRY.test(d.message));
   const forbidden = forbiddenIn(body, forbid);
   const empty = bodyLines(body).length === 0;
-  return { solved: !empty && errors.length === 0 && !sorry && forbidden.length === 0, error, unfinished, forbidden };
+  const escapes = escapesIn(body);
+  const clean = !empty && errors.length === 0 && !sorry;
+  const extra = (axioms ?? []).filter((a) => !ALLOWED_AXIOMS.includes(a));
+  let refusal: string | null = null;
+  if (escapes.length) refusal = escapes[0].message;
+  else if (clean && axioms === null) refusal = "Lean stopped before it could confirm what this proof rests on, so it is not accepted.";
+  else if (clean && extra.length) refusal = `This proof rests on something that was assumed, not proved (${extra.join(", ")}), so it is not accepted.`;
+  return { solved: clean && forbidden.length === 0 && refusal === null, error, unfinished, forbidden, refusal };
 }

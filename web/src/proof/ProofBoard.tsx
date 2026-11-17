@@ -100,6 +100,10 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
         setShake((n) => n + 1);
         return;
       }
+      if (reply.refusal) {
+        setTrouble(reply.refusal);
+        return;
+      }
       setHistory((h) => [...h, { lines, goals: reply.goals }]);
       if (reply.solved) {
         setSolved(true);
@@ -152,7 +156,9 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
   const known = before && now && now.goals[0] && before.goals[0] ? new Set(namesIn(before.goals[0])) : undefined;
 
   return (
-    <div data-board={exercise.id} className="overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-sm">
+    // On a wide screen the proof state is on the left and the moves and the
+    // Lean they write are beside it; on a narrow one they stack.
+    <div data-board={exercise.id} className="overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-sm lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <div key={shake} className={cx("p-4 sm:p-5", shake > 0 && refusal && "refused")}>
         {trouble ? (
           <Notice tone="warn">{trouble}</Notice>
@@ -167,8 +173,9 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
         )}
       </div>
 
+      <div className="flex min-w-0 flex-col lg:border-l lg:border-line">
       {now && !solved && !trouble && (
-        <div className="border-t border-line bg-raised/50 px-4 py-3 sm:px-5">
+        <div className="border-t border-line bg-raised/50 px-4 py-3 sm:px-5 lg:border-t-0">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-3">Moves</div>
           <div className="flex flex-wrap gap-2">
             {moves.map((move) => (
@@ -195,7 +202,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
       )}
 
       {now && (
-        <div className="border-t border-line px-4 py-3 sm:px-5">
+        <div className={cx("border-t border-line px-4 py-3 sm:px-5", (solved || !!trouble) && "lg:border-t-0")}>
           <div className="mb-1.5 flex items-center justify-between gap-3">
             <div className="text-xs font-semibold uppercase tracking-wide text-fg-3">Lean written so far</div>
             <div className="flex gap-2">
@@ -219,6 +226,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
           </pre>
         </div>
       )}
+      </div>
     </div>
   );
 }

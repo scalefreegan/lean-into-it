@@ -7,7 +7,7 @@ import { assemble, endOfBody, toSource } from "../shared/proof.ts";
 import { LeanServer, LeanUnavailable, leanProblem } from "./lean/lsp.ts";
 
 // How the Lean client behaves when its server stops, is slow or is absent.
-// The first and second tests start a real `lake serve`; where Lean is not
+// All but the last test start a real `lake serve`; where Lean is not
 // installed they are skipped, loudly.
 
 const problem = leanProblem();
@@ -44,6 +44,46 @@ test("a check waiting its turn when the server stops runs on the next server, an
   const after = await lean.check("exercise", source("apply hPQ\nexact hP"), end("apply hPQ\nexact hP"));
   assert.deepEqual(after.goals, [[]]);
   assert.deepEqual(after.diagnostics.filter((d) => d.severity === "error"), []);
+});
+
+test("a check waiting its turn is not run on a server that started after its own was stopped", { skip }, async (t) => {
+  const lean = new LeanServer({ timeoutMs: 120_000 });
+  t.after(() => lean.stop());
+  await lean.check("exercise", source("apply hPQ"), end("apply hPQ"));
+  const first = lean.check("exercise", source("exact hP"), end("exact hP"));
+  const queued = lean.check("exercise", source("apply hPQ"), end("apply hPQ"));
+  first.catch(() => {});
+  await new Promise((r) => setImmediate(r));
+  lean.stop();
+  // Another document asks at once, so a new server is already starting when
+  // the queued check gets its turn: it must see that its document is from
+  // the old one, not send into the new.
+  const other = lean.check("playground", "example : True := trivial\n");
+  const reply = await queued;
+  assert.match(reply.goals[0]?.[0] ?? "", /⊢ P$/);
+  assert.deepEqual((await other).diagnostics, []);
+});
+
+test("a document with a check under way is not closed to make room for another", { skip }, async (t) => {
+  // Room for one document, two asked for at once: closing the first while
+  // Lean is still working on it would lose its diagnostics.
+  const lean = new LeanServer({ maxDocs: 1 });
+  t.after(() => lean.stop());
+  const [a, b] = await Promise.all([lean.check("a", source("exact hPQ"), []), lean.check("b", source("apply hPQ\nexact hP"), [])]);
+  assert.match(a.diagnostics.find((d) => d.severity === "error")?.message ?? "", /mismatch/i);
+  assert.deepEqual(b.diagnostics.filter((d) => d.severity === "error"), []);
+  // Once idle they do make room, and a later check of the same name still works.
+  const c = await lean.check("c", source("exact hP"), []);
+  assert.match(c.diagnostics.find((d) => d.severity === "error")?.message ?? "", /mismatch/i);
+  const again = await lean.check("a", source("exact hPQ hP"), []);
+  assert.deepEqual(again.diagnostics.filter((d) => d.severity === "error"), []);
+});
+
+test("a server that does not answer in time is given up on, and the next check starts another", { skip }, async (t) => {
+  const lean = new LeanServer({ bootTimeoutMs: 1 });
+  t.after(() => lean.stop());
+  await assert.rejects(lean.check("exercise", source("exact hP"), []), (e: Error) => e instanceof LeanUnavailable && /did not start/.test(e.message));
+  await assert.rejects(lean.check("exercise", source("exact hP"), []), (e: Error) => e instanceof LeanUnavailable && /did not start/.test(e.message));
 });
 
 test("a check that runs out of time is refused with a reason", { skip }, async (t) => {

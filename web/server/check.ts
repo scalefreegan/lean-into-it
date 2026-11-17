@@ -3,7 +3,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals } from "../shared/goals.ts";
-import { assemble, endOfBody, judge, toBody, toSource, type Position } from "../shared/proof.ts";
+import { assemble, axiomsOf, endOfBody, escapesIn, judge, toBody, toSource, type Position } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { isSolved, recordAttempt } from "../../scripts/db/progress.ts";
@@ -38,11 +38,17 @@ async function withLean<T>(run: (lean: LeanServer) => Promise<T>): Promise<T> {
  * costs a re-check, not a fresh Mathlib load.
  */
 export async function checkExercise(lean: LeanServer, exercise: Exercise, body: string, cursor?: Position): Promise<CheckReply> {
+  // A body that would step outside a proof is never handed to Lean: what it
+  // asks for (`run_tac`, `#eval` …) is a program, and this is not the Playground.
+  const escapes = escapesIn(body);
+  if (escapes.length) {
+    return { solved: false, goals: [], cursorGoals: null, error: null, diagnostics: [], forbidden: [], refusal: escapes[0].message };
+  }
   const end = toSource(endOfBody(body));
   const positions = cursor ? [end, toSource(cursor)] : [end];
   const result = await lean.check("exercise", assemble(exercise.statement, body), positions);
   const diagnostics = toBody(result.diagnostics, body);
-  const verdict = judge(diagnostics, body, exercise.forbid);
+  const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body));
   return {
     solved: verdict.solved,
     goals: parseGoals(result.goals[0] ?? []),
@@ -50,6 +56,7 @@ export async function checkExercise(lean: LeanServer, exercise: Exercise, body: 
     error: verdict.error,
     diagnostics,
     forbidden: verdict.forbidden,
+    refusal: verdict.refusal,
   };
 }
 
@@ -75,7 +82,7 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
  *  typed live is re-checked on every pause, so a solved body is kept only
  *  the first time or when it was submitted. */
 async function keep(lessonId: string, exerciseId: string, body: string, reply: CheckReply, record: unknown): Promise<void> {
-  const refused = reply.error !== null || reply.forbidden.length > 0;
+  const refused = reply.error !== null || reply.forbidden.length > 0 || reply.refusal !== null;
   const db = rawDb();
   const learner = await learnerId();
   if (reply.solved) {
@@ -84,7 +91,7 @@ async function keep(lessonId: string, exerciseId: string, body: string, reply: C
     return;
   }
   if (record === "submitted" || (record === "rejected" && refused)) {
-    const error = reply.error?.message ?? (reply.forbidden.length ? `uses ${reply.forbidden.join(", ")}` : "unsolved goals");
+    const error = reply.error?.message ?? reply.refusal ?? (reply.forbidden.length ? `uses ${reply.forbidden.join(", ")}` : "unsolved goals");
     await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: false, error });
   }
 }
