@@ -1,6 +1,85 @@
-# Project Instructions for AI Agents
+# Lean Into It — agent instructions
 
-This file provides instructions and context for AI coding agents working on this project.
+A visual app for learning mathematical proof and formal verification with
+Lean 4. Localhost, one learner, no login. The curriculum is markdown and YAML
+under `content/`, tracked by git; attempts and what has been solved are in a
+local Postgres 17 database (`lean_into_it`). Proofs are checked by a real
+Lean 4 with Mathlib, kept warm by the dev server. Read `docs/PRD.md` first
+(what was decided), `docs/STATUS.md` (what exists, and the bead for
+everything that does not yet), and `docs/CONTENT.md` (the lesson file format)
+before touching content or the loader.
+
+## Layout
+```
+content/                 curriculum.yaml, lessons/<track>/*.md   (the product)
+lean/                    Lake project: Lean 4 + Mathlib; .lake/ is fetched by `npm run lean:setup`
+web/shared/goals.ts      Lean's printed goals parsed into cards (pure)
+web/shared/proof.ts      exercise + body -> Lean source, diagnostics -> verdict (pure)
+web/shared/moves.ts      the proof board's moves; each writes one tactic line
+web/shared/explain.ts    Lean's error messages in plain words
+web/shared/wire.ts       request and reply types shared by server and client
+web/server/lean/lsp.ts   the warm Lean: one `lake serve`, JSON-RPC over stdio
+web/server/check.ts      /api/check, /api/playground, /api/lean
+web/server/loader.ts     content/ -> Content, with readable refusals
+web/server/api.ts        wrap() and the route table
+scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
+web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor
+web/src/pages/           Home (the Path), Lesson, Playground
+```
+
+## Rules that keep it working
+- Port **38800**, `strictPort`, polling watcher (FSEvents is unreliable on
+  this machine). Siblings: Fret Not 38600, jev-ants 38500, Lingo Dojo 38400,
+  Atlas 38300, Wine Guide 38200, Basecamp 38100.
+- **Lean decides.** An exercise is solved only when Lean accepts the proof of
+  the exercise's own statement with no error and no `sorry`
+  (`web/shared/proof.ts` `judge`). Nothing else, and no agent, grades.
+- The statement comes from the exercise file, never from the browser: the
+  client sends a proof body and the server assembles the source.
+- **Lean runs what it is given with this user's permissions** (a `#eval` can
+  start a process). Every API route goes through `wrap()` in
+  `web/server/api.ts`: the Host must be this machine and the Origin must
+  match it. No exceptions, and never serve this app on a network.
+- All exercises share one Lean document (`"exercise"`), the Playground has
+  its own. A new document pays for `import Mathlib` again (several seconds);
+  a changed one costs about 200 ms. Do not add a document per exercise.
+- Personal rows are read and written only through `scripts/db/progress.ts`,
+  whose functions all take the learner id.
+- Never change a lesson `id` or an exercise `id` once live: progress is keyed
+  on them.
+- Every exercise needs a reference `solution` that Lean accepts;
+  `web/server/lean.test.ts` checks all of them against the real Lean.
+- Adding a board move starts in `web/shared/moves.ts`.
+- Files under `web/shared/` and `scripts/db/*.ts` are run directly by Node
+  (type stripping): explicit `.ts` import extensions, erasable syntax only.
+- The facts/goal/closed colours (teal, amber, green) mean the same thing
+  wherever a proof state is drawn. Colours come from the tokens in
+  `web/src/index.css`; components never write a raw hex or a `dark:` variant.
+- Tests never touch the real `content/` for writing, nor a Postgres server:
+  `freshDb()` (`scripts/tests/testdb.mjs`, PGlite with the real migrations).
+  The Lean tests start a real `lake serve`; where Lean is not installed they
+  are skipped with a loud line, which means nothing was checked. Never run
+  `npm run db:setup` against the real database from a worktree (a linked
+  worktree refuses without its own `DATABASE_URL`).
+- Changing the Lean or Mathlib version: `lean/lean-toolchain` and the Mathlib
+  `rev` in `lean/lakefile.toml` move together, then `npm run lean:setup` and
+  `npm test` (error-message wording in `web/shared/explain.ts` is
+  version-specific).
+- Keep `docs/STATUS.md` true: the PR that closes a bead moves its row to Done.
+
+## Build & test
+```sh
+npm install && npm --prefix web install
+npm run lean:setup          # once: Lean toolchain + Mathlib cache (about 10 GB in all)
+npm run db:setup            # once per machine (Postgres 17 running); idempotent
+npm run dev                 # http://localhost:38800
+npm test                    # node --test: shared logic, loader, database, real Lean
+npm run typecheck && npm run lint
+npm run db:generate         # after editing scripts/db/schema.ts; commit the SQL
+```
+Verify UI in the real app (Playwright MCP or Claude-in-Chrome) before claiming
+a feature works. Lean content must be exactly right: check every statement
+and solution against Lean, not from memory.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
 ## Beads Issue Tracker
@@ -56,22 +135,3 @@ This protocol applies when ending a Beads implementation workflow. It is subordi
 - Do not commit or push without clear authority from the active profile or the current user request.
 - If a required sync or push is blocked, stop and report the exact command and error.
 <!-- END BEADS INTEGRATION -->
-
-
-## Build & Test
-
-_Add your build and test commands here_
-
-```bash
-# Example:
-# npm install
-# npm test
-```
-
-## Architecture Overview
-
-_Add a brief overview of your project architecture_
-
-## Conventions & Patterns
-
-_Add your project-specific conventions here_

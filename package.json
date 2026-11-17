@@ -1,0 +1,27 @@
+{
+  "name": "lean-into-it",
+  "version": "0.1.0",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "type": "module",
+  "description": "Lean Into It — a visual app for learning mathematical proof and formal verification with Lean 4",
+  "scripts": {
+    "dev": "npm --prefix web run dev",
+    "test": "node --test --test-timeout=300000 \"web/shared/**/*.test.ts\" \"web/server/**/*.test.ts\" \"scripts/tests/*.test.mjs\"",
+    "lint": "npm --prefix web run lint",
+    "typecheck": "cd web && npx tsc -b",
+    "lean:setup": "bash scripts/lean-setup.sh",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node scripts/db/setup.mjs --migrate-only",
+    "db:setup": "node scripts/db/setup.mjs"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11"
+  }
+}
