@@ -218,3 +218,16 @@ test("something left open is blamed on the line that opened it, with the message
   // An ordinary error is left on its own line.
   assert.equal(blamed("apply (hPQ)\nexact hPQ", 5, "Type mismatch"), 1);
 });
+
+test("a forbidden name without a dot is found after one; a tactic's relatives are separate words", () => {
+  assert.deepEqual(forbiddenIn("exact n.zero_add", ["zero_add"]), ["zero_add"]);
+  assert.deepEqual(forbiddenIn("exact Nat.zero_add n", ["zero_add"]), ["zero_add"]);
+  assert.deepEqual(forbiddenIn("exact hab.trans hbc", ["trans"]), ["trans"]);
+  assert.deepEqual(forbiddenIn("exact Nat.dvd_trans hab hbc", ["trans"]), []);
+  // A dotted name is one particular name.
+  assert.deepEqual(forbiddenIn("exact n.zero_add", ["Nat.zero_add"]), []);
+  assert.deepEqual(forbiddenIn("simpa", ["simp"]), []);
+  assert.deepEqual(forbiddenIn("simpa", ["simp", "simpa"]), ["simpa"]);
+  assert.deepEqual(forbiddenIn("rw?", ["rw?"]), ["rw?"]);
+  assert.deepEqual(forbiddenIn("rw [h]", ["rw?"]), []);
+});

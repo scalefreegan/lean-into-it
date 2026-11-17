@@ -12,7 +12,7 @@ exercises:
     mode: typed
     says: Suppose f(0) = 0 and f(1) = 0, and f(n + 2) = f(n) for every n. Then f(n) = 0 for every n.
     statement: "(f : ℕ → ℕ) (h0 : f 0 = 0) (h1 : f 1 = 0) (hf : ∀ n, f (n + 2) = f n) (n : ℕ) : f n = 0"
-    forbid: [simp, simp_all, aesop, grind, tauto, exact?, apply?, decide, omega]
+    forbid: [simp, simp_all, aesop, grind, tauto, exact?, apply?, decide, omega, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       induction n using Nat.twoStepInduction with
       | zero => exact h0
@@ -25,10 +25,10 @@ exercises:
     mode: typed
     says: Suppose that for every n, if P holds for all numbers below n then P holds for n. Then P holds for every n.
     statement: "(P : ℕ → Prop) (h : ∀ n, (∀ m, m < n → P m) → P n) (n : ℕ) : P n"
-    forbid: [simp, simp_all, aesop, grind, tauto, exact?, apply?, decide, omega]
+    forbid: [simp, simp_all, aesop, grind, tauto, exact?, apply?, decide, omega, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       induction n using Nat.strong_induction_on with
-      | _ n ih => exact h n ih
+      | ind n ih => exact h n ih
 ---
 
 In an ordinary induction the step from n to n + 1 uses one thing: the statement for n. Sometimes that is the wrong case to lean on.
@@ -68,10 +68,10 @@ In Lean the principle is `Nat.strong_induction_on`:
 
 ```lean
 induction n using Nat.strong_induction_on with
-| _ n ih => …
+| ind n ih => …
 ```
 
-There is one case. In it, `ih` says: for every m, if m < n then the statement holds for m.
+There is one case, called `ind`. In it, `ih` says: for every m, if m < n then the statement holds for m. Lean prints that as `∀ m < n, P m`, a shorthand for `∀ m, m < n → P m`.
 
 The exercise is the principle itself, stated with a fact `h` that does the step. Start the induction as above. Then `h n` needs exactly what `ih` provides.
 

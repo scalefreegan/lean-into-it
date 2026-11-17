@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NOT_AN_EXISTS, NOT_SPLITTABLE, explain } from "./explain.ts";
+import { NOT_AN_EXISTS, NOT_SPLITTABLE, NO_NUMBER, explain } from "./explain.ts";
 import { parseGoal } from "./goals.ts";
 import { MOVES, contraName, hiddenExists, misfit, introName, isMove, moveLine, obtainLine, oneLine, readLine, shapeOf } from "./moves.ts";
 
@@ -147,4 +147,11 @@ test("even, odd and divides are taken apart and proved like a there-exists", () 
   assert.equal(obtainLine(parseGoal("n : ℕ\nh : Odd n\n⊢ Even (n + 1)"), "h"), "obtain ⟨k, hk⟩ := h");
   assert.equal(obtainLine(parseGoal("a b c : ℕ\nhab : a ∣ b\nhbc : b ∣ c\n⊢ a ∣ c"), "hab"), "obtain ⟨c1, hc1⟩ := hab");
   for (const goal of ["⊢ 3 ∣ 12", "⊢ Even 10", "⊢ Odd 7"]) assert.equal(misfit(MOVES.use, parseGoal(goal)), null, goal);
+});
+
+test("induction is only offered a number that can be named", () => {
+  assert.equal(misfit(MOVES.induction, parseGoal("f : ℕ → ℕ\nn : ℕ\n⊢ f n = 0")), null);
+  assert.equal(misfit(MOVES.induction, parseGoal("f : ℕ → ℕ\nh0 : f 0 = 0\n⊢ f 0 = 0")), NO_NUMBER);
+  assert.equal(misfit(MOVES.induction, parseGoal("n✝ : ℕ\n⊢ P")), NO_NUMBER);
+  assert.match(explain(NO_NUMBER) ?? "", /natural number/);
 });

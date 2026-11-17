@@ -91,3 +91,8 @@ test("the line exact? proposes is read out of Lean's note", () => {
   assert.equal(suggestion("Try this: exact h"), "exact h");
   assert.equal(suggestion("unsolved goals"), null);
 });
+
+test("a rewrite pattern with a gap in it, and omega with nothing to go on", () => {
+  assert.match(explain("Tactic `rewrite` failed: Did not find an occurrence of the pattern\n  f (?k + 1)\nin the target expression\n  f 0 = 0\n") ?? "", /like \?k, stands for anything/);
+  assert.match(explain("omega could not prove the goal:\nNo usable constraints found. You may need to unfold definitions so `omega` can see linear arithmetic facts") ?? "", /take such a fact apart with obtain/);
+});

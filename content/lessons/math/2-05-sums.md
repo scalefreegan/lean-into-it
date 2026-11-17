@@ -12,7 +12,7 @@ exercises:
     mode: board
     says: 0 + 1 + 2 + 3 + 4 = 10.
     statement: ": ∑ i ∈ Finset.range 5, i = 10"
-    moves: [decide, simp]
+    moves: [decide]
     solution: |
       decide
   - id: chain
@@ -20,7 +20,7 @@ exercises:
     mode: typed
     says: Suppose a = b + 1 and b = 2c. Then a = 2c + 1.
     statement: "(a b c : ℕ) (h1 : a = b + 1) (h2 : b = 2 * c) : a = 2 * c + 1"
-    forbid: [omega, simp, simp_all, linarith, aesop, grind, tauto, exact?, apply?, subst, subst_vars]
+    forbid: [omega, simp, simp_all, linarith, aesop, grind, tauto, exact?, apply?, subst, subst_vars, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       calc a = b + 1 := h1
         _ = 2 * c + 1 := by rw [h2]
@@ -29,7 +29,7 @@ exercises:
     mode: typed
     says: For every natural number n, twice the sum 0 + 1 + … + n is n(n + 1).
     statement: "(n : ℕ) : 2 * ∑ i ∈ Finset.range (n + 1), i = n * (n + 1)"
-    forbid: [simp_all, aesop, grind, exact?, apply?, decide, Finset.sum_range_id_mul_two, Finset.sum_range_id, Gauss]
+    forbid: [simp_all, aesop, grind, exact?, apply?, decide, Finset.sum_range_id_mul_two, Finset.sum_range_id, Gauss, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       induction n with
       | zero => rfl
@@ -41,7 +41,7 @@ exercises:
     mode: typed
     says: For every natural number n, the first n odd numbers add up to n × n.
     statement: "(n : ℕ) : ∑ i ∈ Finset.range n, (2 * i + 1) = n * n"
-    forbid: [simp_all, aesop, grind, exact?, apply?, decide, Finset.sum_range_id_mul_two, Finset.sum_range_id]
+    forbid: [simp_all, aesop, grind, exact?, apply?, decide, Finset.sum_range_id_mul_two, Finset.sum_range_id, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       induction n with
       | zero => rfl
@@ -107,13 +107,13 @@ The base case is a sum with one term, 0, and `rfl` settles it.
 id: gauss
 ```
 
-If you get stuck, this is the shape:
+If you get stuck, this is the shape. The step takes two lines, so they go under their case, indented:
 
 ```lean
 induction n with
-| zero => rfl
+| zero => …
 | succ k ih =>
-  rw [Finset.sum_range_succ, Nat.mul_add, ih]
+  rw […]
   ring
 ```
 

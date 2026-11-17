@@ -52,7 +52,7 @@ exercises:
     mode: typed
     says: For any natural numbers a and b, a × (b + 1) = a + a × b.
     statement: "(a b : ℕ) : a * (b + 1) = a + a * b"
-    forbid: [omega, simp, simp_all, ring, ring_nf, linarith, nlinarith, abel, ac_rfl, aesop, grind, tauto, exact?, apply?, decide, norm_num]
+    forbid: [omega, simp, simp_all, ring, ring_nf, linarith, nlinarith, abel, ac_rfl, aesop, grind, tauto, exact?, apply?, decide, norm_num, simpa, hint, rw?, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       rw [Nat.mul_succ, Nat.add_comm]
 ---

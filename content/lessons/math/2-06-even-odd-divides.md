@@ -12,7 +12,7 @@ exercises:
     mode: board
     says: 3 divides 12.
     statement: ": 3 ∣ 12"
-    moves: [use, decide]
+    moves: [use]
     solution: |
       use 4
   - id: even
@@ -65,7 +65,7 @@ exercises:
     mode: typed
     says: Suppose a and b are even. Then a + b is even.
     statement: "(a b : ℕ) (ha : Even a) (hb : Even b) : Even (a + b)"
-    forbid: [Even.add, ha.add, Nat.even_add, parity_simps, simp, simp_all, aesop, grind, tauto, exact?, apply?, decide]
+    forbid: [Even.add, ha.add, even_add, parity_simps, simp, simp_all, aesop, grind, tauto, exact?, apply?, decide, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       obtain ⟨r, hr⟩ := ha
       obtain ⟨s, hs⟩ := hb
@@ -76,7 +76,7 @@ exercises:
     mode: typed
     says: Suppose a divides b, and b divides c. Then a divides c.
     statement: "(a b c : ℕ) (hab : a ∣ b) (hbc : b ∣ c) : a ∣ c"
-    forbid: [dvd_trans, Nat.dvd_trans, Dvd.dvd.trans, hab.trans, Dvd.dvd.mul_right, simp, simp_all, aesop, grind, tauto, exact?, apply?, decide, omega]
+    forbid: [dvd_trans, trans, calc, mul_right, dvd_mul_of_dvd_left, dvd_mul_of_dvd_right, simp, simp_all, aesop, grind, tauto, exact?, apply?, decide, omega, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       obtain ⟨k, hk⟩ := hab
       obtain ⟨m, hm⟩ := hbc
@@ -118,7 +118,7 @@ id: odd
 
 ## Saying no
 
-"3 does not divide 10" says that *no* number c gives 10 = 3 × c. There is no witness to show. But the claim is about particular numbers, and for those Lean can check every candidate itself: **decide**.
+"3 does not divide 10" says that *no* number c gives 10 = 3 × c. There is no witness to show. But the claim is about particular numbers, and for those Lean can work out the answer itself: **decide**.
 
 ```exercise
 id: not-divides

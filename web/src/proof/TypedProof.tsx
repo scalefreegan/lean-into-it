@@ -58,8 +58,8 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
 
   const solved = !!reply?.solved && !live.checking;
   const errors = reply?.diagnostics.filter((d) => d.severity === "error" && d.line !== null) ?? [];
-  // What `exact?` found, to be typed in its place.
-  const found = live.checking ? [] : (reply?.diagnostics ?? []).flatMap((d) => (d.severity === "info" ? [suggestion(d.message)] : [])).filter((x): x is string => x !== null);
+  // What `exact?` found, where the exercise allows searching.
+  const found = live.checking || exercise.forbid.includes("exact?") ? [] : (reply?.diagnostics ?? []).flatMap((d) => (d.severity === "info" ? [suggestion(d.message)] : [])).filter((x): x is string => x !== null);
   const verdict = submitted && submitted.body === body ? submitted.reply : null;
   const goals = reply ? (reply.cursorGoals ?? reply.goals) : null;
   const empty = !body.trim();
@@ -116,7 +116,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
       {found.length > 0 && (
         <div className="border-t border-line px-4 py-3 sm:px-5" data-suggestion>
           <Notice tone="good">
-            Lean searched its library and suggests: <code className="font-mono">{found[0]}</code>. Type that line in place of the search.
+            Lean searched its library and suggests: <code className="font-mono">{found[0]}</code>. In finished work that line goes in place of the search.
           </Notice>
         </div>
       )}

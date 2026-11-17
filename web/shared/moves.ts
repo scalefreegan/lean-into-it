@@ -4,8 +4,8 @@
 //
 // Adding a move starts here; the board renders whatever is listed.
 
-import { NOT_AN_EXISTS, NOT_SPLITTABLE } from "./explain.ts";
-import { namesIn, type Goal } from "./goals.ts";
+import { NOT_AN_EXISTS, NOT_SPLITTABLE, NO_NUMBER } from "./explain.ts";
+import { isNatural, namesIn, type Goal } from "./goals.ts";
 
 export interface Move {
   id: string;
@@ -332,6 +332,7 @@ export function misfit(move: Move, goal: Goal): string | null {
   if (move.id === "constructor") return kind === "and" || kind === "iff" ? null : NOT_SPLITTABLE;
   // After a witness is given, a second `use` only draws errors about Lean's internals.
   if (move.id === "use") return kind === "exists" || hiddenExists(goal.target) ? null : NOT_AN_EXISTS;
+  if (move.id === "induction") return goal.hypotheses.some(isNatural) ? null : NO_NUMBER;
   return null;
 }
 

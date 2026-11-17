@@ -55,7 +55,7 @@ exercises:
     mode: typed
     says: Suppose a = b and c = b. Then a + a = c + c.
     statement: "(a b c : ℕ) (h1 : a = b) (h2 : c = b) : a + a = c + c"
-    forbid: [omega, simp, simp_all, subst, subst_vars, aesop, grind, tauto, exact?, apply?, linarith, norm_num]
+    forbid: [omega, simp, simp_all, subst, subst_vars, aesop, grind, tauto, exact?, apply?, linarith, norm_num, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       rw [h1, h2]
 ---

@@ -91,5 +91,6 @@ export function isObject(h: Hypothesis): boolean {
 
 /** True for `n : ℕ`: something induction can be done on. */
 export function isNatural(h: Hypothesis): boolean {
-  return /^(ℕ|Nat)$/.test(h.type.trim());
+  // A name Lean made up and marked with a dagger cannot be written in a proof.
+  return /^(ℕ|Nat)$/.test(h.type.trim()) && h.names.some((n) => !n.includes("✝"));
 }

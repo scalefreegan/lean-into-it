@@ -33,7 +33,8 @@ Landed in the first PR, the foundation slice:
   swapped", "Addition, defined", "Induction", "Adding up", "Even, odd,
   divides", "Leaning on more than one" on the math track and "Theorems have
   names" on the Lean track; 41 exercises, on Mathlib's own natural numbers.
-  Not yet: the induction dominoes widget (`lii-dvy.9`) and the first
+  "Leaning on more than one" is typed only: the board has no strong
+  induction. Not yet: the induction dominoes widget (`lii-dvy.9`) and the first
   verified programs (`lii-dvy.4`). Levels 3 on are outlined.
 - Board moves: `rfl`, `norm_num`, `intro`, `exact`, `apply`, `constructor`,
   `obtain` (writes the pattern and names for the fact's shape), `left`,
@@ -64,7 +65,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 105, including every reference solution checked by the real Lean,
+- Tests: 108, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

@@ -46,7 +46,7 @@ exercises:
     mode: typed
     says: For any natural number n, 0 + n = n.
     statement: "(n : ℕ) : 0 + n = n"
-    forbid: [simp, simp_all, omega, Nat.zero_add, zero_add, Nat.add_comm, add_comm, ring, ring_nf, linarith, abel, ac_rfl, aesop, grind, tauto, exact?, apply?, decide, norm_num]
+    forbid: [simp, simp_all, omega, zero_add, add_comm, add_eq_right, add_eq_left, ring, ring_nf, linarith, abel, ac_rfl, aesop, grind, tauto, exact?, apply?, decide, norm_num, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       induction n with
       | zero => rfl
@@ -113,7 +113,7 @@ The board writes the short form `induction' n with n ih`, which gives the same t
 
 Now the debt from the last lesson. `0 + n = n` is not true by definition, because addition is defined by what the *second* number is. Induction is on that second number, so in each case Lean can at last see which line of the definition applies. `simp` is switched off here, and so is `Nat.add_comm`, because the proof that a + b = b + a rests on the very fact you are about to prove.
 
-For the step you will need `Nat.add_succ`: a + (b + 1) = (a + b) + 1. After that rewrite Lean shows the right-hand side as `(0 + k).succ`, which is its way of writing "the one after 0 + k". It is the same number as `0 + k + 1`.
+For the step you will need `Nat.add_succ`: a + (b + 1) = (a + b) + 1. After that rewrite Lean shows the left side as `(0 + k).succ`, which is its way of writing "the one after 0 + k". It is the same number as `0 + k + 1`.
 
 ```exercise
 id: zero-add

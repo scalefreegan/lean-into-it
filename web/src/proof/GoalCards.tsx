@@ -14,7 +14,7 @@ function Objects({ items, onPick }: { items: Hypothesis[]; onPick?: (name: strin
       {items.map((h) =>
         // While induction waits for a number, each natural number is its own button.
         onPick && isNatural(h) ? (
-          h.names.map((name) => (
+          h.names.filter((name) => !name.includes("✝")).map((name) => (
             <button
               key={name}
               type="button"

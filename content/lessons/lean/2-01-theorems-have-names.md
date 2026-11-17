@@ -12,7 +12,7 @@ exercises:
     mode: typed
     says: For any natural numbers a and b, a + b = b + a.
     statement: "(a b : ℕ) : a + b = b + a"
-    forbid: &auto [omega, simp, simp_all, ring, ring_nf, linarith, nlinarith, abel, ac_rfl, aesop, grind, tauto, exact?, apply?, decide, norm_num]
+    forbid: &auto [omega, simp, simp_all, ring, ring_nf, linarith, nlinarith, abel, ac_rfl, aesop, grind, tauto, exact?, apply?, decide, norm_num, simpa, hint, rw?, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       exact Nat.add_comm a b
   - id: mul-add
@@ -44,7 +44,7 @@ exercises:
     mode: typed
     says: Suppose a is at most b, and b is at most c. Then a is at most c.
     statement: "(a b c : ℕ) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c"
-    forbid: [omega, simp, simp_all, linarith, aesop, grind, tauto, apply?, decide, norm_num]
+    forbid: [omega, simp, simp_all, linarith, aesop, grind, tauto, apply?, decide, norm_num, simpa, hint, rw?, nlinarith, ring1, abel1, abel_nf, ac_nf, noncomm_ring, linear_combination, subst_eqs, positivity, bound, norm_num1]
     solution: |
       exact Nat.le_trans h1 h2
 ---
