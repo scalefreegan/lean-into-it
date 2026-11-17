@@ -13,8 +13,10 @@ export interface Move {
   label: string;
   /** `none`: the move stands alone. `fact`: click a hypothesis card to say
    *  which fact it uses. `name`: it introduces a new name, chosen for you.
-   *  `text`: it needs something typed, such as the number for `use`. */
-  needs: "none" | "fact" | "name" | "text";
+   *  `text`: it needs something typed, such as the number for `use`.
+   *  `object`: click one of the things the statement is about, such as the
+   *  number to do induction on. */
+  needs: "none" | "fact" | "name" | "text" | "object";
   /** One line: what the move does, in plain words. */
   does: string;
   /** Shown when the move is picked and waiting for a card or for text. */
@@ -107,6 +109,45 @@ export const MOVES: Record<string, Move> = {
     needs: "text",
     does: "To prove “there exists an x such that…”, say which x. What remains is to show it works.",
     prompt: "Type the thing that works, for example a number, then press Enter.",
+  },
+  decide: {
+    id: "decide",
+    label: "decide",
+    needs: "none",
+    does: "Settle a claim about particular numbers by checking it, the way you would check 7 < 10 or that 3 does not divide 10. It cannot handle a claim with a letter in it.",
+  },
+  rw: {
+    id: "rw",
+    label: "rw",
+    needs: "fact",
+    does: "Rewrite with an equation. With a fact “a = b”, every a in the goal becomes b. If that leaves both sides identical, the goal is finished.",
+    prompt: "Click the equation to rewrite with. Its left side is replaced by its right side.",
+  },
+  rw_back: {
+    id: "rw_back",
+    label: "rw ←",
+    needs: "fact",
+    does: "Rewrite with an equation, backwards. With a fact “a = b”, every b in the goal becomes a.",
+    prompt: "Click the equation to rewrite with. Its right side is replaced by its left side.",
+  },
+  simp: {
+    id: "simp",
+    label: "simp",
+    needs: "none",
+    does: "Simplify the goal using a large library of facts already proved, such as 0 + n = n. Often that finishes it.",
+  },
+  omega: {
+    id: "omega",
+    label: "omega",
+    needs: "none",
+    does: "Finish a goal about whole numbers that needs only adding, comparing and multiplying by particular numbers. It uses the facts on the board.",
+  },
+  induction: {
+    id: "induction",
+    label: "induction",
+    needs: "object",
+    does: "Prove a claim about every natural number n in two steps: first for 0, then for n + 1, where you may use the claim for n.",
+    prompt: "Click the number to do induction on.",
   },
 };
 
@@ -218,6 +259,20 @@ export function shapeOf(type: string): Shape {
   return { kind: "other" };
 }
 
+/**
+ * Statements that are a “there exists” by definition though they do not
+ * print as one: `Even n` (∃ r, n = r + r), `Odd n` (∃ k, n = 2 * k + 1) and
+ * `a ∣ b` (∃ c, b = a * c). The name Mathlib's definition gives the thing
+ * that exists, or null.
+ */
+export function hiddenExists(type: string): string | null {
+  const t = unwrap(type.replace(/\s+/g, " "));
+  if (shapeOf(t).kind !== "other" || /[→¬∀∃]/.test(t)) return null;
+  if (/^Even /.test(t)) return "r";
+  if (/^Odd /.test(t)) return "k";
+  return t.includes("∣") ? "c" : null;
+}
+
 /** A name for a fact that says `statement`: hP for P, hnP for ¬P, else the fallback. */
 function factName(statement: string, fallback: string): string {
   if (ATOM.test(statement)) return `h${statement}`;
@@ -235,6 +290,11 @@ export function obtainLine(goal: Goal, fact: string): string {
   const taken = new Set(namesIn(goal));
   const type = goal.hypotheses.find((h) => h.names.includes(fact))?.type ?? "";
   const shape = shapeOf(type);
+  const hidden = hiddenExists(type);
+  if (hidden) {
+    const v = freshIn(taken, hidden);
+    return `obtain ⟨${v}, ${freshIn(taken, `h${v}`)}⟩ := ${fact}`;
+  }
   if (shape.kind === "exists") {
     // The variable keeps Lean's name where it is free; the fact about it is h + that name.
     const vars = shape.vars.map((v) => freshIn(taken, v));
@@ -271,7 +331,7 @@ export function misfit(move: Move, goal: Goal): string | null {
   const kind = shapeOf(goal.target).kind;
   if (move.id === "constructor") return kind === "and" || kind === "iff" ? null : NOT_SPLITTABLE;
   // After a witness is given, a second `use` only draws errors about Lean's internals.
-  if (move.id === "use") return kind === "exists" ? null : NOT_AN_EXISTS;
+  if (move.id === "use") return kind === "exists" || hiddenExists(goal.target) ? null : NOT_AN_EXISTS;
   return null;
 }
 
@@ -280,9 +340,34 @@ export function oneLine(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** The Lean line a move writes. `arg` is the clicked hypothesis name, or the typed text. */
+/**
+ * The line that starts an induction on `n`. The one-line form, so that the
+ * board keeps to one move per line: two goals follow, the claim for 0 and
+ * the claim for n + 1, the second with the induction hypothesis `ih`.
+ */
+export function inductionLine(goal: Goal, n: string): string {
+  const taken = new Set(namesIn(goal));
+  return `induction' ${n} with ${n} ${freshIn(taken, "ih")}`;
+}
+
+/** The move that wrote a line of a board proof, and what was clicked or typed for it. */
+export function readLine(line: string): { move: Move; arg?: string } | null {
+  let m: RegExpExecArray | null;
+  if ((m = /^rw \[(←\s*)?(.+)\]$/.exec(line))) return { move: MOVES[m[1] ? "rw_back" : "rw"], arg: m[2] };
+  if ((m = /^induction' (\S+) with /.exec(line))) return { move: MOVES.induction, arg: m[1] };
+  if ((m = /^obtain .* := (.+)$/.exec(line))) return { move: MOVES.obtain, arg: m[1] };
+  const word = line.split(" ")[0];
+  if (!isMove(word)) return null;
+  const move = MOVES[word];
+  return move.needs === "fact" || move.needs === "text" ? { move, arg: line.slice(word.length + 1) } : { move };
+}
+
+/** The Lean line a move writes. `arg` is the clicked card's name, or the typed text. */
 export function moveLine(move: Move, goal: Goal, arg?: string): string {
   if (move.id === "obtain") return obtainLine(goal, arg ?? "?");
+  if (move.id === "rw") return `rw [${arg ?? "?"}]`;
+  if (move.id === "rw_back") return `rw [← ${arg ?? "?"}]`;
+  if (move.id === "induction") return inductionLine(goal, arg ?? "?");
   if (move.id === "by_contra") return `by_contra ${contraName(goal)}`;
   if (move.needs === "name") return `${move.label} ${introName(goal)}`;
   if (move.needs === "fact") return `${move.label} ${arg ?? "?"}`;

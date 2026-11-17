@@ -45,6 +45,8 @@ export const ABBREVIATIONS: Record<string, string> = {
   "<": "⟨",
   ">": "⟩",
   sum: "∑",
+  "|": "∣",
+  dvd: "∣",
   inf: "∞",
   comp: "∘",
 };

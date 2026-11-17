@@ -130,7 +130,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
       setShake((n) => n + 1);
       return;
     }
-    if (move.needs === "fact" || move.needs === "text") {
+    if (move.needs === "fact" || move.needs === "text" || move.needs === "object") {
       setText("");
       setPending((p) => (p?.id === move.id ? null : move));
       return;
@@ -145,6 +145,11 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
 
   function pickFact(name: string) {
     if (!now || !pending || pending.needs !== "fact") return;
+    void play(moveLine(pending, now.goals[0] ?? { hypotheses: [], target: "" }, name));
+  }
+
+  function pickObject(name: string) {
+    if (!now || !pending || pending.needs !== "object") return;
     void play(moveLine(pending, now.goals[0] ?? { hypotheses: [], target: "" }, name));
   }
 
@@ -185,7 +190,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
             <strong>No goals left.</strong> Lean accepts this proof.
           </Closed>
         ) : (
-          <GoalView goals={now.goals} picking={pending?.needs === "fact"} {...(pending?.needs === "fact" ? { onPickFact: pickFact } : {})} {...(known ? { known } : {})} />
+          <GoalView goals={now.goals} picking={pending?.needs === "fact"} {...(pending?.needs === "fact" ? { onPickFact: pickFact } : {})} {...(pending?.needs === "object" ? { onPickObject: pickObject } : {})} {...(known ? { known } : {})} />
         )}
       </div>
 

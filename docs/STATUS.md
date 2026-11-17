@@ -28,11 +28,19 @@ Landed in the first PR, the foundation slice:
   contradiction", "If and only if", "For all", "There exists" on the logic
   track and "Reading a goal, and proofs as things" on the Lean track; 45
   exercises. Not yet: truth tables against proofs, and exercise kinds other
-  than "prove it" (`lii-dvy.8`). Levels 2 on are outlined.
+  than "prove it" (`lii-dvy.8`).
+- Level 2 written (`lii-dvy.3`): "Counting from zero", "Equal things can be
+  swapped", "Addition, defined", "Induction", "Adding up", "Even, odd,
+  divides", "Leaning on more than one" on the math track and "Theorems have
+  names" on the Lean track; 41 exercises, on Mathlib's own natural numbers.
+  Not yet: the induction dominoes widget (`lii-dvy.9`) and the first
+  verified programs (`lii-dvy.4`). Levels 3 on are outlined.
 - Board moves: `rfl`, `norm_num`, `intro`, `exact`, `apply`, `constructor`,
   `obtain` (writes the pattern and names for the fact's shape), `left`,
   `right`, `exfalso`, `contradiction`, `by_contra`, `use` (the witness is
-  typed). A move that Lean accepts but that changes nothing is refused as
+  typed), `decide`, `rw` and `rw ←` (click an equation), `simp`, `omega`,
+  `induction` (click the number; writes `induction' n with n ih`). `obtain`
+  and `use` also work on `Even`, `Odd` and `∣`. A move that Lean accepts but that changes nothing is refused as
   such, and `constructor` is only sent to Lean for an and or an iff, `use` only for a
   there-exists.
 - Path page (home): levels, lessons and what has been completed.
@@ -56,7 +64,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 100, including every reference solution checked by the real Lean,
+- Tests: 105, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -146,8 +154,8 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-dvy.8` | Level 1: truth tables against proofs; True-or-false and Fill-the-gap exercises | 2 | `lii-53v.5` |
-| `lii-dvy.3` | Level 2 lessons: Numbers and induction | 2 | `lii-53v.5` |
-| `lii-dvy.4` | First verified-programs lessons (Level 2, lists) | 2 | `lii-dvy.3` |
+| `lii-dvy.9` | Level 2: the induction dominoes widget in the Induction lesson | 2 | `lii-53v.5` |
+| `lii-dvy.4` | First verified-programs lessons (Level 2, lists) | 2 | |
 | `lii-dvy.5` | Level 3 lessons: Algebra and inequalities on the real numbers | 2 | `lii-53v.2` |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
 | `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3`, `lii-53v.3` |

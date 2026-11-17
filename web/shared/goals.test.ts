@@ -46,4 +46,8 @@ test("objects are told apart from facts", () => {
   assert.equal(isObject({ names: ["x"], type: "ℝ" }), true);
   assert.equal(isObject({ names: ["hP"], type: "P" }), false);
   assert.equal(isObject({ names: ["h"], type: "P → Q" }), false);
+  // A function between kinds of thing is a thing; "if P then Q" is a fact.
+  assert.equal(isObject({ names: ["f"], type: "ℕ → ℕ" }), true);
+  assert.equal(isObject({ names: ["P"], type: "ℕ → Prop" }), true);
+  assert.equal(isObject({ names: ["h"], type: "∀ (n : ℕ), P n" }), false);
 });

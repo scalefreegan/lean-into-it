@@ -7,7 +7,7 @@ import { attemptCount, ensureLearner, solvedFor } from "../../scripts/db/progres
 import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { CheckReply, CheckRequest, PlaygroundReply } from "../shared/wire.ts";
 import { explain } from "../shared/explain.ts";
-import { MOVES, misfit, moveLine } from "../shared/moves.ts";
+import { misfit, moveLine, readLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, toBody } from "../shared/proof.ts";
 import { checkExercise, handleCheck, handlePlayground } from "./check.ts";
 import { setDb, type Db } from "./db.ts";
@@ -87,10 +87,10 @@ test("every board solution is what the board's own clicks write, against the goa
       const solution = e.solution.split("\n").filter((s) => s.trim());
       for (let i = 0; i < solution.length; i++) {
         const want = solution[i];
-        const move = MOVES[want.split(" ")[0]];
-        assert.ok(move && e.moves.includes(move.id), `${l.id}/${e.id}: "${want}" is not a move this exercise offers`);
+        const read = readLine(want);
+        assert.ok(read && e.moves.includes(read.move.id), `${l.id}/${e.id}: "${want}" is not a move this exercise offers`);
+        const { move, arg } = read;
         const state = await checkExercise(leanServer(), e, solution.slice(0, i).join("\n"));
-        const arg = move.id === "obtain" ? want.split(":= ")[1] : move.needs === "fact" || move.needs === "text" ? want.slice(move.label.length + 1) : undefined;
         assert.equal(misfit(move, state.goals[0]), null, `${l.id}/${e.id} line ${i + 1}: the board would refuse "${want}"`);
         assert.equal(moveLine(move, state.goals[0], arg), want, `${l.id}/${e.id} line ${i + 1}`);
         lines++;

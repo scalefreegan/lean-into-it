@@ -73,7 +73,7 @@ exercises:
 | `title` | A short heading. |
 | `says` | The claim in plain English, as a mathematician would say it. Shown above the exercise. |
 | `statement` | The Lean statement after the keyword: binders, a colon, the claim. The server wraps it as `theorem lii_exercise <statement> := by`, with the learner's lines in brackets under it. It must not contain `:=` or `sorry`. Quote it: it contains colons. |
-| `moves` | Board mode only, required there: the moves on offer. |
+| `moves` | Board mode only, required there: the moves on offer. Every line of the `solution` must be a line one of them writes (`rw [h]`, `induction' n with n ih`, `obtain ⟨r, hr⟩ := h`); `npm test` replays it. |
 | `forbid` | Tactic names that may not appear in an answer. For exercises where one automatic tactic would skip the point. |
 | `solution` | A proof body, one tactic per line, that Lean accepts. Required. `npm test` checks every solution against the real Lean. |
 | `concept` | The concept the exercise tests. Defaults to the lesson's first concept. |
