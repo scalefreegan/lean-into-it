@@ -96,7 +96,7 @@ until it is added.
 
 ## Remaining
 
-45 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
+46 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -173,6 +173,7 @@ land first.
 | `lii-dvy.9` | Level 2: the induction dominoes widget in the Induction lesson | 2 | `lii-53v.5` |
 | `lii-dvy.10` | Verified programs: the full specification of `rev` (reverse twice, reverse of a join), with lemmas about `app` | 2 | |
 | `lii-dvy.11` | Level 3: graphs and number lines in the lessons | 2 | `lii-53v.2` |
+| `lii-oip` | A calc chain that proves ≤ where < is wanted leaves an unexplained goal like c < c | 3 | |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
 | `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3`, `lii-53v.3` |
 
