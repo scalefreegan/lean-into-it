@@ -13,6 +13,9 @@ export const UNCHANGED = "The move ran without error, and the proof state after 
  *  the witness to be filled in later), so the board does not send it. */
 export const NOT_SPLITTABLE = "The goal is not of the form A ∧ B or A ↔ B, so the board did not send this move to Lean.";
 
+/** What the board reports for `use` on a goal that is not a "there exists". */
+export const NOT_AN_EXISTS = "The goal is not of the form ∃ x, …, so the board did not send this move to Lean.";
+
 /** A plain sentence for a Lean error, or null when there is none for it. */
 export function explain(message: string): string | null {
   const first = message.split("\n")[0];
@@ -40,6 +43,9 @@ export function explain(message: string): string | null {
   }
   if (/^Tactic `rfl` failed: Expected the goal to be a binary relation/.test(first)) {
     return "rfl finishes a goal of the form A = B. This goal is not an equation.";
+  }
+  if (message === NOT_AN_EXISTS) {
+    return "use gives the thing for a “there exists” goal, and this goal is not asking for a thing. If you have already given one and it was the wrong one, Undo takes it back.";
   }
   if (message === UNCHANGED) {
     return "Lean accepted it, but it left the facts and the goal exactly as they were.";

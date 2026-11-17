@@ -116,10 +116,8 @@ There the witness you gave to `use` was not a number but the `n` you had just ob
 
 Put the two side by side and they mirror each other.
 
-| | to prove it | to use it |
-|---|---|---|
-| for all x | take an arbitrary x: you do not choose | apply it to a particular x: you choose |
-| there exists x | give a witness: you choose | get some x: you do not choose |
+- **For all x.** To prove it, you take an arbitrary x: you do not choose. To use it, you apply it to a particular x: you choose.
+- **There exists x.** To prove it, you give a witness: you choose. To use it, you get some x: you do not choose.
 
 ## Typing it yourself
 

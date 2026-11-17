@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NOT_SPLITTABLE } from "./explain.ts";
+import { NOT_AN_EXISTS, NOT_SPLITTABLE, explain } from "./explain.ts";
 import { parseGoal } from "./goals.ts";
 import { MOVES, contraName, misfit, introName, isMove, moveLine, obtainLine, oneLine, shapeOf } from "./moves.ts";
 
@@ -106,4 +106,10 @@ test("shapes the review found misread", () => {
   assert.deepEqual(shapeOf("P ∧ (∀ x, Q x ∨ R x)"), { kind: "and", left: "P", right: "∀ x, Q x ∨ R x" });
   assert.deepEqual(shapeOf("∃! n, P n"), { kind: "other" });
   assert.equal(contraName(parseGoal("⊢ False")), "h");
+});
+
+test("use is only offered to Lean for a there-exists goal", () => {
+  for (const goal of ["⊢ ∃ n, n * n = 49", "⊢ ∃ n > 10, Even n", "⊢ ∃ x y, x + y = 5"]) assert.equal(misfit(MOVES.use, parseGoal(goal)), null, goal);
+  for (const goal of ["⊢ 6 * 6 = 49", "⊢ P 11", "⊢ 12 > 10 ∧ Even 12"]) assert.equal(misfit(MOVES.use, parseGoal(goal)), NOT_AN_EXISTS, goal);
+  assert.match(explain(NOT_AN_EXISTS) ?? "", /Undo takes it back/);
 });

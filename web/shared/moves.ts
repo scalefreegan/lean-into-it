@@ -4,7 +4,7 @@
 //
 // Adding a move starts here; the board renders whatever is listed.
 
-import { NOT_SPLITTABLE } from "./explain.ts";
+import { NOT_AN_EXISTS, NOT_SPLITTABLE } from "./explain.ts";
 import { namesIn, type Goal } from "./goals.ts";
 
 export interface Move {
@@ -263,13 +263,16 @@ export function contraName(goal: Goal): string {
 /**
  * Why the board should not send this move to Lean on this goal, as a message
  * `explain` knows, or null. Only for a move Lean would accept and then do
- * something other than what the move's `does` says: `constructor` on a goal
- * that is not an "and" or an "if and only if".
+ * something other than what the move's `does` says, or refuse in words about
+ * its internals: `constructor` on a goal that is not an "and" or an "if and
+ * only if", `use` on a goal that is not a "there exists".
  */
 export function misfit(move: Move, goal: Goal): string | null {
-  if (move.id !== "constructor") return null;
   const kind = shapeOf(goal.target).kind;
-  return kind === "and" || kind === "iff" ? null : NOT_SPLITTABLE;
+  if (move.id === "constructor") return kind === "and" || kind === "iff" ? null : NOT_SPLITTABLE;
+  // After a witness is given, a second `use` only draws errors about Lean's internals.
+  if (move.id === "use") return kind === "exists" ? null : NOT_AN_EXISTS;
+  return null;
 }
 
 /** What was typed for a move, as one line with no way to start another. */

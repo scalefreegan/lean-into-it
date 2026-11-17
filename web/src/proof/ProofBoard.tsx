@@ -122,16 +122,17 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
   function pickMove(move: Move) {
     if (!now || busy) return;
     setRefusal(null);
-    if (move.needs === "fact" || move.needs === "text") {
-      setText("");
-      setPending((p) => (p?.id === move.id ? null : move));
-      return;
-    }
     const goal = now.goals[0] ?? { hypotheses: [], target: "" };
     const no = misfit(move, goal);
     if (no) {
+      setPending(null);
       setRefusal({ line: move.label, raw: no });
       setShake((n) => n + 1);
+      return;
+    }
+    if (move.needs === "fact" || move.needs === "text") {
+      setText("");
+      setPending((p) => (p?.id === move.id ? null : move));
       return;
     }
     void play(moveLine(move, goal));

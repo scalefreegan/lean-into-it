@@ -33,7 +33,8 @@ Landed in the first PR, the foundation slice:
   `obtain` (writes the pattern and names for the fact's shape), `left`,
   `right`, `exfalso`, `contradiction`, `by_contra`, `use` (the witness is
   typed). A move that Lean accepts but that changes nothing is refused as
-  such, and `constructor` is only sent to Lean for an and or an iff.
+  such, and `constructor` is only sent to Lean for an and or an iff, `use` only for a
+  there-exists.
 - Path page (home): levels, lessons and what has been completed.
 - Lesson page.
 - Proof board: hypothesis and goal cards, clickable moves, "Lean written so far".
@@ -55,7 +56,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 99, including every reference solution checked by the real Lean,
+- Tests: 100, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

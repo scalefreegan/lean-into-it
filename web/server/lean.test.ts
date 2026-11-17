@@ -7,7 +7,7 @@ import { attemptCount, ensureLearner, solvedFor } from "../../scripts/db/progres
 import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { CheckReply, CheckRequest, PlaygroundReply } from "../shared/wire.ts";
 import { explain } from "../shared/explain.ts";
-import { MOVES, moveLine } from "../shared/moves.ts";
+import { MOVES, misfit, moveLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, toBody } from "../shared/proof.ts";
 import { checkExercise, handleCheck, handlePlayground } from "./check.ts";
 import { setDb, type Db } from "./db.ts";
@@ -91,6 +91,7 @@ test("every board solution is what the board's own clicks write, against the goa
         assert.ok(move && e.moves.includes(move.id), `${l.id}/${e.id}: "${want}" is not a move this exercise offers`);
         const state = await checkExercise(leanServer(), e, solution.slice(0, i).join("\n"));
         const arg = move.id === "obtain" ? want.split(":= ")[1] : move.needs === "fact" || move.needs === "text" ? want.slice(move.label.length + 1) : undefined;
+        assert.equal(misfit(move, state.goals[0]), null, `${l.id}/${e.id} line ${i + 1}: the board would refuse "${want}"`);
         assert.equal(moveLine(move, state.goals[0], arg), want, `${l.id}/${e.id} line ${i + 1}`);
         lines++;
       }
@@ -105,7 +106,6 @@ test("refusals a learner can reach on the board get a plain sentence, from Lean'
     ["logic-1-there-exists", "pass-it-on", "obtain ⟨h1, h2⟩ := hPQ", /^hPQ says “∀ \(n : ℕ\), P n → Q n”, which has no parts/],
     ["logic-1-there-exists", "a-square", "use -7", /no negative numbers/],
     ["logic-1-there-exists", "a-square", "use 2.5", /decimal point/],
-    ["logic-1-there-exists", "a-square", "use 6\nuse 7", /Undo takes it back/],
     ["logic-1-there-exists", "from-a-fact", "use h4", /^h4 is a fact/],
     ["logic-1-iff", "forwards", "apply h", /Take it apart with obtain first/],
     ["logic-1-not", "anything", "apply hnP", /hnP ends in “False”, but the goal is “Q”/],
