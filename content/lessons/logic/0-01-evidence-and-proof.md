@@ -56,7 +56,7 @@ Take a whole number n and work out n² + n + 41.
 
 It keeps going. So here is a claim: **for every whole number n, the number n² + n + 41 is prime.**
 
-Check a case yourself. The box below is a **proof board**. The amber card is the **goal**: the statement to be shown, written the way Lean writes it after the symbol `⊢`. `Nat.Prime` means "is a prime number" and `5 ^ 2` means 5². There are no facts to start from here, so that part of the board is empty. The next lesson goes through the board properly.
+Check a case yourself. The box below is a **proof board**. The amber card is the **goal**: the statement to be shown, written the way Lean writes it after the symbol `⊢`. `Nat.Prime` means "is a prime number" and `5 ^ 2` means 5². There are no facts to start from here, so that part of the board says "None yet". The next lesson goes through the board properly.
 
 The button is a **move**. This one, **norm_num**, tells Lean to calculate. Click it.
 
@@ -96,14 +96,14 @@ You have just proved that the claim "for every n, n² + n + 41 is prime" is **fa
 
 Forty cases is not many. But there is no number of cases that makes you safe.
 
-In 1919 George Pólya noticed a pattern in how numbers factor into primes, and it became known as the Pólya conjecture. It holds for every number you are ever likely to try by hand or by a short program. It is false. In 1958 it was shown that it must fail somewhere, and the first number at which it does was later found to be 906,150,257.
+In 1919 George Pólya noticed a pattern in how numbers factor into primes, and it became known as the Pólya conjecture. It holds for every number below 906,150,257. It is false. In 1958 it was shown that it must fail somewhere, and the first number at which it does, 906,150,257, was found later.
 
 Other claims have been checked much further than that and are still open. The claim from the top of this page, that every even number bigger than 2 is the sum of two primes, is called Goldbach's conjecture. Computers have confirmed it for every even number up to 4,000,000,000,000,000,000. Nobody knows whether it is true.
 
 So a claim can be in one of three states:
 
 - **Proved.** There is an argument that covers every case at once.
-- **Refuted.** Someone found a counterexample.
+- **Refuted.** Someone found a counterexample, or showed that there has to be one.
 - **Open.** Neither has happened yet, however much evidence has piled up.
 
 ## So what is a proof?

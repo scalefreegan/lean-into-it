@@ -31,6 +31,14 @@ exercises:
     moves: [rfl]
     solution: |
       rfl
+  - id: decimals
+    title: Where rfl stops
+    mode: board
+    says: "As real numbers, 2.5 + 2.5 = 5."
+    statement: ": (2.5 : ℝ) + 2.5 = 5"
+    moves: [rfl, norm_num]
+    solution: |
+      norm_num
   - id: which-move
     title: Which move?
     mode: board
@@ -92,7 +100,13 @@ You have now met two moves that calculate, and they are not the same.
 - **rfl** works both sides out by their definitions and needs them to come out identical. It is the simplest reason an equation can be true. It can only do this where there is something to compute: with whole numbers, yes; with real numbers, no, because a real number is not something Lean can work out digit by digit.
 - **norm_num** uses facts about numbers that have already been proved. It handles more: real numbers, inequalities such as 3 < 5, and questions such as whether a number is prime.
 
-So `2 + 2 = 4` about real numbers is true, and **norm_num** proves it, but **rfl** does not. When a goal is a calculation and **rfl** refuses it, **norm_num** is the move to try.
+See it happen. The numbers below are real numbers, which is why they can have a decimal point. Try **rfl** first and read what Lean says, then finish with **norm_num**.
+
+```exercise
+id: decimals
+```
+
+When a goal is a calculation and **rfl** refuses it, **norm_num** is the move to try.
 
 ## Computing is not always enough
 

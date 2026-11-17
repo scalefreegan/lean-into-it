@@ -27,7 +27,7 @@ export function explain(message: string): string | null {
     return "rfl finishes a goal of the form A = B. This goal is not an equation.";
   }
   if (message === UNCHANGED) {
-    return "Lean accepted it, but it left the facts and the goal exactly as they were, so it gets you no further.";
+    return "Lean accepted it, but it left the facts and the goal exactly as they were.";
   }
   if (/^Tactic `introN?` failed: There are no additional binders/.test(first)) {
     return "There is nothing to assume here: intro only works when the goal is an “if… then” or a “for all”.";

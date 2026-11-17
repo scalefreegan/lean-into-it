@@ -25,7 +25,7 @@ levels:
   - id: 1
     title: Logic you can see
     summary: And, or, not, if-then, for-all and there-exists, each with the moves that prove it and the moves that use it.
-    moves: [intro, apply, exact, constructor, cases, left, right, use, obtain, by_contra]
+    moves: [intro, apply, constructor, cases, left, right, use, obtain, by_contra]
     topics:
       - "And: proving both parts, using either part"
       - "Or: choosing a side, arguing by cases"

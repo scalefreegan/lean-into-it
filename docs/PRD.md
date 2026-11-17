@@ -129,7 +129,7 @@ Fully written for v1:
   exists; proof by cases; proof by contradiction and where classical logic
   comes in; truth tables against proofs. `lean`: reading a goal state;
   propositions as types and proofs as terms.
-  Moves: `intro`, `apply`, `exact`, `constructor`, `cases` (and `obtain`),
+  Moves: `intro`, `apply`, `constructor`, `cases` (and `obtain`),
   `left`, `right`, `use`, `by_contra`, `contradiction`, `exfalso`.
 - **Level 2 — Numbers and induction.**
   `math`: the natural numbers as zero and successor; equality and rewriting;
@@ -147,7 +147,7 @@ Fully written for v1:
   and the triangle inequality; functions, graphs, composition, monotone and
   bounded. `lean`: structured proofs with `have` and `calc`; when
   automation is the honest answer and when it hides the idea.
-  Moves: `ring`, `linarith`, `nlinarith`, `norm_num`, `positivity`,
+  Moves: `ring`, `linarith`, `nlinarith`, `positivity`,
   `field_simp`, `gcongr`, `have`, `calc`.
 
 Proof-craft lessons run through Levels 0–3: try small examples first; guess

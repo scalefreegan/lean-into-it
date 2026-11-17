@@ -63,7 +63,7 @@ The move for that is **exact**. Click **exact**, then click the fact.
 id: first
 ```
 
-That was a complete proof, checked by Lean. It is not a deep one. But look at what it wrote underneath: `exact hP`. That one line is the proof, in Lean's own language, the same line you would type.
+That was a complete proof, checked by Lean. It is not a deep one. But look at the part of the board headed **Lean written so far**. Its first line, beginning `example`, is the claim in Lean's own language: `example … := by` reads "here is a claim, and it is proved by the following". Under it is the line your click wrote, `exact hP`. That one line is the proof, the same line you would type.
 
 ## The fact has to match
 
@@ -94,4 +94,4 @@ id: about-a-real
 - The proof state: the things being talked about, the facts you have, and the goal.
 - `exact h` finishes the goal when the fact `h` says exactly what the goal says.
 
-So far the goal has always been sitting among the facts. From Level 1 on it will not be, and the moves you learn will each change the board, a step at a time, until it is.
+In this lesson the goal was always sitting among the facts. From Level 1 on it usually will not be, and the moves you learn will each change the board, a step at a time, until it is.

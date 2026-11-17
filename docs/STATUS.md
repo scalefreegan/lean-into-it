@@ -23,7 +23,7 @@ Landed in the first PR, the foundation slice:
   checks proofs through it behind `/api/check`.
 - Content loader for `content/curriculum.yaml` and `content/lessons/<track>/*.md`.
 - Level 0 written in full (`lii-dvy.1`): "Evidence is not proof", "Facts and
-  a goal", "What Lean checks"; twelve exercises, all by clicking. One Level 1
+  a goal", "What Lean checks"; thirteen exercises, all by clicking. One Level 1
   lesson ("If… then", on implication). Everything else is outlined.
 - Board moves: `exact`, `rfl`, `norm_num`, `intro`, `apply`. A move that Lean
   accepts but that changes nothing is refused as such.
@@ -39,7 +39,7 @@ Landed in the first PR, the foundation slice:
   changes Lean's settings or tries to write commands of its own is refused
   with the reason (`lii-1ou.1`).
 - A move Lean refuses is explained in plain words, with Lean's own message
-  one click away (covers `intro`, `apply`, `exact`).
+  one click away (covers `intro`, `apply`, `exact`, `rfl`).
 - Symbol shortcuts in the editor (`\to` then a space gives `→`).
 - Attempts and exercise and lesson completion stored in Postgres
   (`lean_into_it`, one implicit learner, no login) and shown on the Path.
@@ -112,6 +112,7 @@ land first.
 | `lii-zjf.3` | Level unlocks | 2 | `lii-zjf.1` |
 | `lii-zjf.4` | Placement check | 2 | `lii-zjf.1`, `lii-zjf.3` |
 | `lii-zjf.5` | Database backup script | 3 | `lii-2zf.3` |
+| `lii-zjf.6` | Record a board move that changed nothing as an attempt | 3 | |
 
 ### Tutor (epic `lii-2zo`)
 

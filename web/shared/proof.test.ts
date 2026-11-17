@@ -186,17 +186,35 @@ test("a body of comments only is an empty proof: sent with the placeholder, neve
   assert.equal(judge([], "-- thinking").solved, false);
 });
 
-test("an error past the end of the body is put on the body's last line", () => {
+test("an error past the end of the body is put on a line of the body", () => {
   const body = "apply hPQ\nexact (hP"; // source lines 4 and 5; Lean stumbles at the axiom line, 8
   assert.deepEqual(toBody([at(8, "unexpected token '#print'; expected ')'")], body), [{ severity: "error", message: "unexpected token '#print'; expected ')'", line: 1 }]);
 });
 
-test("a bracket left open is blamed on its own line, not on a later line that is fine", () => {
-  const late = at(9, "unexpected token '#print'; expected ')'");
-  assert.equal(toBody([late], "apply (hPQ\nexact hP")[0].line, 0);
-  assert.equal(toBody([late], "exact (hPQ hP\n-- a note")[0].line, 0);
-  assert.equal(toBody([late], "intro h\nexact f (g x) (h\n")[0].line, 1);
-  assert.equal(toBody([late], "exact ⟨a, b")[0].line, 0);
-  // Nothing open that this can see: the last line with code on it.
-  assert.equal(toBody([late], "intro h\nexact h |>.\n-- note")[0].line, 1);
+test("something left open is blamed on the line that opened it, with the messages Lean really gives", () => {
+  // Each message and source line below is what Lean 4.36 reported for that body.
+  const blamed = (body: string, sourceLine: number, message: string) => toBody([at(sourceLine, message)], body)[0].line;
+  const PRINT = "unexpected token '#print'; expected ')'";
+  // A round bracket: Lean notices at the axiom line, past the body.
+  assert.equal(blamed("apply (hPQ\nexact hP", 9, PRINT), 0);
+  assert.equal(blamed("exact (hPQ hP\n-- a note", 9, PRINT), 0);
+  // The last one still open, not the first; one that was closed is not blamed.
+  assert.equal(blamed("exact (f x)\nintro h\nexact g (h", 10, PRINT), 2);
+  assert.equal(blamed("apply (f\nexact (g\n  x)", 10, PRINT), 0);
+  // A bracket inside a string or a comment is not a bracket.
+  assert.equal(blamed('have s := "("\nexact (h', 9, PRINT), 1);
+  assert.equal(blamed("intro h -- (\nexact (h", 9, PRINT), 1);
+  // The other kinds: Lean notices on the body's last line, at the bracket the body sits in.
+  assert.equal(blamed("have h : P ∧ P := ⟨hP, hP\napply hPQ\nexact hP", 6, "unexpected token ')'; expected '⟩'"), 0);
+  assert.equal(blamed("simp only [hP\napply hPQ\nexact hP", 6, "unexpected token ')'; expected ']'"), 0);
+  assert.equal(blamed("have h : P := by {\n  exact hP\napply hPQ\nexact h", 5, "unexpected identifier; expected '}'"), 0);
+  // A bracket closed by the wrong kind of bracket was never closed.
+  assert.equal(blamed("apply hPQ\nexact (f ⟨hP, hP)", 5, "unexpected token ')'; expected '⟩'"), 1);
+  // Nothing open: the error stays where Lean put it, or on the last line with code.
+  assert.equal(blamed("apply hPQ\nexact hP +", 5, "unexpected token ')'; expected term"), 1);
+  assert.equal(blamed("intro h\nexact h\n-- note", 9, "unexpected token '#print'; expected term"), 1);
+  // A comment never closed is blamed on the line where it starts.
+  assert.equal(blamed("apply hPQ\n/- never closed\nexact hP", 10, "unterminated comment"), 1);
+  // An ordinary error is left on its own line.
+  assert.equal(blamed("apply (hPQ)\nexact hPQ", 5, "Type mismatch"), 1);
 });
