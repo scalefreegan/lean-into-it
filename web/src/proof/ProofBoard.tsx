@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
-import { explain } from "../../shared/explain.ts";
+import { UNCHANGED, explain } from "../../shared/explain.ts";
 import { namesIn, type Goal } from "../../shared/goals.ts";
 import { MOVES, moveLine, type Move } from "../../shared/moves.ts";
 import { ApiError, check } from "../api/client.ts";
@@ -101,7 +101,14 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
         return;
       }
       if (reply.refusal) {
-        setTrouble(reply.refusal);
+        setRefusal({ line, raw: reply.refusal });
+        setShake((n) => n + 1);
+        return;
+      }
+      // A move Lean accepts but that leaves everything as it was is not a step.
+      if (!reply.solved && JSON.stringify(reply.goals) === JSON.stringify(now.goals)) {
+        setRefusal({ line, raw: UNCHANGED });
+        setShake((n) => n + 1);
         return;
       }
       setHistory((h) => [...h, { lines, goals: reply.goals }]);
@@ -159,7 +166,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
     // On a wide screen the proof state is on the left and the moves and the
     // Lean they write are beside it; on a narrow one they stack.
     <div data-board={exercise.id} className="overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-sm lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <div key={shake} className={cx("p-4 sm:p-5", shake > 0 && refusal && "refused")}>
+      <div key={shake} className={cx("min-w-0 p-4 sm:p-5", shake > 0 && refusal && "refused")}>
         {trouble ? (
           <Notice tone="warn">{trouble}</Notice>
         ) : !now ? (
@@ -197,7 +204,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
             ))}
           </div>
           <p className="mt-2 min-h-5 text-sm text-fg-2">{pending ? (pending.prompt ?? "Click a fact.") : busy ? "Lean is checking…" : "Pick a move. Hover over one to see what it does."}</p>
-          {refusal && <Refusal className="mt-2" plain={`“${refusal.line}” does not work here. ${explain(refusal.raw) ?? ""}`.trim()} raw={refusal.raw} />}
+          {refusal && <Refusal className="mt-2" plain={`“${refusal.line}” ${refusal.raw === UNCHANGED ? "gets you no further here." : "does not work here."} ${explain(refusal.raw) ?? ""}`.trim()} raw={refusal.raw} />}
         </div>
       )}
 

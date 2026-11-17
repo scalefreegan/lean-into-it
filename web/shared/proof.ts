@@ -70,8 +70,14 @@ export function bodyLines(body: string): string[] {
  */
 export function assemble(statement: string, body: string): string {
   const lines = bodyLines(body);
-  const shown = lines.length ? lines : [PLACEHOLDER];
+  // Comments alone are not a tactic block: the placeholder goes in front of them.
+  const shown = !lines.length ? [PLACEHOLDER] : isBlank(body) ? [`${PLACEHOLDER} ${lines[0]}`, ...lines.slice(1)] : lines;
   return `${HEADER}theorem ${THEOREM} ${statement.replace(/\s+/g, " ").trim()} := by\n  (\n${shown.map((l) => INDENT + l).join("\n")}\n  )\n\n#print axioms ${THEOREM}\n`;
+}
+
+/** True when a body has no tactic in it: nothing at all, or only comments. */
+export function isBlank(body: string): boolean {
+  return !lex(body).code.trim();
 }
 
 /** The source line of the axiom report: after the body, the closing bracket and a blank. */
@@ -87,7 +93,7 @@ export function toSource(p: Position): Position {
 /** The end of the proof: after the last tactic, where Lean reports what is left. */
 export function endOfBody(body: string): Position {
   const lines = bodyLines(body);
-  if (!lines.length) return { line: 0, character: PLACEHOLDER.length };
+  if (isBlank(body)) return { line: 0, character: PLACEHOLDER.length };
   return { line: lines.length - 1, character: lines[lines.length - 1].length };
 }
 
@@ -102,7 +108,7 @@ const CHAR_LITERAL = /^'(\\(x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|.)|[^\\'\n])'/;
  * Where this and Lean could disagree it errs toward seeing more code, never
  * less: the worst a disagreement does is refuse a proof.
  */
-export function lex(body: string): { code: string; bare: string } {
+export function lex(body: string): { code: string; bare: string; openComment: number | null } {
   const text = body.replace(/\r/g, "");
   const code = [...text];
   const bare = [...text];
@@ -111,6 +117,8 @@ export function lex(body: string): { code: string; bare: string } {
     for (let k = from; k < to && k < text.length; k++) if (text[k] !== "\n") for (const o of outs) o[k] = " ";
   };
   let i = 0;
+  // Where a block comment that is never closed starts, if there is one.
+  let openComment: number | null = null;
   while (i < text.length) {
     const c = text[i];
     const next = text[i + 1];
@@ -128,6 +136,7 @@ export function lex(body: string): { code: string; bare: string } {
         else if (two === "-/") depth--;
         j += two === "/-" || two === "-/" ? 2 : 1;
       }
+      if (depth > 0) openComment = i;
       blank(i, j, [code, bare]);
       i = j;
     } else if (c === "r" && (i === 0 || !IDENT_CHAR.test(text[i - 1])) && /^r#*"/.test(text.slice(i, i + 40))) {
@@ -150,7 +159,7 @@ export function lex(body: string): { code: string; bare: string } {
       } else i++;
     } else i++;
   }
-  return { code: code.join(""), bare: bare.join("") };
+  return { code: code.join(""), bare: bare.join(""), openComment };
 }
 
 /** Ways a tactic block can run a program or change Lean's settings instead of proving. */
@@ -245,17 +254,62 @@ export function isLinterRemark(d: { severity: string; message: string }): boolea
   return d.severity !== "error" && LINTER_FOOTER.test(d.message);
 }
 
+const CLOSER: Record<string, string> = { "(": ")", "[": "]", "{": "}", "⟨": "⟩" };
+const OPENER: Record<string, string> = { ")": "(", "]": "[", "}": "{", "⟩": "⟨" };
+
+/** Brackets in a body that are opened and never closed, in order, each with its line. */
+function unclosed(bare: string): { bracket: string; line: number }[] {
+  const stack: { bracket: string; line: number }[] = [];
+  const left: { bracket: string; line: number }[] = [];
+  let line = 0;
+  for (const c of bare) {
+    if (c === "\n") line++;
+    else if (c in CLOSER) stack.push({ bracket: c, line });
+    else if (c in OPENER) {
+      // Close the nearest bracket of this kind; anything opened inside it was never closed.
+      let k = stack.length - 1;
+      while (k >= 0 && stack[k].bracket !== OPENER[c]) k--;
+      if (k >= 0) left.push(...stack.splice(k).slice(1));
+    }
+  }
+  return [...left, ...stack].sort((x, y) => x.line - y.line);
+}
+
+/**
+ * The body line a diagnostic belongs to. Lean reports something left open
+ * where it finally gives up, which is often a later line that is fine, or
+ * past the end of the body (the bracket the body sits in, the axiom line).
+ * The learner needs the line that left it open.
+ */
+function blame(message: string, line: number, body: string): number {
+  const lines = bodyLines(body);
+  const count = Math.max(lines.length, 1);
+  const { code, bare, openComment } = lex(lines.join("\n"));
+  const open = unclosed(bare);
+  // "expected ')'" and the like: the last bracket of that kind still open.
+  const wanted = /expected '([)\]}⟩])'/.exec(message.split("\n")[0]);
+  if (wanted) {
+    const of = open.filter((o) => o.bracket === OPENER[wanted[1]]);
+    if (of.length) return of[of.length - 1].line;
+  }
+  if (line < count) return line;
+  if (/^unterminated comment/.test(message) && openComment !== null) return lines.join("\n").slice(0, openComment).split("\n").length - 1;
+  if (open.length) return open[open.length - 1].line;
+  const codeLines = code.split("\n");
+  for (let i = codeLines.length - 1; i >= 0; i--) if (codeLines[i].trim()) return i;
+  return 0;
+}
+
 /** Lean's diagnostics in body coordinates, without the linters' remarks
  *  (a learner's spacing and unused names are not the lesson) and without
  *  the axiom report, which `axiomsOf` reads. */
 export function toBody(diagnostics: Diagnostic[], body: string): BodyDiagnostic[] {
-  const count = Math.max(bodyLines(body).length, 1);
   const audit = auditLine(body);
   return diagnostics
     .filter((d) => !isLinterRemark(d) && !(d.severity === "info" && d.start.line === audit))
     .map((d) => {
       const line = d.start.line - BODY_LINE;
-      return { severity: d.severity, message: d.message, line: line >= 0 && line < count ? line : null };
+      return { severity: d.severity, message: d.message, line: line < 0 ? null : blame(d.message, line, body) };
     });
 }
 
@@ -298,7 +352,7 @@ export function judge(diagnostics: BodyDiagnostic[], body: string, forbid: strin
   const unfinished = !error && errors.some((d) => UNSOLVED.test(d.message));
   const sorry = diagnostics.some((d) => USES_SORRY.test(d.message));
   const forbidden = forbiddenIn(body, forbid);
-  const empty = bodyLines(body).length === 0;
+  const empty = isBlank(body);
   const escapes = escapesIn(body);
   const clean = !empty && errors.length === 0 && !sorry;
   const extra = (axioms ?? []).filter((a) => !ALLOWED_AXIOMS.includes(a));

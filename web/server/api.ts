@@ -87,6 +87,11 @@ export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: bool
   return {
     name: "lean-into-it-api",
     apply: "serve",
+    // Vite closes the old server when it restarts itself (a server file was
+    // edited). Without this each restart left a Lean, holding Mathlib, behind.
+    closeBundle() {
+      leanServer().close();
+    },
     configureServer(server) {
       // The curriculum, re-read from content/ on every request, so an edit
       // is live at once.
@@ -101,7 +106,7 @@ export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: bool
       // envelope the client already parses instead of index.html.
       server.middlewares.use("/api", wrap((_req, res) => sendJson(res, 404, { error: "no such route" })));
       // Lean is a child process; it must not outlive the dev server.
-      server.httpServer?.once("close", () => leanServer().stop());
+      server.httpServer?.once("close", () => leanServer().close());
       if (opts.warm !== false) warmLean();
       // The boot check: Vite awaits this hook, so a database that is
       // missing, down or behind on migrations stops `npm run dev` with

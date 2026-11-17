@@ -20,6 +20,18 @@ export interface Move {
 }
 
 export const MOVES: Record<string, Move> = {
+  rfl: {
+    id: "rfl",
+    label: "rfl",
+    needs: "none",
+    does: "Finish an equation whose two sides are the same thing once worked out, like 2 + 2 = 4.",
+  },
+  norm_num: {
+    id: "norm_num",
+    label: "norm_num",
+    needs: "none",
+    does: "Calculate. Settles a claim about particular numbers, such as an equation or whether a number is prime, by working it out.",
+  },
   intro: {
     id: "intro",
     label: "intro",

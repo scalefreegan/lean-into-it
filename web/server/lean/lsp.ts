@@ -95,6 +95,7 @@ export class LeanServer {
   private bootTimeoutMs: number;
   private proc: ChildProcessWithoutNullStreams | null = null;
   private starting: Promise<void> | null = null;
+  private closed = false;
   /** Bumped by every stop: what was opened or queued before it is stale. */
   private generation = 0;
   private nextId = 1;
@@ -143,7 +144,15 @@ export class LeanServer {
     proc?.kill("SIGKILL");
   }
 
+  /** Stop for good: unlike stop(), no later check starts a server again.
+   *  For a dev server that is going away; its waiting checks are refused. */
+  close(): void {
+    this.closed = true;
+    this.stop();
+  }
+
   private start(): Promise<void> {
+    if (this.closed) return Promise.reject(new LeanUnavailable("the Lean server was shut down"));
     if (!this.starting) {
       const starting: Promise<void> = this.boot().catch((e) => {
         // Only a boot that is still the current one may stop the server: a

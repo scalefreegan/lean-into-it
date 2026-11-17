@@ -31,3 +31,9 @@ test("a move writes one line of Lean", () => {
   assert.equal(moveLine(MOVES.apply, goal, "hPQ"), "apply hPQ");
   assert.equal(moveLine(MOVES.exact, goal, "hPQ"), "exact hPQ");
 });
+
+test("a move that needs nothing writes just its name", () => {
+  const goal = parseGoal("⊢ 2 + 2 = 4");
+  assert.equal(moveLine(MOVES.rfl, goal), "rfl");
+  assert.equal(moveLine(MOVES.norm_num, goal), "norm_num");
+});

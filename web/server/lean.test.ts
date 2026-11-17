@@ -249,3 +249,24 @@ test("the Playground reports everything Lean says, linters' remarks included, an
   assert.ok(reply.diagnostics.some((d) => d.severity === "info" && d.line === 4), "the #check answer is there too");
   assert.equal("solved" in reply, false);
 });
+
+test("a refused body is never handed to Lean", async () => {
+  // No Lean needed: one that is asked anything fails the test.
+  const never = { check: () => Promise.reject(new Error("Lean was asked")) } as unknown as ReturnType<typeof leanServer>;
+  for (const body of ["run_tac foo", "exact hP\n#eval 1", "exact hP\n)\nexample : True := (trivial", "set_option maxRecDepth 9 in\nexact hP"]) {
+    const reply = await checkExercise(never, exercise("use-it"), body);
+    assert.equal(reply.solved, false, body);
+    assert.ok(reply.refusal, body);
+  }
+  await assert.rejects(checkExercise(never, exercise("use-it"), "exact hP"), /Lean was asked/);
+});
+
+test("a bracket left open, and a body of comments only, are unfinished proofs with their goals shown", { skip }, async () => {
+  const open = await checkExercise(leanServer(), exercise("use-it"), "exact (hPQ hP");
+  assert.equal(open.solved, false);
+  assert.equal(open.error?.line, 0);
+  const comment = await checkExercise(leanServer(), exercise("use-it"), "-- thinking");
+  assert.equal(comment.solved, false);
+  assert.equal(comment.error, null, JSON.stringify(comment.diagnostics));
+  assert.equal(comment.goals[0]?.target, "Q");
+});

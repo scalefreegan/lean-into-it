@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assemble, axiomsOf, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, toBody, toSource, type BodyDiagnostic, type Diagnostic } from "./proof.ts";
+import { assemble, axiomsOf, isBlank, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, toBody, toSource, type BodyDiagnostic, type Diagnostic } from "./proof.ts";
 
 /** judge with nothing forbidden and Lean's report that no axiom is used, unless said otherwise. */
 const judge = (diagnostics: BodyDiagnostic[], body: string, forbid: string[] = [], axioms: string[] | null = []) => judgeWith(diagnostics, body, forbid, axioms);
@@ -160,4 +160,61 @@ test("solved needs the axiom report, and only the axioms of ordinary mathematics
   // An unfinished or wrong proof rests on sorryAx too; that is said as what it is, not as an axiom.
   const unfinished = judge([{ severity: "error", message: "unsolved goals\n⊢ P", line: null }], "apply h", [], ["sorryAx"]);
   assert.deepEqual([unfinished.solved, unfinished.unfinished, unfinished.refusal], [false, true, null]);
+});
+
+test("each way to run a program is refused by name", () => {
+  for (const word of ["run_tac", "run_cmd", "run_elab", "run_meta", "by_elab", "set_option", "native_decide", "unsafe"]) {
+    assert.deepEqual(escapesIn(`exact hP\n${word} foo`).map((e) => `${e.line}:${e.name}`), [`1:${word}`], word);
+  }
+  assert.deepEqual(escapesIn("exact «run» h").map((e) => e.name), ["«»"]);
+});
+
+test("a quote after a name, and an r after a name, do not start a literal", () => {
+  // h' is a name: the bracket after it is real, not the inside of a character ')'.
+  assert.equal(lex("h')' y").bare, "h')' y");
+  assert.deepEqual(escapesIn("exact h')' y").map((e) => e.name), [")"]);
+  // bar"…" is the name bar and an ordinary string, where \" does not end it.
+  assert.equal(lex('bar"\\" )').bare, "bar" + " ".repeat(5));
+  assert.equal(lex('r"\\" )').bare, " ".repeat(5) + ")");
+});
+
+test("a body of comments only is an empty proof: sent with the placeholder, never solved", () => {
+  assert.equal(isBlank("-- thinking\n/- a plan -/"), true);
+  assert.equal(isBlank("exact hP -- done"), false);
+  assert.match(assemble("(P : Prop) : P", "-- thinking"), /\n {4}skip -- thinking\n {2}\)\n/);
+  assert.deepEqual(endOfBody("-- thinking"), { line: 0, character: 4 });
+  assert.equal(judge([], "-- thinking").solved, false);
+});
+
+test("an error past the end of the body is put on a line of the body", () => {
+  const body = "apply hPQ\nexact (hP"; // source lines 4 and 5; Lean stumbles at the axiom line, 8
+  assert.deepEqual(toBody([at(8, "unexpected token '#print'; expected ')'")], body), [{ severity: "error", message: "unexpected token '#print'; expected ')'", line: 1 }]);
+});
+
+test("something left open is blamed on the line that opened it, with the messages Lean really gives", () => {
+  // Each message and source line below is what Lean 4.36 reported for that body.
+  const blamed = (body: string, sourceLine: number, message: string) => toBody([at(sourceLine, message)], body)[0].line;
+  const PRINT = "unexpected token '#print'; expected ')'";
+  // A round bracket: Lean notices at the axiom line, past the body.
+  assert.equal(blamed("apply (hPQ\nexact hP", 9, PRINT), 0);
+  assert.equal(blamed("exact (hPQ hP\n-- a note", 9, PRINT), 0);
+  // The last one still open, not the first; one that was closed is not blamed.
+  assert.equal(blamed("exact (f x)\nintro h\nexact g (h", 10, PRINT), 2);
+  assert.equal(blamed("apply (f\nexact (g\n  x)", 10, PRINT), 0);
+  // A bracket inside a string or a comment is not a bracket.
+  assert.equal(blamed('have s := "("\nexact (h', 9, PRINT), 1);
+  assert.equal(blamed("intro h -- (\nexact (h", 9, PRINT), 1);
+  // The other kinds: Lean notices on the body's last line, at the bracket the body sits in.
+  assert.equal(blamed("have h : P ∧ P := ⟨hP, hP\napply hPQ\nexact hP", 6, "unexpected token ')'; expected '⟩'"), 0);
+  assert.equal(blamed("simp only [hP\napply hPQ\nexact hP", 6, "unexpected token ')'; expected ']'"), 0);
+  assert.equal(blamed("have h : P := by {\n  exact hP\napply hPQ\nexact h", 5, "unexpected identifier; expected '}'"), 0);
+  // A bracket closed by the wrong kind of bracket was never closed.
+  assert.equal(blamed("apply hPQ\nexact (f ⟨hP, hP)", 5, "unexpected token ')'; expected '⟩'"), 1);
+  // Nothing open: the error stays where Lean put it, or on the last line with code.
+  assert.equal(blamed("apply hPQ\nexact hP +", 5, "unexpected token ')'; expected term"), 1);
+  assert.equal(blamed("intro h\nexact h\n-- note", 9, "unexpected token '#print'; expected term"), 1);
+  // A comment never closed is blamed on the line where it starts.
+  assert.equal(blamed("apply hPQ\n/- never closed\nexact hP", 10, "unterminated comment"), 1);
+  // An ordinary error is left on its own line.
+  assert.equal(blamed("apply (hPQ)\nexact hPQ", 5, "Type mismatch"), 1);
 });

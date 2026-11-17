@@ -101,8 +101,10 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
             <Closed>
               <strong>No goals left.</strong> Lean accepts this proof.
             </Closed>
-          ) : reply?.refusal && goals.length === 0 ? (
-            <div className="py-6 text-sm text-fg-3">Lean was not asked about this proof. The note below says why.</div>
+          ) : goals.length === 0 ? (
+            // No goal here, yet Lean has not accepted the proof: it could not be
+            // read this far, or was refused, or another case is still open.
+            <div className="py-6 text-sm text-fg-3">{reply?.refusal ? "This proof is not accepted. The note below says why." : "Nothing to show at this point, but the proof is not finished yet."}</div>
           ) : (
             <GoalView goals={goals} />
           )}

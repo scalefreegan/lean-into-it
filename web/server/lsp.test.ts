@@ -103,3 +103,14 @@ test("a folder with no Lean project is a reason, not a hang", async () => {
   await assert.rejects(lean.check("exercise", "example : True := trivial\n"), (e: Error) => e instanceof LeanUnavailable && /lean:setup/.test(e.message));
   lean.stop();
 });
+
+test("a closed server stays closed: a check that was waiting does not start Lean again", { skip }, async (t) => {
+  const lean = new LeanServer();
+  // Were the guard ever lost, this keeps the test from leaving a Lean running.
+  t.after(() => lean.stop());
+  const waiting = lean.check("exercise", source("exact hP"), []);
+  waiting.catch(() => {});
+  lean.close();
+  await assert.rejects(waiting, LeanUnavailable);
+  await assert.rejects(lean.check("exercise", source("exact hP"), []), (e: Error) => e instanceof LeanUnavailable && /shut down/.test(e.message));
+});
