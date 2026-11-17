@@ -54,7 +54,7 @@ export function Playground() {
   const goals = live.reply?.cursorGoals ?? null;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4">
+    <div className="mx-auto flex max-w-[1440px] flex-col gap-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-4xl font-semibold text-fg">Playground</h1>

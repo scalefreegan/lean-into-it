@@ -17,7 +17,7 @@ export function Lesson({ id }: { id: string }) {
   const lesson = content.lessons[index];
   if (!lesson) {
     return (
-      <div className="mx-auto max-w-3xl">
+      <div className="mx-auto max-w-[1440px]">
         <Notice tone="warn">
           There is no lesson called “{id}”. <a className="font-semibold text-accent underline" href={href("home")}>Back to the Path</a>
         </Notice>
@@ -30,7 +30,7 @@ export function Lesson({ id }: { id: string }) {
   const track = content.tracks.find((t) => t.id === lesson.track);
 
   return (
-    <article className="mx-auto flex max-w-3xl flex-col gap-6" data-lesson-page={lesson.id}>
+    <article className="mx-auto flex max-w-[1440px] flex-col gap-6" data-lesson-page={lesson.id}>
       <header>
         <p className="text-sm text-fg-3">
           <a className="text-accent underline-offset-2 hover:underline" href={href("home")}>
@@ -44,7 +44,14 @@ export function Lesson({ id }: { id: string }) {
       </header>
 
       {lesson.blocks.map((block, i) => {
-        if (block.type === "prose") return <Markdown key={i} source={block.markdown} />;
+        if (block.type === "prose") {
+          // Running text keeps a readable line length; the proofs below it use the full width.
+          return (
+            <div key={i} className="max-w-3xl">
+              <Markdown source={block.markdown} />
+            </div>
+          );
+        }
         const exercise = lesson.exercises.find((e) => e.id === block.id);
         if (!exercise) return null;
         return (
