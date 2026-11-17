@@ -66,6 +66,30 @@ export function explain(message: string): string | null {
   if (/^Expected type must not contain free variables/.test(first)) {
     return "decide checks a claim about particular numbers by working it out. This goal has a letter in it, which stands for every number at once, so there is nothing to work out.";
   }
+  if (/^Tactic `decide` failed to reduce/.test(first) && /Real\.|Classical\.choice/.test(message)) {
+    return "decide checks a claim by computing, and a real number cannot be computed with: it may have infinitely many digits. For arithmetic with particular real numbers, use norm_num.";
+  }
+  if (/^The `ring` tactic failed to close the goal/.test(first)) {
+    return "ring could not prove this. It proves an equation that holds by the rules of algebra alone, whatever the letters stand for. Either the two sides are not equal for every value of the letters, or the equation depends on a fact on the board, which ring does not read: rewrite with that fact first. If a letter is being divided by, clear the fractions with field_simp first. And ring does not work inside |…| or inside a function's brackets: ring_nf does.";
+  }
+  if (/^`?ring_nf`? made no progress/.test(first)) {
+    return "ring found nothing to do. It proves equations, by the rules of algebra, and this goal is not an equation between two expressions it can work on.";
+  }
+  if (/^linarith failed to find a contradiction/.test(first)) {
+    return "linarith could not get the goal by adding up the facts on the board and multiplying them by particular numbers. It does not multiply two letters together, and it does not look inside |x|, a square or a function: for it those are just unknown quantities. Check that every fact you need is on the board.";
+  }
+  if (/^not a positivity goal/.test(first)) {
+    return "positivity proves goals of the form 0 < A, 0 ≤ A or A ≠ 0. This goal does not have that form.";
+  }
+  if (/^failed to prove positivity/.test(first)) {
+    return "positivity could not see this from the way the expression is built. It knows that squares and absolute values are not negative, and that sums and products of positive things are positive, and it looks on the board for a fact saying a letter is positive. It cannot do subtraction: as far as it can tell, x − 1 might be negative. linarith is the move for that.";
+  }
+  if (/^`?gcongr`? did not make progress/.test(first)) {
+    return "gcongr compares two sides that are built the same way, part by part. Here the two sides do not have the same form, so there are no parts to compare.";
+  }
+  if (/^`?field_simp`? made no progress/.test(first)) {
+    return "field_simp found no fraction it could clear. Either there is none, or it does not know that what is divided by is not zero.";
+  }
   if (/^`?simp`? made no progress/.test(first)) {
     return "simp found nothing in its library of facts that makes this goal simpler.";
   }
@@ -126,6 +150,9 @@ export function explain(message: string): string | null {
  * or null when the message is not such a note.
  */
 export function suggestion(message: string): string | null {
+  // `ring` that did not finish says "Try this: ring_nf", which is a remark
+  // about the line already written and not a line to use.
+  if (/The `ring` tactic failed/.test(message)) return null;
   const m = /^Try this:\s*(?:\[apply\]\s*)?(\S.*)/.exec(message);
   return m ? m[1].trim() : null;
 }

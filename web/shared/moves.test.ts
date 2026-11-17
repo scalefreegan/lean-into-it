@@ -135,7 +135,8 @@ test("a board line is read back as its move and what was clicked", () => {
   assert.deepEqual(read("use r + 1"), ["use", "r + 1"]);
   assert.deepEqual(read("exact hP"), ["exact", "hP"]);
   assert.deepEqual(read("omega"), ["omega", undefined]);
-  assert.equal(read("ring"), null);
+  assert.deepEqual(read("ring"), ["ring", undefined]);
+  assert.equal(read("have h : P := hP"), null);
 });
 
 test("even, odd and divides are taken apart and proved like a there-exists", () => {

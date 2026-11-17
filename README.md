@@ -42,7 +42,7 @@ This is an early build. The first four features below work today; the last two a
       <img src="docs/screenshots/guided-path.png" alt="The Path page: levels 0 to 8 with lessons and completion" width="100%">
       <br><sub><i>The Path: nine levels, from what a proof is to how large formalisations are built.</i></sub>
       <h3>A guided path</h3>
-      <p>Levels 0 to 8 in four linked tracks: logic and proof, a maths refresher towards calculus, Lean itself, and verified programs. Level 0 and one Level 1 lesson are written so far; the rest are outlined. Completed exercises and lessons are recorded.</p>
+      <p>Levels 0 to 8 in four linked tracks: logic and proof, a maths refresher towards calculus, Lean itself, and verified programs. Levels 0 to 3 are written; the rest are outlined. Completed exercises and lessons are recorded.</p>
     </td>
     <td width="50%" valign="top">
       <img src="docs/screenshots/playground.png" alt="The Playground: a Lean editor with the goal panel and messages beside it" width="100%">

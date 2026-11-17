@@ -96,3 +96,21 @@ test("a rewrite pattern with a gap in it, and omega with nothing to go on", () =
   assert.match(explain("Tactic `rewrite` failed: Did not find an occurrence of the pattern\n  f (?k + 1)\nin the target expression\n  f 0 = 0\n") ?? "", /like \?k, stands for anything/);
   assert.match(explain("omega could not prove the goal:\nNo usable constraints found. You may need to unfold definitions so `omega` can see linear arithmetic facts") ?? "", /take such a fact apart with obtain/);
 });
+
+test("the moves of algebra and inequalities, refused", () => {
+  assert.match(explain("The `ring` tactic failed to close the goal.") ?? "", /does not read/);
+  assert.match(explain("`ring_nf` made no progress on the goal") ?? "", /not an equation/);
+  assert.match(explain("linarith failed to find a contradiction\na b c : ℝ\nh : a ≤ b\nhc : 0 ≤ c\na✝ : b * c < a * c\n⊢ False\nfailed") ?? "", /does not multiply two letters/);
+  assert.match(explain("not a positivity goal") ?? "", /0 < A, 0 ≤ A or A ≠ 0/);
+  assert.match(explain("failed to prove positivity/nonnegativity/nonzeroness") ?? "", /subtraction/);
+  assert.match(explain("`gcongr` did not make progress.\n\na b : ℝ\nh : a ≤ b\n⊢ a - 1 ≤ b + a") ?? "", /same form/);
+  assert.match(explain("`field_simp` made no progress on the goal") ?? "", /no fraction/);
+  // decide on a real number: Lean's message is about its internals.
+  assert.match(explain("Tactic `decide` failed to reduce\n  @decide (2 + 2 = 4) ((2 + 2).decidableEq 4)\nto `true` or `false`.\n\nAfter unfolding the instances `Classical.propDecidable`, `LinearOrder.toDecidableEq`, and `Real.decidableEq`, reduction got stuck at\n  Classical.choice ⋯") ?? "", /norm_num/);
+});
+
+test("ring's remark that it did not finish is not a line to try", () => {
+  const note = "Try this:\n  [apply] ring_nf\n  \n  The `ring` tactic failed to close the goal. Use `ring_nf` to obtain a normal form.";
+  assert.equal(suggestion(note), null);
+  assert.equal(suggestion("Try this:\n  [apply] exact Nat.le_trans h1 h2"), "exact Nat.le_trans h1 h2");
+});

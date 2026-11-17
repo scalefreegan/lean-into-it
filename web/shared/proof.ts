@@ -321,13 +321,22 @@ function blame(message: string, line: number, body: string): number {
 export function toBody(diagnostics: Diagnostic[], body: string, given = ""): BodyDiagnostic[] {
   const audit = auditLine(body, given);
   const first = bodyLine(given);
+  const refused = diagnostics.some((d) => d.severity === "error");
   return diagnostics
     .filter((d) => !isLinterRemark(d) && !(d.severity === "info" && d.start.line === audit))
     .map((d) => {
       const line = d.start.line - first;
-      return { severity: d.severity, message: d.message, line: line < 0 ? null : blame(d.message, line, body) };
+      // `ring` on an equation it cannot prove raises no error: it rewrites
+      // both sides into a standard form, leaves that as the goal and says so
+      // in a note. In a proof Lean has not accepted, that note is reported
+      // as the failed move it is, in Lean's sentence. (In a proof Lean has
+      // accepted it stays a note: the standard form was enough.)
+      const ring = refused && d.severity !== "error" ? RING_FAILED.exec(d.message) : null;
+      return { severity: ring ? "error" : d.severity, message: ring ? ring[0] : d.message, line: line < 0 ? null : blame(d.message, line, body) };
     });
 }
+
+const RING_FAILED = /The `ring` tactic failed to close the goal\./;
 
 const USES_SORRY = /declaration uses .?sorry/;
 const UNSOLVED = /^unsolved goals/;

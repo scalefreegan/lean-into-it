@@ -41,7 +41,15 @@ Landed in the first PR, the foundation slice:
   `rev` and a buggy `badRev`. A lesson or an exercise can carry Lean
   definitions of its own (`given`), placed before the theorem. Not yet: the
   full specification of `rev` (`lii-dvy.10`), and the program stepper.
-  Levels 3 on are outlined.
+- Level 3 written (`lii-dvy.5`): "The real numbers", "Identities",
+  "Solving equations", "Inequalities", "Chains", "Absolute value and
+  distance", "Functions, increasing and bounded", and on the Lean track
+  "Which numbers?"; 45 exercises. Board moves `ring`, `linarith`,
+  `nlinarith`, `positivity`, `field_simp` and `gcongr`; `have`, `calc`
+  with inequalities and `rw … at` are typed. A `ring` that does not finish
+  is reported as a refused move (Lean only remarks on it). Not yet: the
+  graphs and number lines, which the lessons describe in words
+  (`lii-dvy.11`). Levels 4 on are outlined.
 - Board moves: `rfl`, `norm_num`, `intro`, `exact`, `apply`, `constructor`,
   `obtain` (writes the pattern and names for the fact's shape), `left`,
   `right`, `exfalso`, `contradiction`, `by_contra`, `use` (the witness is
@@ -72,7 +80,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 112, including every reference solution checked by the real Lean,
+- Tests: 115, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -164,7 +172,7 @@ land first.
 | `lii-dvy.8` | Level 1: truth tables against proofs; True-or-false and Fill-the-gap exercises | 2 | `lii-53v.5` |
 | `lii-dvy.9` | Level 2: the induction dominoes widget in the Induction lesson | 2 | `lii-53v.5` |
 | `lii-dvy.10` | Verified programs: the full specification of `rev` (reverse twice, reverse of a join), with lemmas about `app` | 2 | |
-| `lii-dvy.5` | Level 3 lessons: Algebra and inequalities on the real numbers | 2 | `lii-53v.2` |
+| `lii-dvy.11` | Level 3: graphs and number lines in the lessons | 2 | `lii-53v.2` |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
 | `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3`, `lii-53v.3` |
 

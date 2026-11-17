@@ -251,3 +251,12 @@ test("an exercise's own definitions sit between the import and the theorem, and 
   // No definitions: the source is what it always was.
   assert.equal(assemble(": 1 = 1", "rfl", ""), assemble(": 1 = 1", "rfl"));
 });
+
+test("a ring that did not finish is an error in a proof Lean has not accepted, and a note in one it has", () => {
+  const ring = at(4, "Try this:\n  [apply] ring_nf\n  \n  The `ring` tactic failed to close the goal. Use `ring_nf` to obtain a normal form.", "info");
+  const open = toBody([ring, at(2, "unsolved goals\na b : ℝ\n⊢ a * b * 2 + a ^ 2 + b ^ 2 = a ^ 2 + b ^ 2")], "ring");
+  assert.deepEqual(open[0], { severity: "error", message: "The `ring` tactic failed to close the goal.", line: 0 });
+  assert.equal(judgeWith(open, "ring", [], []).error?.message, "The `ring` tactic failed to close the goal.");
+  // Its standard form closed the goal and nothing else is wrong: Lean accepts the proof, and so do we.
+  assert.equal(toBody([ring], "ring")[0].severity, "info");
+});
