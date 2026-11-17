@@ -32,8 +32,13 @@ web/src/pages/           Home (the Path), Lesson, Playground
   this machine). Siblings: Fret Not 38600, jev-ants 38500, Lingo Dojo 38400,
   Atlas 38300, Wine Guide 38200, Basecamp 38100.
 - **Lean decides.** An exercise is solved only when Lean accepts the proof of
-  the exercise's own statement with no error and no `sorry`
-  (`web/shared/proof.ts` `judge`). Nothing else, and no agent, grades.
+  the exercise's own statement with no error and no `sorry`, resting only on
+  the three standard axioms (`web/shared/proof.ts` `judge`). Nothing else,
+  and no agent, grades. The learner's body must not be able to decide for
+  Lean: it sits in brackets inside the `by` block, may not close them or
+  name a way to run a program (`escapesIn`), and Lean's axiom report after
+  the theorem must arrive and be clean. Read the notes at the top of
+  `proof.ts` before changing how the source is assembled.
 - The statement comes from the exercise file, never from the browser: the
   client sends a proof body and the server assembles the source.
 - **Lean runs what it is given with this user's permissions** (a `#eval` can

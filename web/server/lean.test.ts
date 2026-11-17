@@ -5,8 +5,9 @@ import { Readable } from "node:stream";
 import { after, before, test } from "node:test";
 import { attemptCount, ensureLearner, solvedFor } from "../../scripts/db/progress.ts";
 import { freshDb } from "../../scripts/tests/testdb.mjs";
-import type { CheckReply, CheckRequest } from "../shared/wire.ts";
-import { checkExercise, handleCheck } from "./check.ts";
+import type { CheckReply, CheckRequest, PlaygroundReply } from "../shared/wire.ts";
+import { assemble, axiomsOf, toBody } from "../shared/proof.ts";
+import { checkExercise, handleCheck, handlePlayground } from "./check.ts";
 import { setDb, type Db } from "./db.ts";
 import { leanProblem, leanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
@@ -40,8 +41,8 @@ after(async () => {
   await closeDb();
 });
 
-/** Call the /api/check handler as the dev server would, minus HTTP. */
-async function post(body: Partial<CheckRequest>): Promise<{ status: number; reply: CheckReply }> {
+/** Call a handler as the dev server would, minus HTTP. */
+async function call<T>(handler: (req: IncomingMessage, res: ServerResponse) => Promise<void>, body: unknown): Promise<{ status: number; reply: T }> {
   const req = Object.assign(Readable.from([Buffer.from(JSON.stringify(body))]), { method: "POST", headers: {}, url: "/" }) as unknown as IncomingMessage;
   let status = 0;
   let text = "";
@@ -54,9 +55,11 @@ async function post(body: Partial<CheckRequest>): Promise<{ status: number; repl
       text = chunk ?? "";
     },
   } as unknown as ServerResponse;
-  await handleCheck(req, res);
-  return { status, reply: JSON.parse(text) as CheckReply };
+  await handler(req, res);
+  return { status, reply: JSON.parse(text) as T };
 }
+
+const post = (body: Partial<CheckRequest>) => call<CheckReply>(handleCheck, body);
 
 test("every exercise's reference solution is accepted by Lean", { skip }, async () => {
   assert.deepEqual(content.problems, []);
@@ -131,6 +134,71 @@ test("a forbidden tactic is refused even where Lean accepts the proof", { skip }
   assert.equal(lifted.solved, true);
 });
 
+const FALSE = { ...exercise("use-it"), id: "false", statement: "(P Q : Prop) : Q", solution: "" };
+
+test("classical reasoning and Mathlib's automation are accepted; their axioms are the allowed ones", { skip }, async () => {
+  const em = { ...exercise("use-it"), statement: "(P : Prop) : P ∨ ¬P" };
+  for (const body of ["exact Classical.em P", "by_contra h\nexact h (Classical.em P)", "tauto"]) {
+    const reply = await checkExercise(leanServer(), em, body);
+    assert.equal(reply.solved, true, `${body}: ${JSON.stringify([reply.refusal, reply.diagnostics])}`);
+  }
+  const arithmetic = { ...exercise("use-it"), statement: "(n : ℕ) : n + 0 = n" };
+  for (const body of ["simp", "omega", "rfl"]) assert.equal((await checkExercise(leanServer(), arithmetic, body)).solved, true, body);
+});
+
+test("a false statement cannot be graded solved by a proof that adds its own axiom or theorem", { skip }, async () => {
+  const bodies = [
+    // Add an axiom saying False, then use it.
+    "run_tac Lean.addDecl (.axiomDecl { name := `cheatAx, levelParams := [], type := Lean.mkConst ``False, isUnsafe := false })\nexact (cheatAx).elim",
+    // Add a theorem the kernel is told not to check.
+    "set_option debug.skipKernelTC true in\nexact False.elim (by trivial)",
+    "open Lean Elab Tactic in run_tac do\n  let g ← getMainGoal\n  g.admit",
+    "exact by_elab return Lean.mkConst ``False",
+    "native_decide",
+  ];
+  for (const body of bodies) {
+    const reply = await checkExercise(leanServer(), FALSE, body);
+    assert.equal(reply.solved, false, body);
+    assert.ok(reply.refusal, `${body}: says why`);
+  }
+});
+
+test("with the word list out of the way, the axiom report alone refuses an added axiom", { skip }, async () => {
+  // What checkExercise does after its word check, done by hand: the layers are independent.
+  // (Lean lets a theorem's proof add declarations only under the theorem's own name.)
+  const body = "run_tac Lean.addDecl (.axiomDecl { name := `lii_exercise.cheat, levelParams := [], type := Lean.mkConst ``False, isUnsafe := false })\nexact (lii_exercise.cheat).elim";
+  const result = await leanServer().check("exercise", assemble(FALSE.statement, body), []);
+  assert.deepEqual(toBody(result.diagnostics, body).filter((d) => d.severity === "error"), [], "Lean itself raises no error for this");
+  assert.deepEqual(axiomsOf(result.diagnostics, body), ["lii_exercise.cheat"]);
+});
+
+test("a body cannot end the theorem and write commands of its own, nor stop Lean before the axiom report", { skip }, async () => {
+  const good = exercise("use-it");
+  // Refused by the bracket rule and the command rule before Lean sees them...
+  for (const body of ["exact hPQ hP\n)\nexample : True := (trivial", "exact hPQ hP\n#exit", "exact hPQ hP\n#eval 1"]) {
+    const reply = await checkExercise(leanServer(), good, body);
+    assert.equal(reply.solved, false, body);
+    assert.ok(reply.refusal, body);
+  }
+  // ...and by Lean where a command is simply written inside the proof: inside the brackets it does not parse.
+  const inside = await checkExercise(leanServer(), good, "exact hPQ hP\nexample : True := trivial");
+  assert.equal(inside.solved, false);
+  assert.ok(inside.diagnostics.some((d) => d.severity === "error"));
+  // #exit handed straight to Lean (the word check bypassed): no axiom report arrives, and that alone refuses it.
+  const body = "exact hPQ hP\n  )\n#exit\n  (";
+  const result = await leanServer().check("exercise", assemble(good.statement, body), []);
+  assert.equal(axiomsOf(result.diagnostics, body), null);
+});
+
+test("a string or a comment does not hide a forbidden tactic", { skip }, async () => {
+  const typed = exercise("typed");
+  for (const body of ['have := "--"; tauto', 'have := "/-"\ntauto\n-- -/']) {
+    const reply = await checkExercise(leanServer(), typed, body);
+    assert.deepEqual(reply.forbidden, ["tauto"], body);
+    assert.equal(reply.solved, false, body);
+  }
+});
+
 test("the goals at the cursor are those before the line the caret starts", { skip }, async () => {
   const reply = await checkExercise(leanServer(), exercise("chain"), "intro hP\napply hQR\napply hPQ\nexact hP", { line: 1, character: 0 });
   assert.equal(reply.solved, true);
@@ -169,4 +237,15 @@ test("/api/check records a rejected move and the first solve, and nothing for a 
 test("/api/check refuses an exercise that does not exist", { skip }, async () => {
   await assert.rejects(post({ lessonId: lesson.id, exerciseId: "nope", body: "" }), /no such exercise/);
   await assert.rejects(post({ lessonId: lesson.id, exerciseId: "use-it" }), /required/);
+});
+
+test("the Playground reports everything Lean says, linters' remarks included, and grades nothing", { skip }, async () => {
+  const source = "import Mathlib\n\nexample (P Q : Prop) (hP : P) (hQ : Q) : P := hP\n\n#check Nat.succ\n";
+  const { status, reply } = await call<PlaygroundReply>(handlePlayground, { source, cursor: { line: 2, character: 0 } });
+  assert.equal(status, 200);
+  const unused = reply.diagnostics.find((d) => /`hQ` is not explicitly referenced/.test(d.message));
+  assert.equal(unused?.severity, "warning");
+  assert.match(unused?.message ?? "", /This linter can be disabled/);
+  assert.ok(reply.diagnostics.some((d) => d.severity === "info" && d.line === 4), "the #check answer is there too");
+  assert.equal("solved" in reply, false);
 });

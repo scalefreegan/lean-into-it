@@ -72,7 +72,7 @@ exercises:
 | `mode` | `board` or `typed`. Default `board`. |
 | `title` | A short heading. |
 | `says` | The claim in plain English, as a mathematician would say it. Shown above the exercise. |
-| `statement` | The Lean statement after the keyword: binders, a colon, the claim. The server wraps it as `example <statement> := by` and indents the learner's lines under it. It must not contain `:=` or `sorry`. Quote it: it contains colons. |
+| `statement` | The Lean statement after the keyword: binders, a colon, the claim. The server wraps it as `theorem lii_exercise <statement> := by`, with the learner's lines in brackets under it. It must not contain `:=` or `sorry`. Quote it: it contains colons. |
 | `moves` | Board mode only, required there: the moves on offer. |
 | `forbid` | Tactic names that may not appear in an answer. For exercises where one automatic tactic would skip the point. |
 | `solution` | A proof body, one tactic per line, that Lean accepts. Required. `npm test` checks every solution against the real Lean. |

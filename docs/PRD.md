@@ -264,9 +264,13 @@ that appear in prose have a pronunciation table.
 ## Trust and safety
 
 - **Lean alone grades.** An exercise passes only when Lean accepts the proof
-  of the statement the server supplied, with no errors and no `sorry`. The
-  Tutor's opinion of a proof is never a grade. (Checking which axioms a
-  passing proof depends on is tracked as a bead.)
+  of the statement the server supplied, with no errors and no `sorry`, and
+  Lean reports that the proof rests only on the three axioms of ordinary
+  mathematics (`propext`, `Classical.choice`, `Quot.sound`). A proof body
+  that runs a program (`run_tac`, `#eval` and the like), changes Lean's
+  settings, or tries to end the theorem and write commands of its own is
+  refused before Lean sees it. The Tutor's opinion of a proof is never a
+  grade.
 - **Code typed in the app runs on this Mac.** Lean elaborates what it is
   given with the user's permissions, and Lean code can read files and start
   processes while it is being checked. So the API is same-origin and
@@ -328,8 +332,12 @@ what is done and what remains, with bead ids.
 
 - Goal states are parsed from Lean's plain-text goals, which is fragile for
   multi-line types and grouped binders (bead: structured goals).
-- A passing proof is not yet checked for extra axioms or `native_decide`.
-  An exercise can list tactics that are switched off for it (`forbid`),
+- A passing proof is checked for extra axioms, and a body that runs a
+  program is refused by name. One route is closed only by that refusal: a
+  metaprogram that adds a theorem the kernel was told not to check leaves no
+  axiom behind. Re-checking a passing proof in a fresh kernel would close it
+  independently (bead `lii-1ou.4`).
+- An exercise can list tactics that are switched off for it (`forbid`),
   which is a teaching device, not a security one.
 - A check that runs longer than two minutes restarts Lean. There is no
   shorter limit per exercise, a check that has been superseded is not
