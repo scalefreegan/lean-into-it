@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseGoal } from "./goals.ts";
-import { MOVES, introName, isMove, moveLine } from "./moves.ts";
+import { MOVES, contraName, introName, isMove, moveLine, obtainLine, oneLine, shapeOf } from "./moves.ts";
 
 test("every move is keyed by its own id and says what it does", () => {
   for (const [key, move] of Object.entries(MOVES)) {
     assert.equal(move.id, key);
     assert.ok(move.does.length > 20, key);
-    if (move.needs === "fact") assert.ok(move.prompt, `${key} needs a prompt`);
+    if (move.needs === "fact" || move.needs === "text") assert.ok(move.prompt, `${key} needs a prompt`);
   }
   assert.equal(isMove("apply"), true);
   assert.equal(isMove("toString"), false);
@@ -36,4 +36,56 @@ test("a move that needs nothing writes just its name", () => {
   const goal = parseGoal("⊢ 2 + 2 = 4");
   assert.equal(moveLine(MOVES.rfl, goal), "rfl");
   assert.equal(moveLine(MOVES.norm_num, goal), "norm_num");
+});
+
+test("the outermost connective of a statement, by Lean's precedences", () => {
+  assert.deepEqual(shapeOf("P ∧ Q"), { kind: "and", left: "P", right: "Q" });
+  assert.deepEqual(shapeOf("P ∧ Q ∧ R"), { kind: "and", left: "P", right: "Q ∧ R" });
+  assert.deepEqual(shapeOf("(P ∧ Q) ∧ R"), { kind: "and", left: "P ∧ Q", right: "R" });
+  assert.deepEqual(shapeOf("P ∧ Q ∨ R"), { kind: "or", left: "P ∧ Q", right: "R" });
+  assert.deepEqual(shapeOf("P ∧ (Q ∨ R)"), { kind: "and", left: "P", right: "Q ∨ R" });
+  assert.deepEqual(shapeOf("(P ∨ Q)"), { kind: "or", left: "P", right: "Q" });
+  assert.deepEqual(shapeOf("P ∧ Q ↔ Q ∧ P"), { kind: "iff", left: "P ∧ Q", right: "Q ∧ P" });
+  assert.deepEqual(shapeOf("P → Q ∧ R"), { kind: "other" });
+  assert.deepEqual(shapeOf("¬(P ∧ Q)"), { kind: "other" });
+  assert.deepEqual(shapeOf("x > 5"), { kind: "other" });
+  // A binder owns everything after it.
+  assert.deepEqual(shapeOf("∃ n, P n ∧ Q n"), { kind: "exists", vars: ["n"], bounded: false });
+  assert.deepEqual(shapeOf("∃ x y, x + y = 5"), { kind: "exists", vars: ["x", "y"], bounded: false });
+  assert.deepEqual(shapeOf("∃ (n : ℕ), n * n = 49"), { kind: "exists", vars: ["n"], bounded: false });
+  assert.deepEqual(shapeOf("∃ x > 0, f x = 0"), { kind: "exists", vars: ["x"], bounded: true });
+  assert.deepEqual(shapeOf("P ∧ ∃ n, Q n ∨ R"), { kind: "and", left: "P", right: "∃ n, Q n ∨ R" });
+  assert.deepEqual(shapeOf("∀ x, P x ∧ Q x"), { kind: "other" });
+});
+
+test("obtain writes the pattern for the fact's shape, with names for the pieces", () => {
+  const line = (state: string, fact = "h") => obtainLine(parseGoal(state), fact);
+  assert.equal(line("P Q : Prop\nh : P ∧ Q\n⊢ Q"), "obtain ⟨hP, hQ⟩ := h");
+  assert.equal(line("P Q : Prop\nh : P ∨ Q\n⊢ Q ∨ P"), "obtain hP | hQ := h");
+  assert.equal(line("P Q : Prop\nh : P ↔ Q\n⊢ Q ↔ P"), "obtain ⟨hPQ, hQP⟩ := h");
+  assert.equal(line("P : ℕ → Prop\nh : ∃ n, P n\n⊢ True"), "obtain ⟨n, hn⟩ := h");
+  assert.equal(line("f : ℝ → ℝ\nh : ∃ x > 0, f x = 0\n⊢ True"), "obtain ⟨x, hx, hx'⟩ := h");
+  assert.equal(line("h : ∃ x y, x + y = 5\n⊢ True"), "obtain ⟨x, y, h1⟩ := h");
+  assert.equal(line("P Q R : Prop\nh : P ∧ (Q ∨ R)\n⊢ True"), "obtain ⟨hP, h2⟩ := h");
+  assert.equal(line("P Q : Prop\nh : ¬P ∧ ¬Q\n⊢ True"), "obtain ⟨hnP, hnQ⟩ := h");
+  // Names already on the board are not reused.
+  assert.equal(line("P Q : Prop\nhP : P\nh : P ∧ Q\n⊢ True"), "obtain ⟨hP1, hQ⟩ := h");
+  assert.equal(line("n : ℕ\nP : ℕ → Prop\nh : ∃ n, P n\n⊢ True"), "obtain ⟨n1, hn1⟩ := h");
+  assert.equal(line("P : Prop\nh : P ∧ P\n⊢ True"), "obtain ⟨hP, hP1⟩ := h");
+  assert.equal(moveLine(MOVES.obtain, parseGoal("P Q : Prop\nhPQ : P ∧ Q\n⊢ P"), "hPQ"), "obtain ⟨hP, hQ⟩ := hPQ");
+});
+
+test("intro on a negation assumes what is negated; by_contra names the opposite of the goal", () => {
+  assert.equal(introName(parseGoal("P : Prop\n⊢ ¬P")), "hP");
+  assert.equal(introName(parseGoal("P Q : Prop\n⊢ ¬(P ∨ Q)")), "h");
+  assert.equal(contraName(parseGoal("P : Prop\n⊢ P")), "hnP");
+  assert.equal(contraName(parseGoal("P : Prop\nhnP : ¬¬P\n⊢ P")), "hnP1");
+  assert.equal(contraName(parseGoal("⊢ x < 5")), "h");
+  assert.equal(moveLine(MOVES.by_contra, parseGoal("P : Prop\n⊢ P")), "by_contra hnP");
+});
+
+test("typed text for a move is one line", () => {
+  assert.equal(moveLine(MOVES.use, parseGoal("⊢ ∃ n, n + 3 = 5"), " 2 "), "use 2");
+  assert.equal(oneLine("2\n  exact sorry"), "2 exact sorry");
+  assert.equal(moveLine(MOVES["constructor" as string], parseGoal("⊢ P ∧ Q")), "constructor");
 });

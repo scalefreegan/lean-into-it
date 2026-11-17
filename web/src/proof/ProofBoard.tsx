@@ -31,6 +31,8 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
   const [history, setHistory] = useState<Step[]>([]);
   const [solved, setSolved] = useState(false);
   const [pending, setPending] = useState<Move | null>(null);
+  // What is being typed for a move that needs text (`use`).
+  const [text, setText] = useState("");
   const [busy, setBusy] = useState(true);
   const [refusal, setRefusal] = useState<{ line: string; raw: string } | null>(null);
   const [trouble, setTrouble] = useState<string | null>(null);
@@ -127,15 +129,21 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
   function pickMove(move: Move) {
     if (!now || busy) return;
     setRefusal(null);
-    if (move.needs === "fact") {
+    if (move.needs === "fact" || move.needs === "text") {
+      setText("");
       setPending((p) => (p?.id === move.id ? null : move));
       return;
     }
     void play(moveLine(move, now.goals[0] ?? { hypotheses: [], target: "" }));
   }
 
+  function submitText() {
+    if (!now || !pending || !text.trim()) return;
+    void play(moveLine(pending, now.goals[0] ?? { hypotheses: [], target: "" }, text));
+  }
+
   function pickFact(name: string) {
-    if (!now || !pending) return;
+    if (!now || !pending || pending.needs !== "fact") return;
     void play(moveLine(pending, now.goals[0] ?? { hypotheses: [], target: "" }, name));
   }
 
@@ -176,7 +184,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
             <strong>No goals left.</strong> Lean accepts this proof.
           </Closed>
         ) : (
-          <GoalView goals={now.goals} picking={!!pending} {...(pending ? { onPickFact: pickFact } : {})} {...(known ? { known } : {})} />
+          <GoalView goals={now.goals} picking={pending?.needs === "fact"} {...(pending?.needs === "fact" ? { onPickFact: pickFact } : {})} {...(known ? { known } : {})} />
         )}
       </div>
 
@@ -204,6 +212,30 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
             ))}
           </div>
           <p className="mt-2 min-h-5 text-sm text-fg-2">{pending ? (pending.prompt ?? "Click a fact.") : busy ? "Lean is checking…" : "Pick a move. Hover over one to see what it does."}</p>
+          {pending?.needs === "text" && (
+            <form
+              className="mt-2 flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitText();
+              }}
+            >
+              <span className="font-mono text-sm font-semibold text-accent">{pending.label}</span>
+              <input
+                autoFocus
+                data-move-text
+                aria-label={`What to ${pending.label}`}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                spellCheck={false}
+                autoComplete="off"
+                className="lean min-w-0 flex-1 rounded-lg border border-line-strong bg-panel px-3 py-1.5 text-sm text-fg outline-none focus:border-accent"
+              />
+              <Button type="submit" variant="primary" disabled={busy || !text.trim()} className="px-3 py-1.5 text-sm">
+                Go
+              </Button>
+            </form>
+          )}
           {refusal && <Refusal className="mt-2" plain={`“${refusal.line}” ${refusal.raw === UNCHANGED ? "gets you no further here." : "does not work here."} ${explain(refusal.raw) ?? ""}`.trim()} raw={refusal.raw} />}
         </div>
       )}

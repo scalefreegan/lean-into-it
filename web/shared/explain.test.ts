@@ -42,3 +42,19 @@ test("a bracket left open is said as that, not as Lean's complaint about what fo
   assert.match(explain("unexpected token '#print'; expected ')'") ?? "", /bracket is still open/);
   assert.match(explain("unexpected token ')'; expected '{' or tactic") ?? "", /not finished/);
 });
+
+test("the Level 1 moves' refusals, with the messages Lean really gives", () => {
+  assert.match(explain("Tactic `constructor` failed: target is not an inductive datatype\n\nP Q : Prop\nhP : P\n⊢ P") ?? "", /constructor splits/);
+  assert.match(explain("Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors\n\n⊢ P ∧ Q") ?? "", /^left chooses a side/);
+  assert.match(explain("Tactic `right` failed: target is not an inductive datatype\n\n⊢ P") ?? "", /^right chooses a side/);
+  assert.equal(
+    explain("Tactic `rcases` failed: `hP : P → Q` is not an inductive datatype"),
+    "hP says “P → Q”, which has no parts to take apart. obtain works on an “and”, an “or”, an “if and only if” or a “there exists”.",
+  );
+  assert.match(explain("Tactic `contradiction` failed\n\nP Q : Prop\nhP : P\n⊢ P ∧ Q") ?? "", /contradict each other/);
+  assert.match(explain("numerals are data in Lean, but the expected type is a proposition\n  P : Prop") ?? "", /A number was given/);
+  assert.match(
+    explain("Tactic `apply` failed: could not unify the conclusion of `hnP`\n  False\nwith the goal\n  Q\n\nNote: The full type of `hnP` is\n  ¬P\n\n⊢ Q") ?? "",
+    /hnP ends in “False”, but the goal is “Q”/,
+  );
+});

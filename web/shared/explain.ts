@@ -30,7 +30,22 @@ export function explain(message: string): string | null {
     return "Lean accepted it, but it left the facts and the goal exactly as they were.";
   }
   if (/^Tactic `introN?` failed: There are no additional binders/.test(first)) {
-    return "There is nothing to assume here: intro only works when the goal is an “if… then” or a “for all”.";
+    return "There is nothing to assume here: intro only works when the goal is an “if… then”, a “not” or a “for all”.";
+  }
+  if (/^Tactic `constructor` failed/.test(first)) {
+    return "constructor splits a goal of the form “A and B” or “A if and only if B” into its two parts. This goal is not one of those.";
+  }
+  if ((m = /^Tactic `(left|right)` failed/.exec(first))) {
+    return `${m[1]} chooses a side of a goal of the form “A or B”. This goal is not an “or”.`;
+  }
+  if ((m = /^Tactic `rcases` failed: `([^`]+) : (.+)` is not an inductive datatype/.exec(first))) {
+    return `${m[1]} says “${m[2]}”, which has no parts to take apart. obtain works on an “and”, an “or”, an “if and only if” or a “there exists”.`;
+  }
+  if (/^Tactic `contradiction` failed/.test(first)) {
+    return "Lean cannot see two facts here that flatly contradict each other, such as A and not A.";
+  }
+  if (/^numerals are data in Lean, but the expected type is a proposition/.test(first)) {
+    return "A number was given where Lean expected a proof of a statement. use gives the thing for a “there exists” goal, and this goal is not asking for a thing.";
   }
   if ((m = /^Unknown identifier `([^`]+)`/.exec(first))) {
     return `There is no fact or object called ${m[1]} here. Check the names on the cards.`;

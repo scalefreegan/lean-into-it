@@ -23,8 +23,16 @@ Landed in the first PR, the foundation slice:
   checks proofs through it behind `/api/check`.
 - Content loader for `content/curriculum.yaml` and `content/lessons/<track>/*.md`.
 - Level 0 written in full (`lii-dvy.1`): "Evidence is not proof", "Facts and
-  a goal", "What Lean checks"; thirteen exercises, all by clicking. One Level 1
-  lesson ("If… then", on implication). Everything else is outlined.
+  a goal", "What Lean checks"; thirteen exercises, all by clicking.
+- Level 1 written (`lii-dvy.2`): "If… then", "And", "Or", "Not, and
+  contradiction", "If and only if", "For all", "There exists" on the logic
+  track and "Reading a goal, and proofs as things" on the Lean track; 45
+  exercises. Not yet: truth tables against proofs, and exercise kinds other
+  than "prove it" (`lii-dvy.8`). Levels 2 on are outlined.
+- Board moves: `rfl`, `norm_num`, `intro`, `exact`, `apply`, `constructor`,
+  `obtain` (writes the pattern and names for the fact's shape), `left`,
+  `right`, `exfalso`, `contradiction`, `by_contra`, `use` (the witness is
+  typed).
 - Board moves: `exact`, `rfl`, `norm_num`, `intro`, `apply`. A move that Lean
   accepts but that changes nothing is refused as such.
 - Path page (home): levels, lessons and what has been completed.
@@ -39,7 +47,7 @@ Landed in the first PR, the foundation slice:
   changes Lean's settings or tries to write commands of its own is refused
   with the reason (`lii-1ou.1`).
 - A move Lean refuses is explained in plain words, with Lean's own message
-  one click away (covers `intro`, `apply`, `exact`, `rfl`).
+  one click away (covers every board move).
 - Symbol shortcuts in the editor (`\to` then a space gives `→`).
 - Attempts and exercise and lesson completion stored in Postgres
   (`lean_into_it`, one implicit learner, no login) and shown on the Path.
@@ -47,7 +55,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 89, including every reference solution checked by the real Lean,
+- Tests: 94, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -135,7 +143,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-dvy.2` | Rest of Level 1: Logic you can see | 1 | `lii-53v.5` |
+| `lii-dvy.8` | Level 1: truth tables against proofs; True-or-false and Fill-the-gap exercises | 2 | `lii-53v.5` |
 | `lii-dvy.3` | Level 2 lessons: Numbers and induction | 2 | `lii-53v.5` |
 | `lii-dvy.4` | First verified-programs lessons (Level 2, lists) | 2 | `lii-dvy.3` |
 | `lii-dvy.5` | Level 3 lessons: Algebra and inequalities on the real numbers | 2 | `lii-53v.2` |
