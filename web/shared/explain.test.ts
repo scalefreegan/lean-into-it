@@ -99,14 +99,33 @@ test("a rewrite pattern with a gap in it, and omega with nothing to go on", () =
 
 test("the moves of algebra and inequalities, refused", () => {
   assert.match(explain("The `ring` tactic failed to close the goal.") ?? "", /does not read/);
-  assert.match(explain("`ring_nf` made no progress on the goal") ?? "", /not an equation/);
-  assert.match(explain("linarith failed to find a contradiction\na b c : ℝ\nh : a ≤ b\nhc : 0 ≤ c\na✝ : b * c < a * c\n⊢ False\nfailed") ?? "", /does not multiply two letters/);
+  assert.doesNotMatch(explain("The `ring` tactic failed to close the goal.") ?? "", /ring_nf/);
+  assert.match(explain("`ring_nf` made no progress on the goal") ?? "", /could not even tidy either side/);
+  assert.match(explain("linarith failed to find a contradiction\na b c : ℝ\nh : a ≤ b\nhc : 0 ≤ c\na✝ : b * c < a * c\n⊢ False\nfailed") ?? "", /a product of two letters, such as ab or x², is a single unknown quantity/);
+  // No assumed opposite of the goal among the facts: the goal was not a comparison.
+  assert.match(explain("linarith failed to find a contradiction\na b : ℝ\nh : a < b\n⊢ False\nfailed") ?? "", /^linarith found no comparison to prove in this goal.*taken apart first/);
   assert.match(explain("not a positivity goal") ?? "", /0 < A, 0 ≤ A or A ≠ 0/);
   assert.match(explain("failed to prove positivity/nonnegativity/nonzeroness") ?? "", /subtraction/);
   assert.match(explain("`gcongr` did not make progress.\n\na b : ℝ\nh : a ≤ b\n⊢ a - 1 ≤ b + a") ?? "", /same form/);
   assert.match(explain("`field_simp` made no progress on the goal") ?? "", /no fraction/);
   // decide on a real number: Lean's message is about its internals.
   assert.match(explain("Tactic `decide` failed to reduce\n  @decide (2 + 2 = 4) ((2 + 2).decidableEq 4)\nto `true` or `false`.\n\nAfter unfolding the instances `Classical.propDecidable`, `LinearOrder.toDecidableEq`, and `Real.decidableEq`, reduction got stuck at\n  Classical.choice ⋯") ?? "", /norm_num/);
+});
+
+test("a rewrite under a for-all or a there-exists is not told the pattern is missing", () => {
+  const under = explain("Tactic `rewrite` failed: Did not find an occurrence of the pattern\n  f ?x\nin the target expression\n  ∀ (x y : ℝ), x ≤ y → f x ≤ f y\n\nf : ℝ → ℝ\n⊢ ∀ (x y : ℝ), x ≤ y → f x ≤ f y") ?? "";
+  assert.match(under, /^rw found no “f \?x” it can replace/);
+  assert.match(under, /“for all” introduces.*intro/);
+  assert.doesNotMatch(under, /There is no/);
+  assert.match(explain("Tactic `rewrite` failed: Did not find an occurrence of the pattern\n  f ?x\nin the target expression\n  ∃ x, f x = 3\n") ?? "", /“there exists” introduces.*use/);
+});
+
+test("a chain whose links point opposite ways", () => {
+  const mixed = explain("invalid 'calc' step, failed to synthesize `Trans` instance\n  Trans LE.le GE.ge ?m.14\n\nHint: Additional diagnostic information may be available using the `set_option diagnostics true` command.") ?? "";
+  assert.match(mixed, /a “≤” link and then a “≥” link/);
+  assert.match(mixed, /point the same way/);
+  assert.match(explain("invalid 'calc' step, failed to synthesize `Trans` instance\n  Trans Foo Bar ?m.1") ?? "", /^This chain has two links/);
+  assert.match(explain("'calc' expression has type\n  a < c\nbut is expected to have type\n  a ≤ c") ?? "", /^This chain proves “a < c”, but the goal is “a ≤ c”/);
 });
 
 test("ring's remark that it did not finish is not a line to try", () => {

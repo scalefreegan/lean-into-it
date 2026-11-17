@@ -38,7 +38,7 @@ exercises:
     mode: typed
     says: Suppose 1 < x. Then x < x².
     statement: "(x : ℝ) (h : 1 < x) : x < x ^ 2"
-    forbid: [linarith, nlinarith, polyrith, grind, bound, order, aesop, simp_all, exact?, apply?, hint, rw?, linear_combination, linear_combination', omega, decide, tauto]
+    forbid: [linarith, nlinarith, polyrith, grind, bound, order, aesop, simp_all, exact?, apply?, hint, rw?, linear_combination, linear_combination', omega, decide, tauto, field_simp, field]
     solution: |
       calc x = x * 1 := by ring
         _ < x * x := by gcongr
@@ -53,18 +53,23 @@ It is read left to right. Each sign is a claim with its own small reason, and th
 
 ## The form
 
+Suppose the facts on the board are `h1 : x = y`, `h2 : y ≤ z` and `h3 : z < w`. Then this proves `x < w`:
+
 ```lean
-calc a ≤ b := h1
-  _ < c := h2
+calc x = y := h1
+  _ ≤ z := h2
+  _ < w := h3
 ```
 
 - The first line starts the chain: a claim, then `:=`, then its proof.
-- Each later line starts with an underscore, which stands for "the right-hand side of the line above", and must be indented.
+- Each later line starts with an underscore, which stands for "the right-hand side of the line above". By custom it is indented, so that the signs line up.
 - A proof can be the name of a fact, as here, or `by` and a move: `:= by ring`.
 
 The links may be a mixture of `=`, `≤` and `<`. Lean works out what the whole chain says: all `=` gives `=`, any `<` among them gives `<`, and otherwise `≤`. They must all point the same way. A chain cannot mix `≤` with `≥`, on paper or in Lean.
 
 In this lesson the moves that would do the whole thing in one step are switched off. You know they work. The point here is to write down *why*.
+
+Start with a chain of two links. The facts are on the board, and each link is one of them.
 
 ```exercise
 id: two-links

@@ -46,7 +46,7 @@ exercises:
     mode: typed
     says: For any real numbers a, b and c, a(b + c) = ac + ab.
     statement: "(a b c : ℝ) : a * (b + c) = a * c + a * b"
-    forbid: [ring, ring_nf, ring1, linarith, nlinarith, simp, simp_all, simpa, norm_num, grind, linear_combination, linear_combination', noncomm_ring, abel, abel1, abel_nf, ac_rfl, ac_nf, module, aesop, exact?, apply?, rw?, hint, bound, omega, field_simp, positivity]
+    forbid: [ring, ring_nf, ring1, linarith, nlinarith, simp, simp_all, simpa, norm_num, grind, linear_combination, linear_combination', noncomm_ring, abel, abel1, abel_nf, ac_rfl, ac_nf, module, aesop, exact?, apply?, rw?, hint, bound, omega, field_simp, positivity, ring1_nf, field, grobner, algebra, group]
     solution: |
       rw [mul_add, add_comm]
   - id: cube

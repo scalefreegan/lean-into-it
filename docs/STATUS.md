@@ -9,7 +9,7 @@ gives a bead's full brief, and the PR that closes a bead moves its row from
 Remaining to Done in this file. `.beads/issues.jsonl` is the exported copy of
 the beads that git tracks.
 
-Last updated 2026-11-17 (first PR).
+Last updated 2026-11-17.
 
 ## Done
 
@@ -80,7 +80,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 115, including every reference solution checked by the real Lean,
+- Tests: 121, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -96,7 +96,7 @@ until it is added.
 
 ## Remaining
 
-42 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
+45 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)

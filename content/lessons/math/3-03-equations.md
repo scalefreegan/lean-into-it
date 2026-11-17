@@ -69,7 +69,7 @@ id: check
 
 ## Combining facts
 
-For the second direction, the fact on the board is `h : 2 * x + 1 = 7` and the goal is `x = 3`. `rw` is no use, because the goal has no `2 * x + 1` in it to replace. `ring` is no use either: `x = 3` is not an identity. Try both if you like.
+For the second direction, the fact on the board is `h : 2 * x + 1 = 7` and the goal is `x = 3`. Rewriting with h is no use, because the goal has no `2 * x + 1` in it to replace. `ring` is no use either: `x = 3` is not an identity. Try `ring` if you like.
 
 What you did on paper was arithmetic on the *fact*: take 1 from both sides of h, then halve both sides. The move for that is **linarith**. It looks for a way to get the goal by adding the facts on the board together, each multiplied by some particular number. Here: half of h, and then tidying up.
 

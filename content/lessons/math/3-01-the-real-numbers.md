@@ -39,7 +39,7 @@ exercises:
     mode: typed
     says: For any real numbers a and b, a + b = b + a.
     statement: "(a b : ℝ) : a + b = b + a"
-    forbid: [ring, ring_nf, ring1, linarith, nlinarith, simp, simp_all, simpa, norm_num, grind, linear_combination, noncomm_ring, abel, abel1, abel_nf, ac_rfl, ac_nf, module, aesop, exact?, apply?, rw?, hint, bound, omega]
+    forbid: [ring, ring_nf, ring1, linarith, nlinarith, simp, simp_all, simpa, norm_num, grind, linear_combination, noncomm_ring, abel, abel1, abel_nf, ac_rfl, ac_nf, module, aesop, exact?, apply?, rw?, hint, bound, omega, ring1_nf, field, grobner, algebra, group]
     solution: |
       exact add_comm a b
   - id: tenths
@@ -78,7 +78,7 @@ id: no-natural-half
 
 ## Calculating
 
-In Level 0 you met two moves that calculate. **rfl** and **decide** work a thing out the way a program would: they run the definition. That is fine for natural numbers, which are finite things. A real number is not. It can have infinitely many digits, and there is no program that takes two of them and reports whether they are equal.
+You have met two moves that work a thing out the way a program would: **rfl** and **decide**. They run the definition. That is fine for natural numbers, which are finite things. A real number is not. It can have infinitely many digits, and there is no program that takes two of them and reports whether they are equal.
 
 So Lean does not compute with real numbers. It reasons about them from proved facts, and the move for that is **norm_num**. Try `rfl` here first, and then `decide`, and read what Lean says to each.
 
@@ -111,7 +111,7 @@ id: a-rule-by-name
 
 ## Typing it yourself
 
-A computer's built-in decimal arithmetic famously gets this one wrong: it says 0.1 + 0.2 is 0.30000000000000004. Those are approximations with a fixed number of digits. Lean's `ℝ` is the real thing, and the statement below is exactly true. It needs `(0.1 : ℝ)` to say which kind of number is meant. The Lean lesson of this level is about that.
+A computer's built-in arithmetic famously gets this one wrong: it says 0.1 + 0.2 is 0.30000000000000004. Its numbers are approximations with a fixed number of binary digits, and 0.1 cannot be written exactly in those. Lean's `ℝ` is the real thing, and the statement below is exactly true. It needs `(0.1 : ℝ)` to say which kind of number is meant. The Lean lesson of this level is about that.
 
 ```exercise
 id: tenths

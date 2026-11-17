@@ -121,6 +121,83 @@ test("refusals a learner can reach on the board get a plain sentence, from Lean'
   }
 });
 
+test("Level 3's refusals get a true sentence, from Lean's real message", { skip }, async () => {
+  const find = (lessonId: string, id: string) => content.lessons.find((l) => l.id === lessonId)!.exercises.find((e) => e.id === id)!;
+  const cases: [string, string, string, RegExp][] = [
+    ["math-3-real-numbers", "halves", "rfl", /^Lean cannot work/],
+    ["math-3-real-numbers", "halves", "decide", /a real number cannot be computed with/],
+    ["math-3-identities", "with-a-fact", "ring", /^ring could not prove this.*does not read/],
+    ["math-3-equations", "solve", "ring", /^ring could not prove this/],
+    ["math-3-inequalities", "times-nonneg", "linarith", /a product of two letters/],
+    ["math-3-inequalities", "between", "linarith", /^linarith found no comparison to prove/],
+    ["math-3-inequalities", "a-square", "linarith", /a product of two letters/],
+    ["math-3-inequalities", "from-the-square", "positivity", /^positivity proves goals of the form/],
+    ["math-3-absolute-value", "never-negative", "linarith", /so are \|x\| and f\(x\)/],
+    ["math-3-calc", "side-by-side", "linarith", /a product of two letters/],
+    ["math-3-calc", "two-links", "calc a ≤ b := h1\n  _ ≥ a := h1", /a “≤” link and then a “≥” link/],
+    ["math-3-functions", "increasing", "rw [hf]", /^rw found no “f \?x” it can replace.*intro/],
+    ["math-3-functions", "increasing", "linarith", /^linarith found no comparison to prove/],
+    ["math-3-functions", "increasing-twice", "intro x\nintro y\nintro h\ngcongr", /a function that is not known to be increasing/],
+  ];
+  for (const [lessonId, id, body, plain] of cases) {
+    const reply = await checkExercise(leanServer(), find(lessonId, id), body);
+    assert.ok(reply.error, `${id}: "${body}" should be refused`);
+    assert.match(explain(reply.error.message) ?? "(no plain sentence)", plain, `${id}: ${reply.error.message}`);
+  }
+});
+
+test("a ring that did not finish is refused; a ring that finished the long way is not", { skip }, async () => {
+  const find = (lessonId: string, id: string) => content.lessons.find((l) => l.id === lessonId)!.exercises.find((e) => e.id === id)!;
+  // Lean raises no error for a ring that leaves its goal open, only a note:
+  // the board would have shown the rewritten goal as progress.
+  const identity = find("math-3-identities", "square-of-a-sum");
+  const stuck = await checkExercise(leanServer(), { ...identity, statement: "(a b : ℝ) : (a + b) ^ 2 = a ^ 2 + b ^ 2" }, "ring");
+  assert.equal(stuck.solved, false);
+  assert.equal(stuck.error?.line, 0);
+  assert.equal(stuck.error?.message, "The `ring` tactic failed to close the goal.");
+
+  // Inside |…| ring closes the goal by its second method and prints the
+  // same note. That line is right, and is never called wrong.
+  const triangle = find("math-3-absolute-value", "triangle");
+  const link = "calc |a - c| = |(a - b) + (b - c)| := by ring";
+  const first = await checkExercise(leanServer(), triangle, link);
+  assert.equal(first.solved, false);
+  assert.equal(first.error, null, "the first link alone is unfinished, not wrong");
+  const whole = await checkExercise(leanServer(), triangle, `${link}\n  _ ≤ |a - b| + |b - c| := abs_add_le (a - b) (b - c)`);
+  assert.equal(whole.solved, true);
+  const second = await checkExercise(leanServer(), triangle, `${link}\n  _ ≤ |a - b| + |b - c| := by gcongr`);
+  assert.equal(second.error?.line, 1, "the wrong line is the second, not the ring on the first");
+
+  // Two goals, the first closed by ring's second method: one goal fewer is not a failure.
+  const two = { ...identity, statement: "(a b : ℝ) : |a + b| = |b + a| ∧ a * b = b * a" };
+  const half = await checkExercise(leanServer(), two, "constructor\nring");
+  assert.equal(half.error, null);
+  assert.deepEqual(half.goals.map((g) => g.target), ["a * b = b * a"]);
+  assert.equal((await checkExercise(leanServer(), two, "constructor\nring\nring")).solved, true);
+  // And a ring that fails in a nested `by` is blamed on its own line.
+  const nested = await checkExercise(leanServer(), { ...identity, statement: "(x y : ℝ) (h : x = y) : x = y" }, "have h2 : x * 1 = y + 1 := by ring\nexact h");
+  assert.equal(nested.error?.line, 0);
+  assert.match(nested.error?.message ?? "", /ring. tactic failed/);
+});
+
+test("try? and the other one-line ways round a by-hand exercise are switched off", { skip }, async () => {
+  const find = (lessonId: string, id: string) => content.lessons.find((l) => l.id === lessonId)!.exercises.find((e) => e.id === id)!;
+  const cases: [string, string, string[]][] = [
+    ["math-3-real-numbers", "a-rule-by-name", ["try?", "ring1_nf", "field", "grobner", "algebra", "group"]],
+    ["math-3-identities", "by-hand", ["try?", "ring1_nf", "field", "grobner", "algebra", "group"]],
+    ["math-3-inequalities", "both-steps", ["try?"]],
+    ["math-3-calc", "it-grows", ["try?", "field_simp\nexact h"]],
+    ["math-3-absolute-value", "triangle", ["try?", "simpa [Real.norm_eq_abs] using norm_sub_le_norm_sub_add_norm_sub a b c"]],
+  ];
+  for (const [lessonId, id, bodies] of cases) {
+    for (const body of bodies) {
+      const reply = await checkExercise(leanServer(), find(lessonId, id), body);
+      assert.equal(reply.solved, false, `${id}: ${body}`);
+      assert.ok(reply.forbidden.length > 0, `${id}: "${body}" should be named as switched off`);
+    }
+  }
+});
+
 test("an empty proof is not solved, and Lean reports the opening goal", { skip }, async () => {
   const reply = await checkExercise(leanServer(), exercise("use-it"), "");
   assert.equal(reply.solved, false);

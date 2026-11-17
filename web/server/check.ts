@@ -3,7 +3,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals } from "../shared/goals.ts";
-import { assemble, axiomsOf, endOfBody, escapesIn, judge, toBody, toSource, type Position } from "../shared/proof.ts";
+import { assemble, axiomsOf, endOfBody, escapesIn, judge, ringFailures, ringNotes, toBody, toSource, type Position } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { isSolved, recordAttempt } from "../../scripts/db/progress.ts";
@@ -47,8 +47,14 @@ export async function checkExercise(lean: LeanServer, exercise: Exercise, body: 
   const given = exercise.given;
   const end = toSource(endOfBody(body), given);
   const positions = cursor ? [end, toSource(cursor, given)] : [end];
-  const result = await lean.check("exercise", assemble(exercise.statement, body, given), positions);
-  const diagnostics = toBody(result.diagnostics, body, given);
+  const source = assemble(exercise.statement, body, given);
+  const result = await lean.check("exercise", source, positions);
+  // A `ring` that did not finish says so in a note, not an error: whether it
+  // failed is read from the goals on either side of it (proof.ts
+  // `ringNotes`). The same source again costs Lean no elaboration.
+  const notes = ringNotes(result.diagnostics);
+  const around = notes.length ? (await lean.check("exercise", source, notes.flatMap((d) => [d.start, d.end]))).goals : [];
+  const diagnostics = toBody(ringFailures(result.diagnostics, notes, around), body, given);
   const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body, given));
   return {
     solved: verdict.solved,

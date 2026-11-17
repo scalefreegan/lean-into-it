@@ -74,7 +74,7 @@ exercises:
 | `says` | The claim in plain English, as a mathematician would say it. Shown above the exercise. |
 | `statement` | The Lean statement after the keyword: binders, a colon, the claim. The server wraps it as `theorem lii_exercise <statement> := by`, with the learner's lines in brackets under it. It must not contain `:=` or `sorry`. Quote it: it contains colons. |
 | `moves` | Board mode only, required there: the moves on offer. Every line of the `solution` must be a line one of them writes (`rw [h]`, `induction' n with n ih`, `obtain ⟨r, hr⟩ := h`); `npm test` replays it. |
-| `forbid` | Tactic names that may not appear in an answer. For exercises where one automatic tactic would skip the point. |
+| `forbid` | Tactic names that may not appear in an answer. For exercises where one automatic tactic would skip the point. An exercise that forbids anything also forbids `try?`, which would run the forbidden tactics itself. |
 | `given` | Optional. Lean definitions the statement is about (the functions of a verified-programs lesson, or a theorem proved earlier), placed between the import and the theorem. A lesson can also have a `given` in its frontmatter: it goes in front of every exercise's own. No `sorry`, no `axiom`. Mark a function `@[simp]` if `simp` should unfold it. The lesson page shows it folded under "The definitions this is about". |
 | `solution` | A proof body, one tactic per line, that Lean accepts. Required. `npm test` checks every solution against the real Lean. |
 | `concept` | The concept the exercise tests. Defaults to the lesson's first concept. |

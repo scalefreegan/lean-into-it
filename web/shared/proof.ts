@@ -321,29 +321,67 @@ function blame(message: string, line: number, body: string): number {
 export function toBody(diagnostics: Diagnostic[], body: string, given = ""): BodyDiagnostic[] {
   const audit = auditLine(body, given);
   const first = bodyLine(given);
-  const refused = diagnostics.some((d) => d.severity === "error");
   return diagnostics
     .filter((d) => !isLinterRemark(d) && !(d.severity === "info" && d.start.line === audit))
     .map((d) => {
       const line = d.start.line - first;
-      // `ring` on an equation it cannot prove raises no error: it rewrites
-      // both sides into a standard form, leaves that as the goal and says so
-      // in a note. In a proof Lean has not accepted, that note is reported
-      // as the failed move it is, in Lean's sentence. (In a proof Lean has
-      // accepted it stays a note: the standard form was enough.)
-      const ring = refused && d.severity !== "error" ? RING_FAILED.exec(d.message) : null;
-      return { severity: ring ? "error" : d.severity, message: ring ? ring[0] : d.message, line: line < 0 ? null : blame(d.message, line, body) };
+      return { severity: d.severity, message: d.message, line: line < 0 ? null : blame(d.message, line, body) };
     });
 }
 
+/*
+ * `ring` on an equation it cannot prove raises no error. Mathlib's `ring`
+ * is "try `ring1`, and if that fails run `ring_nf` and say so in a note":
+ * the note is the same whether `ring_nf` then closed the goal or only
+ * rewrote it into a standard form and left it. Left as a note, the second
+ * case looks like progress on the board, when the move has failed.
+ *
+ * The note alone cannot tell the two apart; the goals can. `/api/check`
+ * asks Lean for the goals just before and just after each such `ring`
+ * (`ringNotes` says where), and `ringFailures` turns the note into an error,
+ * in Lean's own sentence, where the goal `ring` ran on is still open.
+ *
+ * Only in a proof Lean has not accepted: where Lean raised no error, a later
+ * line finished from the standard form, the proof is a proof, and nothing
+ * here may say otherwise.
+ */
 const RING_FAILED = /The `ring` tactic failed to close the goal\./;
+
+/** The notes of a `ring` that fell back to `ring_nf`, in a proof Lean has
+ *  raised an error in. Empty for a proof with no error. */
+export function ringNotes(diagnostics: Diagnostic[]): Diagnostic[] {
+  if (!diagnostics.some((d) => d.severity === "error")) return [];
+  return diagnostics.filter((d) => d.severity !== "error" && RING_FAILED.test(d.message));
+}
+
+/**
+ * `diagnostics` with each of `notes` made an error where its `ring` left its
+ * goal open. `goals` holds, for each note in turn, Lean's goals at the note's
+ * start and then at its end. A `ring` that closed its goal leaves one goal
+ * fewer; where Lean could not say (null), the note stays a note.
+ */
+export function ringFailures(diagnostics: Diagnostic[], notes: Diagnostic[], goals: (string[] | null)[]): Diagnostic[] {
+  const failed = new Set(
+    notes.filter((_, i) => {
+      const before = goals[2 * i];
+      const after = goals[2 * i + 1];
+      return !!before && !!after && before.length > 0 && after.length >= before.length;
+    }),
+  );
+  return diagnostics.map((d): Diagnostic => (failed.has(d) ? { ...d, severity: "error", message: RING_FAILED.exec(d.message)![0] } : d));
+}
 
 const USES_SORRY = /declaration uses .?sorry/;
 const UNSOLVED = /^unsolved goals/;
 
+/** `try?` runs whatever closes the goal, the forbidden tactics and theorems
+ *  among them, so a list that forbids anything forbids it too. */
+const SEARCHES_EVERYTHING = "try?";
+
 /** Whole-word uses of forbidden tactics in a body, comments removed. */
-export function forbiddenIn(body: string, forbid: string[]): string[] {
+export function forbiddenIn(body: string, forbidden: string[]): string[] {
   const { code } = lex(body);
+  const forbid = forbidden.length && !forbidden.includes(SEARCHES_EVERYTHING) ? [...forbidden, SEARCHES_EVERYTHING] : forbidden;
   // A name with no dot in it is also found after a dot: forbidding `zero_add`
   // forbids `Nat.zero_add` and `n.zero_add`, which are the same theorem.
   return forbid.filter((word) => new RegExp(`(^|[^A-Za-z0-9_${word.includes(".") ? "." : ""}'?!])${escapeRegExp(word)}($|[^A-Za-z0-9_'])`).test(code));

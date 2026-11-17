@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assemble, axiomsOf, isBlank, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, toBody, toSource, type BodyDiagnostic, type Diagnostic } from "./proof.ts";
+import { assemble, axiomsOf, isBlank, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Diagnostic } from "./proof.ts";
 
 /** judge with nothing forbidden and Lean's report that no axiom is used, unless said otherwise. */
 const judge = (diagnostics: BodyDiagnostic[], body: string, forbid: string[] = [], axioms: string[] | null = []) => judgeWith(diagnostics, body, forbid, axioms);
@@ -90,6 +90,16 @@ test("a forbidden tactic is found as a whole word, outside comments", () => {
   assert.deepEqual(forbiddenIn('have := "/-"\ntauto\n-- -/', forbid), ["tauto"]);
   assert.deepEqual(forbiddenIn("/- a /- nested -/ tauto -/ exact h", forbid), []);
   assert.equal(judge([], "tauto", forbid).solved, false);
+});
+
+test("try? is switched off wherever anything is: it would run the forbidden things itself", () => {
+  assert.deepEqual(forbiddenIn("try?", ["simp"]), ["try?"]);
+  assert.deepEqual(forbiddenIn("intro h\n  try?", ["two_mul_le_add_sq"]), ["try?"]);
+  assert.deepEqual(forbiddenIn("try?", ["simp", "try?"]), ["try?"]);
+  // `try` is a different word, and an exercise that forbids nothing forbids nothing.
+  assert.deepEqual(forbiddenIn("try simp at h\nexact h", ["tauto"]), []);
+  assert.deepEqual(forbiddenIn("try?", []), []);
+  assert.equal(judge([], "try?", ["tauto"]).solved, false);
 });
 
 test("comments and strings are told apart the way Lean tells them", () => {
@@ -252,11 +262,30 @@ test("an exercise's own definitions sit between the import and the theorem, and 
   assert.equal(assemble(": 1 = 1", "rfl", ""), assemble(": 1 = 1", "rfl"));
 });
 
-test("a ring that did not finish is an error in a proof Lean has not accepted, and a note in one it has", () => {
+test("a ring that left its goal open is an error in a proof Lean has not accepted, and a note everywhere else", () => {
   const ring = at(4, "Try this:\n  [apply] ring_nf\n  \n  The `ring` tactic failed to close the goal. Use `ring_nf` to obtain a normal form.", "info");
-  const open = toBody([ring, at(2, "unsolved goals\na b : ℝ\n⊢ a * b * 2 + a ^ 2 + b ^ 2 = a ^ 2 + b ^ 2")], "ring");
+  const unsolved = at(2, "unsolved goals\na b : ℝ\n⊢ a * b * 2 + a ^ 2 + b ^ 2 = a ^ 2 + b ^ 2");
+  const left = "case left\n⊢ A";
+  const right = "case right\n⊢ B";
+  const after = (diagnostics: Diagnostic[], goals: (string[] | null)[]) => toBody(ringFailures(diagnostics, ringNotes(diagnostics), goals), "ring");
+
+  // The goal it ran on is still there afterwards, rewritten: the move failed.
+  const open = after([ring, unsolved], [["⊢ A"], ["⊢ A'"]]);
   assert.deepEqual(open[0], { severity: "error", message: "The `ring` tactic failed to close the goal.", line: 0 });
   assert.equal(judgeWith(open, "ring", [], []).error?.message, "The `ring` tactic failed to close the goal.");
-  // Its standard form closed the goal and nothing else is wrong: Lean accepts the proof, and so do we.
-  assert.equal(toBody([ring], "ring")[0].severity, "info");
+  assert.equal(after([ring, unsolved], [[left, right], [left, right]])[0].severity, "error");
+
+  // One goal fewer afterwards: its standard form closed the goal, and the error is about something else.
+  assert.equal(after([ring, unsolved], [[left, right], [right]])[0].severity, "info");
+  assert.equal(after([ring, unsolved], [["⊢ A"], []])[0].severity, "info");
+  assert.equal(judgeWith(after([ring, unsolved], [["⊢ A"], []]), "ring", [], []).error, null);
+  // Lean could not say what the goals were: nothing is called wrong on a guess.
+  assert.equal(after([ring, unsolved], [null, null])[0].severity, "info");
+  assert.equal(after([ring, unsolved], [])[0].severity, "info");
+
+  // No error anywhere: Lean accepts the proof, a later line having finished from the standard form, and so do we.
+  assert.deepEqual(ringNotes([ring]), []);
+  assert.equal(after([ring], [["⊢ A"], ["⊢ A'"]])[0].severity, "info");
+  // An error of Lean's own is never a ring note, whatever it quotes.
+  assert.deepEqual(ringNotes([at(4, "The `ring` tactic failed to close the goal.")]), []);
 });
