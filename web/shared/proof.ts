@@ -70,8 +70,14 @@ export function bodyLines(body: string): string[] {
  */
 export function assemble(statement: string, body: string): string {
   const lines = bodyLines(body);
-  const shown = lines.length ? lines : [PLACEHOLDER];
+  // Comments alone are not a tactic block: the placeholder goes in front of them.
+  const shown = !lines.length ? [PLACEHOLDER] : isBlank(body) ? [`${PLACEHOLDER} ${lines[0]}`, ...lines.slice(1)] : lines;
   return `${HEADER}theorem ${THEOREM} ${statement.replace(/\s+/g, " ").trim()} := by\n  (\n${shown.map((l) => INDENT + l).join("\n")}\n  )\n\n#print axioms ${THEOREM}\n`;
+}
+
+/** True when a body has no tactic in it: nothing at all, or only comments. */
+export function isBlank(body: string): boolean {
+  return !lex(body).code.trim();
 }
 
 /** The source line of the axiom report: after the body, the closing bracket and a blank. */
@@ -87,7 +93,7 @@ export function toSource(p: Position): Position {
 /** The end of the proof: after the last tactic, where Lean reports what is left. */
 export function endOfBody(body: string): Position {
   const lines = bodyLines(body);
-  if (!lines.length) return { line: 0, character: PLACEHOLDER.length };
+  if (isBlank(body)) return { line: 0, character: PLACEHOLDER.length };
   return { line: lines.length - 1, character: lines[lines.length - 1].length };
 }
 
@@ -255,7 +261,9 @@ export function toBody(diagnostics: Diagnostic[], body: string): BodyDiagnostic[
     .filter((d) => !isLinterRemark(d) && !(d.severity === "info" && d.start.line === audit))
     .map((d) => {
       const line = d.start.line - BODY_LINE;
-      return { severity: d.severity, message: d.message, line: line >= 0 && line < count ? line : null };
+      // Past the end of the body is the closing bracket and the axiom line:
+      // Lean stumbling there means the body's last line left something open.
+      return { severity: d.severity, message: d.message, line: line < 0 ? null : Math.min(line, count - 1) };
     });
 }
 
@@ -298,7 +306,7 @@ export function judge(diagnostics: BodyDiagnostic[], body: string, forbid: strin
   const unfinished = !error && errors.some((d) => UNSOLVED.test(d.message));
   const sorry = diagnostics.some((d) => USES_SORRY.test(d.message));
   const forbidden = forbiddenIn(body, forbid);
-  const empty = bodyLines(body).length === 0;
+  const empty = isBlank(body);
   const escapes = escapesIn(body);
   const clean = !empty && errors.length === 0 && !sorry;
   const extra = (axioms ?? []).filter((a) => !ALLOWED_AXIOMS.includes(a));

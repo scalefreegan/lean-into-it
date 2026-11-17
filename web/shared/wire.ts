@@ -35,7 +35,8 @@ export interface CheckReply {
   /** Forbidden tactics the body used. */
   forbidden: string[];
   /** Why a proof with no error is still not accepted (it steps outside a
-   *  proof, or rests on an axiom of its own), in plain words. */
+   *  proof, rests on an axiom of its own, or Lean's axiom report never
+   *  came), in plain words. */
   refusal: string | null;
 }
 
