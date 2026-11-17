@@ -1,0 +1,64 @@
+import { ErrorBoundary } from "./ErrorBoundary.tsx";
+import { Home } from "./pages/Home.tsx";
+import { Lesson } from "./pages/Lesson.tsx";
+import { Playground } from "./pages/Playground.tsx";
+import { href, useRoute } from "./router.ts";
+import { AppProvider, useApp } from "./state.tsx";
+import { cx, Notice } from "./ui.tsx";
+
+export function App() {
+  return (
+    <AppProvider
+      fallback={({ error }) => (
+        <div className="mx-auto max-w-xl p-10">{error ? <Notice tone="bad">{error}</Notice> : <p className="text-fg-3">Loading…</p>}</div>
+      )}
+    >
+      <Shell />
+    </AppProvider>
+  );
+}
+
+function Shell() {
+  const route = useRoute();
+  const { lean } = useApp();
+  const tabs = [
+    { name: "home", label: "Path", active: route.name === "home" || route.name === "lesson" },
+    { name: "playground", label: "Playground", active: route.name === "playground" },
+  ];
+  return (
+    <div className="min-h-dvh">
+      <header className="sticky top-0 z-10 border-b border-line bg-panel/95 backdrop-blur">
+        <div className="mx-auto flex max-w-6xl items-center gap-6 px-4 py-3 sm:px-6">
+          <a href={href("home")} className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent font-mono text-lg font-bold text-accent-ink">⊢</span>
+            <span className="font-display text-xl font-semibold text-fg">Lean Into It</span>
+          </a>
+          <nav className="flex gap-1" aria-label="Sections">
+            {tabs.map((t) => (
+              <a
+                key={t.name}
+                href={href(t.name)}
+                aria-current={t.active ? "page" : undefined}
+                className={cx("rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors", t.active ? "bg-accent-soft text-accent" : "text-fg-2 hover:bg-raised")}
+              >
+                {t.label}
+              </a>
+            ))}
+          </nav>
+        </div>
+      </header>
+      <main className="px-4 py-8 sm:px-6">
+        {!lean.ready && (
+          <div className="mx-auto mb-6 max-w-4xl">
+            <Notice tone="warn">
+              <strong>Lean is not set up yet.</strong> {lean.problem} Lessons can be read, but proofs cannot be checked until then.
+            </Notice>
+          </div>
+        )}
+        <ErrorBoundary label={route.name} key={`${route.name}/${route.arg ?? ""}`}>
+          {route.name === "lesson" && route.arg ? <Lesson id={route.arg} /> : route.name === "playground" ? <Playground /> : <Home />}
+        </ErrorBoundary>
+      </main>
+    </div>
+  );
+}

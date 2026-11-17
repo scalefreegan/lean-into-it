@@ -1,0 +1,259 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Lean Into It — a proof you can see. Cool paper and ink, one indigo
+   accent for actions.
+
+   The idea that carries the whole app: a proof state has two kinds of
+   thing, and each has ONE colour everywhere. What you know (a fact) is
+   teal. What you want (a goal) is amber. A goal that has been closed is
+   green. The proof board, the goal panel beside the editor and, later,
+   the proof map all use the same three, so the eye reads "known",
+   "wanted", "done" before the mind reads the symbols.
+
+   Raw values live on :root and flip with the colour scheme; the
+   @theme inline block maps them to Tailwind utilities (bg-panel,
+   text-fg-2, border-line …) so components never write a raw hex or dark:.
+   ============================================================ */
+
+:root {
+  color-scheme: light dark;
+  --ground: #f2f0e9;
+  --panel: #fdfcf8;
+  --raised: #e9e6dc;
+  --line: #d9d5c8;
+  --line-strong: #b3ad9b;
+  --fg: #1b1d2a;
+  --fg-2: #3d4052;
+  --fg-3: #636679;
+  --accent: #4338ca;
+  --accent-hover: #3a30b3;
+  --accent-ink: #ffffff;
+  --accent-soft: #e6e4fb;
+  --fact: #0f6f67;
+  --fact-soft: #d9f0ec;
+  --fact-line: #8fcfc6;
+  --goal: #a04a06;
+  --goal-soft: #fdf0d6;
+  --goal-line: #ecc277;
+  --good: #1a7a43;
+  --good-soft: #dbf1e2;
+  --good-line: #93d3aa;
+  --bad: #b3261e;
+  --bad-soft: #fbe3e0;
+  --warn: #8a5300;
+  --warn-soft: #fbf1de;
+  /* The faint graph-paper grid behind the page. */
+  --grid: rgb(27 29 42 / 0.045);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #111219;
+    --panel: #191b25;
+    --raised: #232634;
+    --line: #2e3243;
+    --line-strong: #4a4f66;
+    --fg: #ecebf5;
+    --fg-2: #c5c6d6;
+    --fg-3: #9698ad;
+    --accent: #9a9bfa;
+    --accent-hover: #b0b1fb;
+    --accent-ink: #12122b;
+    --accent-soft: #25264a;
+    --fact: #62dccb;
+    --fact-soft: #12302d;
+    --fact-line: #23615a;
+    --goal: #f5bb4f;
+    --goal-soft: #33270f;
+    --goal-line: #6e5318;
+    --good: #6fd696;
+    --good-soft: #17301f;
+    --good-line: #2c6a43;
+    --bad: #f28b82;
+    --bad-soft: #3b1e1b;
+    --warn: #f0c060;
+    --warn-soft: #3a2f18;
+    --grid: rgb(236 235 245 / 0.04);
+  }
+}
+
+@theme inline {
+  --color-ground: var(--ground);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-2: var(--fg-2);
+  --color-fg-3: var(--fg-3);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-fact: var(--fact);
+  --color-fact-soft: var(--fact-soft);
+  --color-fact-line: var(--fact-line);
+  --color-goal: var(--goal);
+  --color-goal-soft: var(--goal-soft);
+  --color-goal-line: var(--goal-line);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-good-line: var(--good-line);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --font-display: "Newsreader", ui-serif, Georgia, serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+html {
+  background-color: var(--ground);
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.01em;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Lean, wherever it is shown: the statement, a card, the editor. Ligatures
+   off so -> and <- stay the characters that were typed. */
+.lean {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The editor never wraps: one line of text is one numbered line. */
+.lean-editor {
+  white-space: pre;
+  overflow-wrap: normal;
+  overflow-x: auto;
+}
+
+/* Lesson prose. */
+.prose-lesson {
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  color: var(--fg-2);
+  max-width: 68ch;
+}
+.prose-lesson > * + * {
+  margin-top: 0.9em;
+}
+.prose-lesson h2 {
+  font-size: 1.6rem;
+  color: var(--fg);
+  margin-top: 1.6em;
+}
+.prose-lesson h3 {
+  font-size: 1.25rem;
+  color: var(--fg);
+  margin-top: 1.3em;
+}
+.prose-lesson strong {
+  color: var(--fg);
+  font-weight: 650;
+}
+.prose-lesson ul {
+  list-style: disc;
+  padding-left: 1.3em;
+}
+.prose-lesson ol {
+  list-style: decimal;
+  padding-left: 1.3em;
+}
+.prose-lesson li + li {
+  margin-top: 0.3em;
+}
+.prose-lesson code {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-size: 0.88em;
+  background: var(--raised);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.prose-lesson pre {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  background: var(--raised);
+  border-radius: 10px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+}
+.prose-lesson blockquote {
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--fg);
+  border-radius: 0 10px 10px 0;
+  padding: 0.7em 1em;
+}
+
+/* A move Lean refused: the board shakes its head. */
+@keyframes refuse {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
+}
+.refused {
+  animation: refuse 0.35s ease-in-out;
+}
+
+/* A card that has just arrived on the board. */
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.arrive {
+  animation: arrive 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,0 +1,127 @@
+import { useEffect, useRef, useState } from "react";
+import type { Exercise } from "../../shared/content.ts";
+import { explain } from "../../shared/explain.ts";
+import type { Position } from "../../shared/proof.ts";
+import type { CheckReply } from "../../shared/wire.ts";
+import { ApiError, check } from "../api/client.ts";
+import { Button, Notice } from "../ui.tsx";
+import { Closed, GoalView, Refusal } from "./GoalCards.tsx";
+import { LeanEditor, SymbolHelp } from "./LeanEditor.tsx";
+import { useLive } from "./useLive.ts";
+
+// A proof typed as Lean. The statement is fixed; the learner writes the
+// tactic lines. The panel beside the editor shows the goal state at the
+// caret, as cards, and refreshes a moment after each pause in typing.
+
+interface Props {
+  lessonId: string;
+  exercise: Exercise;
+  solution?: string;
+  onSolved: (body: string) => void;
+}
+
+export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
+  const [body, setBody] = useState(solution ?? "");
+  const [caret, setCaret] = useState<Position>({ line: 0, character: 0 });
+  const [submitted, setSubmitted] = useState<{ body: string; reply: CheckReply } | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [trouble, setTrouble] = useState<string | null>(null);
+  const told = useRef(false);
+
+  const live = useLive({ body, caret }, (k, signal) => check({ lessonId, exerciseId: exercise.id, body: k.body, cursor: k.caret }, signal));
+  const reply = live.reply;
+
+  // Lean accepting the proof is the finish line, whether or not Check was pressed.
+  useEffect(() => {
+    if (reply?.solved && !live.checking && !told.current) {
+      told.current = true;
+      onSolved(body);
+    }
+  }, [reply, live.checking, body, onSolved]);
+
+  async function submit() {
+    setSubmitting(true);
+    setTrouble(null);
+    try {
+      const r = await check({ lessonId, exerciseId: exercise.id, body, record: "submitted" });
+      setSubmitted({ body, reply: r });
+      if (r.solved && !told.current) {
+        told.current = true;
+        onSolved(body);
+      }
+    } catch (e) {
+      setTrouble(e instanceof ApiError ? e.message : String(e));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const solved = !!reply?.solved && !live.checking;
+  const errors = reply?.diagnostics.filter((d) => d.severity === "error" && d.line !== null) ?? [];
+  const verdict = submitted && submitted.body === body ? submitted.reply : null;
+  const goals = reply ? (reply.cursorGoals ?? reply.goals) : null;
+  const empty = !body.trim();
+
+  return (
+    <div data-typed={exercise.id} className="overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-sm">
+      <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-2">
+          <LeanEditor
+            label={`Proof of: ${exercise.says}`}
+            header={`example ${exercise.statement} := by`}
+            value={body}
+            rows={7}
+            errorLines={errors.map((d) => d.line as number)}
+            onChange={(text, c) => {
+              setBody(text);
+              setCaret(c);
+            }}
+            onCaret={setCaret}
+          />
+          <SymbolHelp />
+          <div className="flex items-center gap-3">
+            <Button variant="primary" onClick={submit} disabled={submitting || empty}>
+              Check
+            </Button>
+            <span className="text-sm text-fg-3" aria-live="polite">
+              {live.checking ? "Lean is checking…" : solved ? "Lean accepts this proof." : ""}
+            </span>
+          </div>
+        </div>
+
+        <div className="min-w-0" aria-live="polite">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-3">
+            {solved ? "Proof state" : reply?.cursorGoals ? `At line ${caret.line + 1}` : "After your last line"}
+          </div>
+          {live.trouble || trouble ? (
+            <Notice tone="warn">{live.trouble ?? trouble}</Notice>
+          ) : !goals ? (
+            <div className="py-6 text-sm text-fg-3">Waking Lean up…</div>
+          ) : solved ? (
+            <Closed>
+              <strong>No goals left.</strong> Lean accepts this proof.
+            </Closed>
+          ) : (
+            <GoalView goals={goals} />
+          )}
+        </div>
+      </div>
+
+      {reply && !solved && (errors.length > 0 || reply.forbidden.length > 0 || verdict) && (
+        <div className="flex flex-col gap-2 border-t border-line px-4 py-3 sm:px-5">
+          {reply.forbidden.length > 0 && (
+            <Notice tone="warn">
+              This exercise is about doing the steps yourself, so <code className="font-mono">{reply.forbidden.join(", ")}</code> is switched off here.
+            </Notice>
+          )}
+          {errors.map((d, i) => (
+            <Refusal key={i} plain={`Line ${(d.line as number) + 1}: ${explain(d.message) ?? d.message.split("\n")[0]}`} raw={d.message} />
+          ))}
+          {verdict && !verdict.solved && errors.length === 0 && reply.forbidden.length === 0 && (
+            <Notice tone="warn">{empty ? "Nothing to check yet." : "Not finished: every line is fine, but there is still something left to show. The panel says what."}</Notice>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

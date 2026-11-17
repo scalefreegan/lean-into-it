@@ -1,0 +1,125 @@
+# The map of the whole curriculum: tracks and levels. Lessons live in
+# content/lessons/<track>/ and say which track and level they belong to.
+# Format: docs/CONTENT.md. A level marked `status: outline` has no lessons
+# yet; its topics say what it will cover.
+
+tracks:
+  - id: logic
+    title: Logic and proof
+    summary: Statements, and the ways mathematicians prove them. Direct proof, cases, contradiction, induction.
+  - id: math
+    title: Math refresher
+    summary: Numbers, algebra, inequalities, functions, limits and calculus. Seen first, then stated and proved.
+  - id: lean
+    title: Lean itself
+    summary: Types and terms, tactics, reading goals and errors, finding lemmas in Mathlib.
+  - id: programs
+    title: Verified programs
+    summary: Write a small function, say what it should do, and prove that it does.
+
+levels:
+  - id: 0
+    title: What a proof is
+    status: outline
+    summary: The difference between evidence and proof, and a first proof made by clicking.
+    topics:
+      - Claims, examples and counterexamples
+      - Why a million checked cases is still not a proof
+      - What a proof assistant does, and what it means that Lean "accepts" a proof
+      - Facts you have and the goal you want: reading a proof state
+      - A first proof on the proof board
+  - id: 1
+    title: Logic you can see
+    summary: And, or, not, if-then, for-all and there-exists, each with the moves that prove it and the moves that use it.
+    moves: [intro, apply, exact, constructor, cases, left, right, use, obtain, by_contra]
+    topics:
+      - "And: proving both parts, using either part"
+      - "Or: choosing a side, arguing by cases"
+      - "Not, and proof by contradiction"
+      - "If and only if"
+      - "For all: proving it for an arbitrary thing, using it on a particular one"
+      - "There exists: giving a witness, using a witness"
+      - "Proof craft: working backwards from the goal"
+  - id: 2
+    title: Numbers and induction
+    status: outline
+    summary: The natural numbers from the ground up, equality and rewriting, proof by induction, and the first programs proved correct.
+    moves: [rfl, rw, simp, induction, omega, decide]
+    topics:
+      - What a natural number is, zero and successor
+      - Equality, and rewriting with a known equation
+      - Addition and multiplication defined by recursion
+      - Induction, with dominoes
+      - Sums such as 1 + 2 + … + n
+      - Strong induction
+      - "Verified programs: a recursive function on lists, its specification as a theorem, and the proof"
+      - "A test checks some inputs, a proof covers all of them"
+      - "Proof craft: try small cases, guess the pattern, then prove it"
+  - id: 3
+    title: Algebra and inequalities
+    status: outline
+    summary: The real numbers, equations and inequalities, absolute value and functions, proved the way a textbook argues them.
+    moves: [ring, linarith, nlinarith, calc, norm_num, positivity, field_simp]
+    topics:
+      - The real numbers and what Lean knows about them
+      - Identities, and letting ring do the algebra
+      - Chains of equalities and inequalities with calc
+      - Linear inequalities with linarith
+      - Absolute value and the triangle inequality
+      - Functions, graphs, increasing and decreasing
+      - "Proof craft: reading a textbook proof beside its Lean proof"
+  - id: 4
+    title: Sets and functions
+    status: outline
+    summary: Sets, subsets, unions and intersections, and what it means for a function to be injective or surjective.
+    topics:
+      - Membership, subset, union, intersection, complement
+      - Proving two sets are equal
+      - Functions, images and preimages
+      - Injective, surjective, bijective
+      - Composition and inverses
+      - Cantor's diagonal argument
+  - id: 5
+    title: Sequences and limits
+    status: outline
+    summary: What it means for a sequence to converge, with epsilon and N you can drag.
+    topics:
+      - Sequences and their graphs
+      - The definition of a limit, epsilon and N
+      - Proving a limit from the definition
+      - Limits of sums and products
+      - Bounded and monotone sequences
+      - The squeeze theorem
+  - id: 6
+    title: Continuity, derivatives, integrals
+    status: outline
+    summary: Calculus revisited, this time with every step justified.
+    topics:
+      - Limits of functions, epsilon and delta
+      - Continuity
+      - The derivative as a limit of secant slopes
+      - Rules for derivatives, proved
+      - The mean value theorem
+      - Riemann sums and the integral
+      - The fundamental theorem of calculus
+  - id: 7
+    title: Verified programs
+    status: outline
+    summary: Specifications, invariants, and proofs that sorting and searching code is correct.
+    topics:
+      - What a specification is, and what it leaves out
+      - Insertion sort, proved to sort and to keep every element
+      - Binary search and its invariant
+      - Trees and structural induction
+      - Loops with mutable state and loop invariants
+      - What "verified" does and does not promise about real software
+  - id: 8
+    title: How large formalisations are built
+    status: outline
+    summary: How a long research proof becomes thousands of small checked steps.
+    topics:
+      - Mathlib, and how a shared library of proved mathematics grows
+      - Blueprints, turning a paper proof into a dependency graph of lemmas
+      - Reading a formal statement, what exactly was proved
+      - Automation and AI provers, and what they change
+      - Trust, the kernel, axioms, and what could still be wrong
