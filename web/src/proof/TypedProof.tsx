@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
 import { explain, suggestion } from "../../shared/explain.ts";
+import { stillOpenGoals } from "../../shared/goals.ts";
 import type { Position } from "../../shared/proof.ts";
 import type { CheckReply } from "../../shared/wire.ts";
 import { ApiError, check } from "../api/client.ts";
@@ -70,8 +71,11 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   const found = live.checking || exercise.forbid.includes("exact?") ? [] : (reply?.diagnostics ?? []).flatMap((d) => (d.severity === "info" ? [suggestion(d.message)] : [])).filter((x): x is string => x !== null);
   const verdict = submitted && submitted.body === body ? submitted.reply : null;
   const goals = reply ? (reply.cursorGoals ?? reply.goals) : null;
+  // No goal at this point, yet the proof is unfinished: a case left open
+  // elsewhere (a bullet never started). Lean's "unsolved goals" error names it.
+  const stillOpen = stillOpenGoals(reply, goals);
   const empty = !body.trim();
-  useTutorWork(lessonId, exercise.id, { body, goals, error: reply?.error ? `${reply.error.line !== null ? `line ${reply.error.line + 1}: ` : ""}${reply.error.message}` : (reply?.refusal ?? null) });
+  useTutorWork(lessonId, exercise.id, { body, goals: stillOpen.length ? stillOpen : goals, error: reply?.error ? `${reply.error.line !== null ? `line ${reply.error.line + 1}: ` : ""}${reply.error.message}` : (reply?.refusal ?? null) });
 
   return (
     <div data-typed={exercise.id} className="overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-sm">
@@ -102,7 +106,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
 
         <div className="min-w-0" aria-live="polite">
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-3">
-            {solved ? "Proof state" : reply?.cursorGoals ? `At line ${caret.line + 1}` : "After your last line"}
+            {solved ? "Proof state" : stillOpen.length ? "Still open" : reply?.cursorGoals ? `At line ${caret.line + 1}` : "After your last line"}
           </div>
           {live.trouble || trouble ? (
             <Notice tone="warn">{live.trouble ?? trouble}</Notice>
@@ -112,6 +116,11 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
             <Closed>
               <strong>No goals left.</strong> Lean accepts this proof.
             </Closed>
+          ) : goals.length === 0 && stillOpen.length ? (
+            <div data-still-open>
+              <p className="mb-2 text-sm text-fg-2">Nothing is left to prove here, but {stillOpen.length === 1 ? "this case is" : "these cases are"} not finished yet:</p>
+              <GoalView goals={stillOpen} />
+            </div>
           ) : goals.length === 0 ? (
             // No goal here, yet Lean has not accepted the proof: it could not be
             // read this far, or was refused, or another case is still open.
