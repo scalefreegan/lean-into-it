@@ -84,8 +84,8 @@ export async function attemptsFor(db: Db, learnerId: string): Promise<AttemptRow
     .orderBy(asc(attempts.createdAt), asc(attempts.id));
 }
 
-/** Whether the exercise was solved on or after `since`, by `body` if one is given. */
-export async function solvedSince(db: Db, learnerId: string, lessonId: string, exerciseId: string, since: Date, body?: string): Promise<boolean> {
+/** Whether the exercise was solved on or after `since`. */
+export async function solvedSince(db: Db, learnerId: string, lessonId: string, exerciseId: string, since: Date): Promise<boolean> {
   const rows = await db
     .select({ id: attempts.id })
     .from(attempts)
@@ -96,7 +96,6 @@ export async function solvedSince(db: Db, learnerId: string, lessonId: string, e
         eq(attempts.exerciseId, exerciseId),
         eq(attempts.solved, true),
         gte(attempts.createdAt, since),
-        ...(body === undefined ? [] : [eq(attempts.body, body)]),
       ),
     )
     .limit(1);

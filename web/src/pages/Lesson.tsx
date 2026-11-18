@@ -14,7 +14,7 @@ import { RenderWidget } from "../widgets/RenderWidget.tsx";
 // and the server has already stored it).
 
 export function Lesson({ id }: { id: string }) {
-  const { content, solved, markSolved } = useApp();
+  const { content, solved, markSolved, reloadProgress } = useApp();
   const index = content.lessons.findIndex((l) => l.id === id);
   const lesson = content.lessons[index];
   if (!lesson) {
@@ -64,7 +64,11 @@ export function Lesson({ id }: { id: string }) {
             exercise={exercise}
             number={lesson.exercises.indexOf(exercise) + 1}
             solution={solvedOf(solved, lesson.id, exercise.id)?.solution}
-            onSolved={(body) => markSolved(lesson.id, exercise.id, body)}
+            onSolved={(body) => {
+              markSolved(lesson.id, exercise.id, body);
+              // A solve can clear a concept due for review: the count in the header follows.
+              void reloadProgress();
+            }}
           />
         );
       })}

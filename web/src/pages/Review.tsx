@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import type { Exercise, Lesson } from "../../shared/content.ts";
 import type { ReviewItem } from "../../shared/progress.ts";
 import { EXERCISES } from "../../shared/registry.ts";
-import { getProgress } from "../api/client.ts";
 import { ErrorBoundary } from "../ErrorBoundary.tsx";
 import { EXERCISE_COMPONENTS } from "../exercises/registry.ts";
 import { href } from "../router.ts";
@@ -13,7 +12,9 @@ import { Notice, Tick } from "../ui.tsx";
 // (web/shared/progress.ts reviewSession says which). Each is a fresh
 // attempt, checked and recorded like any other; the record is the review.
 // The session is taken once, when the page opens, so a solved item stays
-// on the page; the count in the header moves as each one is done.
+// on the page; the count in the header moves as each one is done. A
+// session holds at most REVIEW_SIZE; when more are due, the next batch is
+// offered once this one is done, so the header and the page agree.
 
 export function Review() {
   const { content, markSolved, reloadProgress } = useApp();
@@ -21,13 +22,15 @@ export function Review() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Set<string>>(new Set());
 
+  // The latest count, for "more are due" once this session is done.
+  const { review } = useApp();
   useEffect(() => {
     let live = true;
-    getProgress().then(
-      (p) => live && setSession(p.review),
-      (e: Error) => live && setError(e.message),
-    );
-    reloadProgress();
+    void reloadProgress().then((p) => {
+      if (!live) return;
+      if (p) setSession(p.review);
+      else setError("The review could not be loaded. Is the server running?");
+    });
     return () => {
       live = false;
     };
@@ -77,7 +80,31 @@ export function Review() {
           }}
         />
       ))}
-      {items.length > 0 && conceptsDone === items.length && <Notice tone="good">Today's review is done.</Notice>}
+      {items.length > 0 && conceptsDone === items.length && (
+        <Notice tone="good">
+          {review.length > 0 ? (
+            <span className="flex flex-wrap items-center gap-3">
+              <span>
+                That is {items.length} done. {review.length} more {review.length === 1 ? "is" : "are"} due today.
+              </span>
+              <button
+                type="button"
+                data-review-next
+                className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink hover:bg-accent-hover"
+                onClick={() => {
+                  setDone(new Set());
+                  setSession(review);
+                  window.scrollTo(0, 0);
+                }}
+              >
+                Go on
+              </button>
+            </span>
+          ) : (
+            "Today's review is done."
+          )}
+        </Notice>
+      )}
     </div>
   );
 }

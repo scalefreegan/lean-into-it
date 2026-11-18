@@ -49,8 +49,9 @@ function Shell() {
               >
                 {t.label}
                 {t.name === "review" && review.length > 0 && (
-                  <span data-review-due={review.length} aria-label={`${review.length} due today`} className="ml-1.5 rounded-full bg-accent px-1.5 py-0.5 font-mono text-xs text-accent-ink">
+                  <span data-review-due={review.length} className="ml-1.5 rounded-full bg-accent px-1.5 py-0.5 font-mono text-xs text-accent-ink">
                     {review.length}
+                    <span className="sr-only"> due today</span>
                   </span>
                 )}
               </a>

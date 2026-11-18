@@ -35,10 +35,12 @@ const exercise = (id: string) => lesson.exercises.find((e) => e.id === id)!;
 
 let db: Db;
 let closeDb: () => Promise<void>;
+let query: (text: string, params?: unknown[]) => Promise<unknown[]>;
 
 before(async () => {
   const fresh = await freshDb();
   db = fresh.db;
+  query = fresh.query;
   closeDb = fresh.close;
   setDb(db);
 });
@@ -349,7 +351,7 @@ test("the goals at the cursor are those before the line the caret starts", { ski
   assert.ok(reply.cursorGoals?.[0].hypotheses.some((h) => h.names.includes("hP")));
 });
 
-test("/api/check records a rejected move and the first solve, and nothing for a live re-check", { skip }, async () => {
+test("/api/check records attempts, not the re-check of a stored solution, and a solve once a day", { skip }, async () => {
   const learner = await ensureLearner(db);
   const base = { lessonId: lesson.id, exerciseId: "prove-it" };
   const count = () => attemptCount(db, learner, lesson.id, "prove-it");
@@ -368,13 +370,25 @@ test("/api/check records a rejected move and the first solve, and nothing for a 
   // Pressing Check on an unfinished proof is.
   await post({ ...base, body: "intro hP", record: "submitted" });
   assert.equal(await count(), 2);
-  // The first solve is recorded and marks the exercise solved...
+  // A solved proof re-checked with no `record` (a stored solution, as an
+  // exercise opens) is not an attempt, so opening a lesson passes no review.
   assert.equal((await post({ ...base, body: "intro hP\nexact hP" })).reply.solved, true);
+  assert.equal(await count(), 2);
+  // The first live solve is recorded and marks the exercise solved...
+  assert.equal((await post({ ...base, body: "intro hP\nexact hP", record: "live" })).reply.solved, true);
   assert.equal(await count(), 3);
   assert.deepEqual((await solvedFor(db, learner)).map((r) => [r.exerciseId, r.solution]), [["prove-it", "intro hP\nexact hP"]]);
-  // ...and a live re-check of the solved proof adds nothing.
-  await post({ ...base, body: "intro hP\nexact hP" });
+  // ...a live or board solve later the same day adds nothing...
+  await post({ ...base, body: "intro hP\nexact hP", record: "live" });
+  await post({ ...base, body: "intro hP\nexact hP", record: "rejected" });
   assert.equal(await count(), 3);
+  // ...and a submitted one is always kept (the replay counts a repeat once).
+  await post({ ...base, body: "intro hP\nexact hP", record: "submitted" });
+  assert.equal(await count(), 4);
+  // On a later day a solve is kept again: that is a review.
+  await query("update attempts set created_at = created_at - interval '2 days'");
+  await post({ ...base, body: "intro hP\nexact hP", record: "live" });
+  assert.equal(await count(), 5);
 });
 
 const fills = content.lessons.flatMap((l) => l.exercises.filter((e) => e.kind === "fill").map((e) => ({ lesson: l, e })));

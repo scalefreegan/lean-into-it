@@ -16,7 +16,8 @@ interface AppData {
   mastery: ProgressReply["mastery"];
   /** Today's review session (its length is the count due). */
   review: ProgressReply["review"];
-  reloadProgress: () => void;
+  /** Fetch mastery and today's review again; resolves to the reply, or null if it failed. */
+  reloadProgress: () => Promise<ProgressReply | null>;
   lean: LeanStatus;
   markSolved: (lessonId: string, exerciseId: string, solution: string) => void;
   reloadLean: () => void;
@@ -40,6 +41,9 @@ export function lessonProgress(lesson: Lesson, solved: ProgressReply["solved"]):
   const total = lesson.exercises.length;
   return { done, total, complete: total > 0 && done === total };
 }
+
+/** How many progress fetches have been made; only the newest one's reply is applied. */
+let progressAsked = 0;
 
 export function AppProvider({ children, fallback }: { children: ReactNode; fallback: (state: { error: string | null }) => ReactNode }) {
   const [content, setContent] = useState<Content | null>(null);
@@ -76,15 +80,33 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   }, []);
 
   // The solved map is kept as it is: markSolved may be ahead of a reply in flight.
+  // Replies are applied in the order the requests were made: an older one
+  // landing late does not undo a newer one.
   const reloadProgress = useCallback(() => {
-    getProgress().then(
+    const n = ++progressAsked;
+    return getProgress().then(
       (p) => {
-        setMastery(p.mastery);
-        setReview(p.review);
+        if (n === progressAsked) {
+          setMastery(p.mastery);
+          setReview(p.review);
+        }
+        return p;
       },
-      () => {},
+      () => null,
     );
   }, []);
+
+  // A day can turn, and work be done in another tab, while this one waits:
+  // look again whenever the app comes back into view.
+  useEffect(() => {
+    const look = () => document.visibilityState === "visible" && void reloadProgress();
+    document.addEventListener("visibilitychange", look);
+    window.addEventListener("focus", look);
+    return () => {
+      document.removeEventListener("visibilitychange", look);
+      window.removeEventListener("focus", look);
+    };
+  }, [reloadProgress]);
 
   const reloadLean = useCallback(() => {
     getLean().then(setLean, () => {});

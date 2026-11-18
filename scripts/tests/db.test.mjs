@@ -64,7 +64,7 @@ test("every check comes back for mastery, oldest first, and only the learner's o
   assert.ok(rows[0].createdAt instanceof Date);
 });
 
-test("solvedSince: a solve on or after a time, by any proof or by one", async (t) => {
+test("solvedSince: a solve on or after a time", async (t) => {
   const { db, query, close } = await freshDb();
   t.after(close);
   const me = await ensureLearner(db);
@@ -73,6 +73,5 @@ test("solvedSince: a solve on or after a time, by any proof or by one", async (t
   await query("update attempts set created_at = '2026-01-01T10:00:00Z' where exercise_id = 'e'");
   assert.equal(await solvedSince(db, me, "l", "e", new Date("2026-01-01T00:00:00Z")), true);
   assert.equal(await solvedSince(db, me, "l", "e", new Date("2026-01-02T00:00:00Z")), false, "solved before that day only");
-  assert.equal(await solvedSince(db, me, "l", "e", new Date("2026-01-01T00:00:00Z"), "apply h"), false, "not by that proof");
   assert.equal(await solvedSince(db, me, "l", "f", new Date(0)), false, "a refusal is not a solve");
 });

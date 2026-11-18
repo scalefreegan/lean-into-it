@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MOVES, lineShape } from "./moves.ts";
 import { loadContent } from "../server/loader.ts";
-import { isDue, reviewSession, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, type AttemptLike } from "./progress.ts";
+import { isDue, reviewSession, REVIEW_INTERVAL_DAYS, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, type AttemptLike } from "./progress.ts";
 
 const content = {
   levels: [
@@ -207,7 +207,7 @@ test("a review session offers each due concept's least recently checked exercise
   const m = masteryFrom(two, rows);
   assert.deepEqual(reviewSession(two, m, rows, on(1, 22)), [], "nothing due yet");
   // b was checked last (on day 1 at 13:00), a at 8:00: a is offered.
-  assert.deepEqual(reviewSession(two, m, rows, on(2)), [{ lessonId: "l", exerciseId: "a", concepts: ["and"] }]);
+  assert.deepEqual(reviewSession(two, m, rows, on(2)), [{ lessonId: "l", exerciseId: "a", concept: "and" }]);
 });
 
 test("a concept with no exercise is never due, and a session holds at most REVIEW_SIZE", () => {
@@ -220,5 +220,30 @@ test("a concept with no exercise is never due, and a session holds at most REVIE
   map.concepts.gone = { ...map.concepts.c0 };
   const session = reviewSession({ lessons } as unknown as typeof content, map, [], on(5));
   assert.equal(session.length, REVIEW_SIZE);
-  assert.ok(!session.some((s) => s.concepts.includes("gone")));
+  assert.ok(!session.some((s) => s.concept === "gone"));
+});
+
+test("an early right answer leaves the box where it is; only the review moves it", () => {
+  const early = masteryFrom(content, [...learn(1), at("b", "e", true, on(1, 20))]).concepts.and;
+  assert.equal(early.box, 1);
+  assert.equal(early.dueAt, startOfDay(on(2)).toISOString());
+});
+
+test("the box stops at the longest gap", () => {
+  const rows = [...learn(1)];
+  let day = 2;
+  for (let i = 0; i < 9; i++) {
+    rows.push(at("b", `r${i}`, true, on(day)));
+    day += 130;
+  }
+  const m = masteryFrom(content, rows).concepts.and;
+  assert.equal(m.box, REVIEW_INTERVAL_DAYS.length);
+});
+
+test("the concept due longest comes first in a session", () => {
+  const two = { ...content, lessons: [{ id: "l", exercises: [{ id: "a", concept: "zeta", mode: "board" }, { id: "b", concept: "alpha", mode: "board" }] }] } as unknown as typeof content;
+  // zeta learned on day 1 (due day 2), alpha on day 3 (due day 4).
+  const rows = [...[1, 2, 3, 4].map((i) => at("a", `z${i}`, true, on(1, 9 + i))), ...[1, 2, 3, 4].map((i) => at("b", `a${i}`, true, on(3, 9 + i)))];
+  const m = masteryFrom(two, rows);
+  assert.deepEqual(reviewSession(two, m, rows, on(5)).map((s) => s.concept), ["zeta", "alpha"]);
 });

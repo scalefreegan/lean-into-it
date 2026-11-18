@@ -220,11 +220,12 @@ export function lessonMastered(lesson: { exercises: { concept: string }[] }, map
   return lesson.exercises.length > 0 && lesson.exercises.every((e) => masteryFor(map.concepts, e.concept)?.mastered === true);
 }
 
-/** One exercise of a review session, and the due concepts it reviews. */
+/** One exercise of a review session, and the due concept it reviews (an
+ *  exercise has one concept, so one exercise reviews one concept). */
 export interface ReviewItem {
   lessonId: string;
   exerciseId: string;
-  concepts: string[];
+  concept: string;
 }
 
 /**
@@ -246,16 +247,11 @@ export function reviewSession(content: Pick<Content, "lessons">, map: MasteryMap
     .sort((a, b) => Date.parse(a[1].dueAt!) - Date.parse(b[1].dueAt!) || a[0].localeCompare(b[0]));
   const session: ReviewItem[] = [];
   for (const [concept] of due) {
-    const covered = session.find((s) => content.lessons.some((l) => l.id === s.lessonId && l.exercises.some((e) => e.id === s.exerciseId && e.concept === concept)));
-    if (covered) {
-      covered.concepts.push(concept);
-      continue;
-    }
-    if (session.length >= REVIEW_SIZE) continue;
+    if (session.length >= REVIEW_SIZE) break;
     const options = content.lessons.flatMap((l) => l.exercises.filter((e) => e.concept === concept).map((e) => ({ lessonId: l.id, exerciseId: e.id, seen: last.get(`${l.id}\u0000${e.id}`) ?? 0 })));
     if (!options.length) continue;
     options.sort((a, b) => a.seen - b.seen);
-    session.push({ lessonId: options[0].lessonId, exerciseId: options[0].exerciseId, concepts: [concept] });
+    session.push({ lessonId: options[0].lessonId, exerciseId: options[0].exerciseId, concept });
   }
   return session;
 }

@@ -43,7 +43,7 @@ test("/api/progress offers a mastered concept for review from the next day, and 
   assert.deepEqual((await progressReply()).review, [], "learned today: not due today");
   await query("update attempts set created_at = created_at - interval '3 days'");
   const due = (await progressReply()).review;
-  assert.ok(due.some((d) => d.concepts.includes(exercise.concept)));
+  assert.ok(due.some((d) => d.concept === exercise.concept));
   await recordAttempt(db, learner, { lessonId: lesson.id, exerciseId: exercise.id, body: "proof 0", solved: true });
-  assert.ok(!(await progressReply()).review.some((d) => d.concepts.includes(exercise.concept)));
+  assert.ok(!(await progressReply()).review.some((d) => d.concept === exercise.concept));
 });

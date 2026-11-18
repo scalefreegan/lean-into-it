@@ -151,11 +151,15 @@ Landed in the first PR, the foundation slice:
   In review it stays mastered. `#/review` offers each due concept's least
   recently checked exercise, at most 8, and the Review tab shows how many.
   Moves are scored and kept mastered the same way but not scheduled: an
-  exercise can be solved without the move it was offered for. A solve is
-  now recorded once a day per exercise, so a review solve on a later day is
-  on record. Not yet: variant exercises (with few exercises per concept, a
+  exercise can be solved without the move it was offered for. Checks now
+  say whether they are attempts: re-checking a stored solution as an
+  exercise opens is not, so opening a lesson never passes a review. A live
+  or board solve is kept once a day, a submitted one always (the replay
+  counts a repeat of the row before it once), so a solve on a later day is
+  on record as the review. More than 8 due: the next batch is offered when
+  one is done. Not yet: variant exercises (with few exercises per concept, a
   review repeats a proof already seen).
-- Tests: 241, including every reference solution checked by the real Lean,
+- Tests: 244, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
