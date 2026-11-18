@@ -3,6 +3,7 @@ import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import { Gallery } from "./pages/Gallery.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Lesson } from "./pages/Lesson.tsx";
+import { Moves } from "./pages/Moves.tsx";
 import { Playground } from "./pages/Playground.tsx";
 import { href, useRoute } from "./router.ts";
 import { AppProvider, useApp } from "./state.tsx";
@@ -24,6 +25,7 @@ function Shell() {
   const route = useRoute();
   const tabs = [
     { name: "home", label: "Path", active: route.name === "home" || route.name === "lesson" },
+    { name: "moves", label: "Moves", active: route.name === "moves" },
     { name: "playground", label: "Playground", active: route.name === "playground" },
   ];
   return (
@@ -53,6 +55,8 @@ function Shell() {
         <ErrorBoundary label={route.name} key={`${route.name}/${route.arg ?? ""}`}>
           {route.name === "lesson" && route.arg ? (
             <Lesson id={route.arg} />
+          ) : route.name === "moves" ? (
+            <Moves />
           ) : route.name === "playground" ? (
             <Playground />
           ) : route.name === "gallery" ? (

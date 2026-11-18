@@ -66,6 +66,24 @@ export async function isSolved(db: Db, learnerId: string, lessonId: string, exer
   return rows.length > 0;
 }
 
+export interface AttemptRow {
+  lessonId: string;
+  exerciseId: string;
+  body: string;
+  solved: boolean;
+  createdAt: Date;
+}
+
+/** Every check on record for the learner, oldest first: what mastery is
+ *  worked out from (web/shared/progress.ts). */
+export async function attemptsFor(db: Db, learnerId: string): Promise<AttemptRow[]> {
+  return db
+    .select({ lessonId: attempts.lessonId, exerciseId: attempts.exerciseId, body: attempts.body, solved: attempts.solved, createdAt: attempts.createdAt })
+    .from(attempts)
+    .where(eq(attempts.learnerId, learnerId))
+    .orderBy(asc(attempts.createdAt), asc(attempts.id));
+}
+
 /** How many checks of one exercise are on record. */
 export async function attemptCount(db: Db, learnerId: string, lessonId: string, exerciseId: string): Promise<number> {
   const rows = await db

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { attemptCount, ensureLearner, isSolved, recordAttempt, solvedFor } from "../db/progress.ts";
+import { attemptCount, attemptsFor, ensureLearner, isSolved, recordAttempt, solvedFor } from "../db/progress.ts";
 import { freshDb } from "./testdb.mjs";
 
 // The real migrations on an in-process PGlite: no Postgres server, and
@@ -49,4 +49,17 @@ test("one learner's rows are not another's", async (t) => {
   assert.equal(await isSolved(db, mine, "l", "e"), false);
   assert.equal(await attemptCount(db, mine, "l", "e"), 0);
   assert.equal((await solvedFor(db, other)).length, 1);
+});
+
+test("every check comes back for mastery, oldest first, and only the learner's own", async (t) => {
+  const { db, query, close } = await freshDb();
+  t.after(close);
+  const mine = await ensureLearner(db);
+  const [{ id: other }] = await query("insert into learners (name) values ('Other') returning id");
+  await recordAttempt(db, mine, { lessonId: "l", exerciseId: "e", body: "intro h", solved: false, error: "unsolved goals" });
+  await recordAttempt(db, other, { lessonId: "l", exerciseId: "e", body: "exact x", solved: true });
+  await recordAttempt(db, mine, { lessonId: "l", exerciseId: "e", body: "intro h\nexact h", solved: true });
+  const rows = await attemptsFor(db, mine);
+  assert.deepEqual(rows.map((r) => [r.body, r.solved]), [["intro h", false], ["intro h\nexact h", true]]);
+  assert.ok(rows[0].createdAt instanceof Date);
 });

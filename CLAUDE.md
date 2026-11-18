@@ -19,6 +19,7 @@ web/shared/moves.ts      the proof board's moves; each writes one tactic line
 web/shared/explain.ts    Lean's error messages in plain words
 web/shared/reference.ts  docs/CONTENT-REFERENCE.md as text (scripts/gen-reference.ts writes it)
 web/shared/registry.ts   every widget and exercise kind, with its parameters (the loader checks lessons against it)
+web/shared/progress.ts   mastery per concept and per move, from the attempt rows (pure)
 web/shared/wire.ts       request and reply types shared by server and client
 web/server/lean/lsp.ts   the warm Lean: one `lake serve`, JSON-RPC over stdio
 web/server/check.ts      /api/check, /api/playground, /api/lean (status), /api/lean/restart
@@ -29,7 +30,7 @@ scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only
 web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor
 web/src/widgets/         one component per widget; registry.ts maps registered names to them
 web/src/exercises/       one component per exercise kind (ProveIt, FillGap), mapped the same way
-web/src/pages/           Home (the Path), Lesson, Playground, Gallery (#/gallery)
+web/src/pages/           Home (the Path), Lesson, Moves (#/moves), Playground, Gallery (#/gallery)
 ```
 
 ## Rules that keep it working

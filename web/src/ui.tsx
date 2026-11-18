@@ -37,3 +37,16 @@ export function Tick({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/** A mastery score as a short bar: accent while learning, green once mastered. */
+export function MasteryBar({ value, mastered, label }: { value: number; mastered: boolean; label: string }) {
+  const pct = Math.round(value * 100);
+  return (
+    <span className="inline-flex items-center gap-2" data-mastery={pct} data-mastered={mastered || undefined}>
+      <span className="h-1.5 w-16 overflow-hidden rounded-full bg-raised" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={label}>
+        <span className={cx("block h-full rounded-full", mastered ? "bg-good" : "bg-accent")} style={{ width: `${pct}%` }} />
+      </span>
+      <span className="font-mono text-xs text-fg-3">{pct}%</span>
+    </span>
+  );
+}

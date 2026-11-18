@@ -4,6 +4,7 @@ import { Markdown } from "../markdown.tsx";
 import { EXERCISES } from "../../shared/registry.ts";
 import { EXERCISE_COMPONENTS } from "../exercises/registry.ts";
 import { href } from "../router.ts";
+import { solvedOf } from "../../shared/progress.ts";
 import { lessonProgress, useApp } from "../state.tsx";
 import { Notice, Tick } from "../ui.tsx";
 import { RenderWidget } from "../widgets/RenderWidget.tsx";
@@ -62,7 +63,7 @@ export function Lesson({ id }: { id: string }) {
             lesson={lesson}
             exercise={exercise}
             number={lesson.exercises.indexOf(exercise) + 1}
-            solution={solved[lesson.id]?.[exercise.id]?.solution}
+            solution={solvedOf(solved, lesson.id, exercise.id)?.solution}
             onSolved={(body) => markSolved(lesson.id, exercise.id, body)}
           />
         );
