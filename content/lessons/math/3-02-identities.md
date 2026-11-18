@@ -62,7 +62,13 @@ Some equations are true for one value of x, and finding it is called solving. Ot
 
 (a + b)² = a² + 2ab + b²
 
-You can see why this one holds by drawing it. A square of side a + b is cut by one line across and one line down into four pieces: a square of side a, a square of side b, and two rectangles, each a by b. The area of the whole is the sum of the areas of the pieces.
+You can see why this one holds by drawing it. A square of side a + b is cut by one line across and one line down into four pieces: a square of side a, a square of side b, and two rectangles, each a by b. The area of the whole is the sum of the areas of the pieces. Move a and b: the two totals stay equal.
+
+```widget
+type: square-of-sum
+a: 3
+b: 2
+```
 
 ## How an identity is proved
 

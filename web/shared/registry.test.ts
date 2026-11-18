@@ -111,6 +111,53 @@ test("the block the Gallery prints for each example loads back as that example",
   }
 });
 
+test("what the plot and the number line are given is checked before anything is drawn", () => {
+  assert.equal(checkParam("expr[]", ["2x + 1", "x^2", 3]), null);
+  assert.match(checkParam("expr[]", ["2x + 1", "y"]) ?? "", /“y”, which is not a name it knows/);
+  assert.match(checkParam("expr[]", []) ?? "", /must be a list of expressions/);
+  assert.match(checkParam("expr[]", "2x") ?? "", /must be a list of expressions/);
+  assert.equal(checkParam("range", [-5, 5]), null);
+  assert.match(checkParam("range", [5, -5]) ?? "", /smaller number first: \[-5, 5\]/);
+  assert.match(checkParam("range", [1, 1]) ?? "", /smaller number first/);
+  assert.match(checkParam("range", [1, 2, 3]) ?? "", /two numbers/);
+  assert.match(checkParam("range", ["a", "b"]) ?? "", /two numbers/);
+  assert.equal(checkParam("point[]", [0, "1/2", "sqrt(2): √2"]), null);
+  assert.match(checkParam("point[]", [0, "north"]) ?? "", /"north" is not a point/);
+  assert.equal(checkParam("interval[]", ["(2, 4)", "[0, inf)"]), null);
+  assert.match(checkParam("interval[]", ["(4, 2)"]) ?? "", /left end must be less/);
+
+  const plot = WIDGETS.plot;
+  assert.deepEqual(checkParams(plot, { functions: ["2x + 1"] }), []);
+  assert.match(checkParams(plot, {}).join(), /needs `functions`/);
+  assert.match(checkParams(plot, { functions: ["2x +"] }).join(), /`functions`: “2x \+” stops where/);
+  assert.match(checkParams(plot, { functions: ["1", "2", "3", "4", "5"] }).join(), /at most 4/);
+  assert.match(checkParams(plot, { functions: ["x"], x: [0, 1], domain: [2, 3] }).join(), /`domain` \[2, 3\] is outside/);
+  assert.match(checkParams(plot, { functions: ["x"], trace: 9 }).join(), /`trace` 9 is outside the part of the x-axis shown, \[-5, 5\]/);
+  assert.match(checkParams(plot, { functions: ["x"], x: [0, 10], trace: 9, domain: [-3, 3] }).join(), /`trace` 9 is outside `domain` \[-3, 3\]/);
+  assert.deepEqual(checkParams(plot, { functions: ["x"], x: [0, 10], trace: 2, domain: [-3, 3] }), []);
+  assert.match(checkParams(plot, { functions: ["x"], x: [-1e308, 1e308] }).join(), /must stay between/);
+  assert.match(checkParams(plot, { functions: [1e-7] }).join(), /exponent letter/, "a YAML number is read as written, not as e minus 7");
+
+  const line = WIDGETS["number-line"];
+  assert.deepEqual(checkParams(line, {}), []);
+  assert.match(checkParams(line, { points: [7] }).join(), /the point 7 is off the line, which runs from -5 to 5/);
+  assert.match(checkParams(line, { range: [0, 6], points: ["-1: a"] }).join(), /"-1: a" is off the line/);
+  assert.match(checkParams(line, { intervals: ["(6, 8)"] }).join(), /the interval \(6, 8\) is off the line/);
+  assert.deepEqual(checkParams(line, { intervals: ["(3, 8)", "(-inf, 0]"] }), [], "an interval may run off the end");
+  assert.deepEqual(checkParams(line, { intervals: ["[5, 8)", "(-inf, -5]"] }), [], "an included end on the edge shows");
+  assert.match(checkParams(line, { intervals: ["(5, 8)"] }).join(), /off the line/);
+  assert.deepEqual(checkParams(line, { near: null }), []);
+  assert.deepEqual(checkParams(line, { range: [0, 8], distance: [1, 3], via: 6 }), []);
+  assert.match(checkParams(line, { via: 2 }).join(), /`via` needs `distance`/);
+  assert.match(checkParams(line, { distance: [1, 3], via: 9 }).join(), /`via` 9 is off the line/);
+  assert.match(checkParams(line, { near: [3] }).join(), /a centre and a radius/);
+  assert.match(checkParams(line, { near: [3, 0] }).join(), /radius must be more than 0/);
+  assert.match(checkParams(line, { near: [4.5, 1] }).join(), /window of `near`, from 3.5 to 5.5, is off the line/);
+  assert.match(checkParams(line, { distance: [2, 9] }).join(), /`distance` \[2, 9\] is off the line/);
+  assert.match(checkParams(line, { probe: 6 }).join(), /`probe` 6 is off the line/);
+  assert.match(checkParams(WIDGETS["square-of-sum"], { a: 0 }).join(), /`a` 0 is below the least allowed, 0.5/);
+});
+
 test("a whole set of parameters: unknown, missing, out of bounds, and the checks across them", () => {
   const spec = { params: { n: { type: "number" as const, required: true, min: 1, max: 9, integer: true, doc: "How many." }, label: { type: "string" as const, doc: "A label." } } };
   assert.deepEqual(checkParams(spec, { n: 3 }), []);

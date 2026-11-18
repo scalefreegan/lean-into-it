@@ -1,5 +1,7 @@
+import { checkExpr } from "./expr.ts";
 import { stateBlocks } from "./goals.ts";
 import { isMove } from "./moves.ts";
+import { readInterval, readPoint } from "./numberline.ts";
 
 // The catalogue of widgets a lesson may embed and exercise kinds it may
 // declare, with the parameters each accepts. This file is the single source
@@ -20,6 +22,10 @@ export type ParamType =
   | "number[]"
   | "move[]" // ids from web/shared/moves.ts: ["intro", "exact"]
   | "state" // a proof state as Lean prints it: facts, then a line starting ⊢
+  | "expr[]" // expressions in x: ["2x + 1", "x^2"] (web/shared/expr.ts)
+  | "range" // two numbers, the smaller first: [-5, 5]
+  | "point[]" // numbers on a line, each optionally labelled: [0, "1/2", "sqrt(2): √2"]
+  | "interval[]" // ["(2, 4)", "[0, 1]", "(-inf, 3]"]
   | `enum:${string}` // one of a|b|c
   | `enum[]:${string}`; // a list drawn from a|b|c
 
@@ -62,7 +68,12 @@ export const WIDGET_KEYS = ["type"] as const;
  *  not reuse these names. */
 export const EXERCISE_KEYS = ["id", "kind", "title", "concept"] as const;
 
-export type WidgetType = "proof-state" | "move-list";
+export type WidgetType = "proof-state" | "move-list" | "plot" | "number-line" | "square-of-sum";
+
+/** At most this many curves on one plot: each has its own line style. */
+export const MAX_CURVES = 4;
+
+const pair = (v: unknown): [number, number] | null => (Array.isArray(v) && v.length === 2 ? (v as [number, number]) : null);
 
 export const WIDGETS: Record<WidgetType, WidgetSpec> = {
   "proof-state": {
@@ -82,6 +93,90 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       moves: { type: "move[]", required: true, doc: "The moves to list, by id, in the order to show them." },
     },
     examples: [{ moves: ["intro", "apply", "exact"] }, { moves: ["ring", "linarith", "positivity"] }],
+  },
+  plot: {
+    doc: "The graph of one or more functions of x. A point can be moved along the curves to read off values; the view can be dragged, zoomed and reset.",
+    params: {
+      functions: { type: "expr[]", required: true, doc: `The functions to draw, at most ${MAX_CURVES}: \`["2x + 1", "x^2"]\`. Arithmetic, powers, abs or |…|, sqrt, sin, cos, tan, exp, log, pi, e.` },
+      x: { type: "range", doc: "The stretch of the x-axis shown at first. Default [-5, 5]." },
+      y: { type: "range", doc: "The stretch of the y-axis shown at first. Default: fitted to the curves." },
+      domain: { type: "range", doc: "Draw the curves only for x between these two numbers, as for a function looked at on an interval." },
+      trace: { type: "number", doc: "Where the movable point starts on the x-axis. Default: the middle of the view." },
+      caption: { type: "string", doc: "One line shown under the graph." },
+    },
+    examples: [
+      { functions: ["2x + 1"], x: [-3, 3] },
+      { functions: ["x^2", "|x|"], x: [-3, 3], trace: -1, caption: "Two functions that come down on the left of 0 and go up on the right." },
+      { functions: ["2x + 1", "3"], x: [-1, 2], y: [-1, 5], domain: [0, 1], caption: "Between x = 0 and x = 1 the line stays under height 3." },
+      { functions: ["1/x"], x: [-4, 4], y: [-4, 4] },
+    ],
+    check: (p) => {
+      const out: string[] = [];
+      if (Array.isArray(p.functions) && p.functions.length > MAX_CURVES) out.push(`\`functions\` has ${p.functions.length} functions, and a plot can tell at most ${MAX_CURVES} apart`);
+      const x = pair(p.x) ?? [-5, 5];
+      const domain = pair(p.domain);
+      if (domain && (domain[1] <= x[0] || domain[0] >= x[1])) out.push(`\`domain\` [${domain.join(", ")}] is outside the part of the x-axis shown, [${x.join(", ")}]`);
+      if (typeof p.trace === "number" && (p.trace < x[0] || p.trace > x[1])) out.push(`\`trace\` ${p.trace} is outside the part of the x-axis shown, [${x.join(", ")}]`);
+      else if (typeof p.trace === "number" && domain && (p.trace < domain[0] || p.trace > domain[1])) out.push(`\`trace\` ${p.trace} is outside \`domain\` [${domain.join(", ")}], where the curves are drawn`);
+      return out;
+    },
+  },
+  "number-line": {
+    doc: "A number line with points, intervals and distances marked on it. With `probe`, a point x that can be moved along the line, with a readout of where it is.",
+    params: {
+      range: { type: "range", doc: "The stretch of the line shown. Default [-5, 5]." },
+      points: { type: "point[]", doc: 'Points to mark: a number, or text giving a number and the label to write above it, as in `[0, 1, "1/2", "sqrt(2): √2"]`.' },
+      intervals: { type: "interval[]", doc: 'Stretches to shade, in interval notation: `["(2, 4)", "[0, 1]", "(-inf, 3]"]`. A round bracket leaves the end out, a square one includes it.' },
+      distance: { type: "range", doc: "Two numbers a and b: draws the distance between them and labels it |a − b|." },
+      via: { type: "number", doc: "With `distance`: a third point b. Also draws the distances from a to b and from b to c, the detour of the triangle inequality." },
+      near: { type: "number[]", doc: "A centre c and a radius r, as `[3, 1]`: shades the points within r of c, the window |x − c| < r." },
+      probe: { type: "number", doc: "Where a movable point x starts. The readout says where x is, which intervals it is in, and how far it is from the centre of `near`." },
+      caption: { type: "string", doc: "One line shown under the line." },
+    },
+    examples: [
+      { range: [-3, 4], points: [0, 1, "1/2", "sqrt(2): √2", "pi: π", "-7/3"] },
+      { range: [0, 6], distance: [2, 5], points: ["2: a", "5: b"], caption: "The distance from 2 to 5 is 3, whichever way you subtract." },
+      { range: [0, 8], distance: [1, 3], via: 6, points: ["1: a", "3: c", "6: b"], caption: "From a to c directly, and by way of b." },
+      { range: [0, 6], near: [3, 1], probe: 3.4, caption: "The points within 1 of 3." },
+      { range: [-5, 5], intervals: ["(-inf, -1]", "(2, 4)"], probe: 0 },
+    ],
+    check: (p) => {
+      const out: string[] = [];
+      const [lo, hi] = pair(p.range) ?? [-5, 5];
+      const on = (v: number) => v >= lo && v <= hi;
+      const off = (what: string) => `${what} is off the line, which runs from ${lo} to ${hi}`;
+      for (const source of Array.isArray(p.points) ? p.points : []) {
+        const point = readPoint(source);
+        if (point && !on(point.value)) out.push(off(`the point ${JSON.stringify(source)}`));
+      }
+      for (const source of Array.isArray(p.intervals) ? p.intervals : []) {
+        const i = readInterval(source);
+        // Off the line unless some point of it is on the line: an end on the edge counts only if it is included.
+        if (typeof i !== "string" && (i.hi < lo || i.lo > hi || (i.hi === lo && !i.hiClosed) || (i.lo === hi && !i.loClosed))) out.push(off(`the interval ${source}`));
+      }
+      const distance = pair(p.distance);
+      if (distance && !(on(distance[0]) && on(distance[1]))) out.push(off(`\`distance\` [${distance.join(", ")}]`));
+      if (typeof p.via === "number") {
+        if (!distance) out.push("`via` needs `distance`: it is the point the detour between those two goes through");
+        else if (!on(p.via)) out.push(off(`\`via\` ${p.via}`));
+      }
+      if (p.near !== undefined && p.near !== null) {
+        const near = pair(p.near);
+        if (!near) out.push("`near` must be two numbers, a centre and a radius, like [3, 1]");
+        else if (!(near[1] > 0)) out.push("`near`: the radius must be more than 0");
+        else if (!(on(near[0] - near[1]) && on(near[0] + near[1]))) out.push(off(`the window of \`near\`, from ${near[0] - near[1]} to ${near[0] + near[1]},`));
+      }
+      if (typeof p.probe === "number" && !on(p.probe)) out.push(off(`\`probe\` ${p.probe}`));
+      return out;
+    },
+  },
+  "square-of-sum": {
+    doc: "A square of side a + b cut into a square of side a, a square of side b and two a-by-b rectangles, with sliders for a and b: the picture behind (a + b)² = a² + 2ab + b².",
+    params: {
+      a: { type: "number", min: 0.5, max: 10, doc: "The first length at the start. Default 3." },
+      b: { type: "number", min: 0.5, max: 10, doc: "The second length at the start. Default 2." },
+    },
+    examples: [{}, { a: 1, b: 4 }],
   },
 };
 
@@ -174,6 +269,32 @@ export function checkParam(type: ParamType, value: unknown): string | null {
       const bad = value.find((v) => !isMove(v));
       return bad === undefined ? null : `move "${bad}" is not in web/shared/moves.ts`;
     }
+    case "expr[]": {
+      if (!Array.isArray(value) || !value.length) return "must be a list of expressions in x, like [\"2x + 1\", \"x^2\"]";
+      for (const v of value) {
+        const wrong = checkExpr(typeof v === "number" ? String(v) : v);
+        if (wrong) return wrong;
+      }
+      return null;
+    }
+    case "range": {
+      if (!Array.isArray(value) || value.length !== 2 || !value.every((v) => typeof v === "number" && Number.isFinite(v))) return "must be two numbers, like [-5, 5]";
+      if (value.some((v) => Math.abs(v) > 1e6)) return "must stay between -1000000 and 1000000";
+      return value[0] < value[1] ? null : `must have the smaller number first: [${value[1]}, ${value[0]}]`;
+    }
+    case "point[]": {
+      if (!Array.isArray(value)) return "must be a list of points, like [0, \"1/2\", \"sqrt(2): √2\"]";
+      const bad = value.find((v) => !readPoint(v));
+      return bad === undefined ? null : `${JSON.stringify(bad)} is not a point: write a number, or a number and a label as "sqrt(2): √2"`;
+    }
+    case "interval[]": {
+      if (!Array.isArray(value)) return "must be a list of intervals, like [\"(2, 4)\", \"[0, 1]\"]";
+      for (const v of value) {
+        const read = readInterval(v);
+        if (typeof read === "string") return read;
+      }
+      return null;
+    }
     case "state": {
       if (!isText(value)) return "must be a proof state: lines of `name : statement`, then `⊢ goal`";
       const blocks = stateBlocks(value);
@@ -242,7 +363,7 @@ export function checkParams(spec: { params: ParamSpecs; check?: (params: Params)
     }
     const wrong = checkParam(p.type, value) ?? checkBounds(p, value);
     // A checker's sentence that already names what is wrong ("move …") stands alone.
-    if (wrong) out.push(/^(move|goal) /.test(wrong) ? `\`${key}\`: ${wrong}` : `\`${key}\` ${wrong}`);
+    if (wrong) out.push(/^(move|goal) |^[“"]/.test(wrong) ? `\`${key}\`: ${wrong}` : `\`${key}\` ${wrong}`);
   }
   // Checks across parameters assume each one is of the right kind.
   if (!out.length && spec.check) out.push(...spec.check(params));

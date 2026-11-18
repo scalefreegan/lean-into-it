@@ -9,7 +9,8 @@ export function RenderWidget({ type, params }: { type: WidgetType } & WidgetProp
   const C = WIDGET_COMPONENTS[type];
   return (
     <ErrorBoundary label={`${type} widget`}>
-      <C params={params} />
+      {/* A widget reads its parameters once, when it starts: new parameters, new widget. */}
+      <C key={JSON.stringify(params)} params={params} />
     </ErrorBoundary>
   );
 }

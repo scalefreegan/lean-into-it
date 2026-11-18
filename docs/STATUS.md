@@ -47,9 +47,7 @@ Landed in the first PR, the foundation slice:
   "Which numbers?"; 45 exercises. Board moves `ring`, `linarith`,
   `nlinarith`, `positivity`, `field_simp` and `gcongr`; `have`, `calc`
   with inequalities and `rw … at` are typed. A `ring` that does not finish
-  is reported as a refused move (Lean only remarks on it). Not yet: the
-  graphs and number lines, which the lessons describe in words
-  (`lii-dvy.11`). Levels 4 on are outlined.
+  is reported as a refused move (Lean only remarks on it). The graphs and number lines came later (see below). Levels 4 on are outlined.
 - The registry (`lii-53v.1`): `web/shared/registry.ts` is the one list of
   widgets and exercise kinds, with the parameters each takes. The loader
   checks every exercise and every ` ```widget ` block in a lesson against
@@ -60,6 +58,16 @@ Landed in the first PR, the foundation slice:
   cards, used in "Reading a goal, and proofs as things") and `move-list`.
   "Prove it" is the registered kind `prove`, with the board and the editor
   as its two modes.
+- Pictures for Level 3 (`lii-dvy.11`): three more widgets. `plot` graphs
+  functions of x from a small expression parser of its own
+  (`web/shared/expr.ts`, never `eval`), with a point to move along the
+  curves and a view that drags and zooms. `number-line` marks points,
+  intervals and a distance, and can carry a movable x with a sentence
+  saying where it is. `square-of-sum` is the square of side a + b in four
+  pieces. They are in "The real numbers", "Identities", "Inequalities",
+  "Absolute value and distance" and "Functions, increasing and bounded".
+  This is the plotter and number-line part of `lii-53v.2` and `lii-53v.5`;
+  the limit explorers, truth table and dominoes are still to build.
 - Board moves: `rfl`, `norm_num`, `intro`, `exact`, `apply`, `constructor`,
   `obtain` (writes the pattern and names for the fact's shape), `left`,
   `right`, `exfalso`, `contradiction`, `by_contra`, `use` (the witness is
@@ -90,7 +98,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 154, including every reference solution checked by the real Lean,
+- Tests: 168, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -106,7 +114,7 @@ until it is added.
 
 ## Remaining
 
-45 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
+44 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -133,10 +141,10 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-53v.2` | Function and limit explorers | 2 | |
+| `lii-53v.2` | Function and limit explorers (the plotter and number line are done) | 2 | |
 | `lii-53v.3` | Informal beside formal widget | 2 | |
 | `lii-53v.4` | Program stepper | 3 | |
-| `lii-53v.5` | Small widgets: truth table, number line, induction dominoes | 2 | |
+| `lii-53v.5` | Small widgets: truth table, induction dominoes (the number line is done) | 2 | |
 
 ### Exercises (epic `lii-6xv`)
 
@@ -181,7 +189,6 @@ land first.
 | `lii-dvy.8` | Level 1: truth tables against proofs; True-or-false and Fill-the-gap exercises | 2 | `lii-53v.5` |
 | `lii-dvy.9` | Level 2: the induction dominoes widget in the Induction lesson | 2 | `lii-53v.5` |
 | `lii-dvy.10` | Verified programs: the full specification of `rev` (reverse twice, reverse of a join), with lemmas about `app` | 2 | |
-| `lii-dvy.11` | Level 3: graphs and number lines in the lessons | 2 | `lii-53v.2` |
 | `lii-oip` | A calc chain that proves ≤ where < is wanted leaves an unexplained goal like c < c | 3 | |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
 | `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3`, `lii-53v.3` |

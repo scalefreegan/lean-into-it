@@ -62,6 +62,13 @@ Draw a line. Mark a point 0 and a point 1. Every point on the line is a **real n
 - The fractions, such as 1/2 and −7/3, fall between: the **rational numbers**, ℚ.
 - And there are points that no fraction lands on. The diagonal of a square of side 1 has length √2, which is not a fraction. π is not a fraction either.
 
+```widget
+type: number-line
+range: [-3, 4]
+points: [0, 1, 2, "1/2", "-7/3", "sqrt(2): √2", "pi: π"]
+caption: Whole numbers, two fractions, and two points that no fraction lands on.
+```
+
 The real numbers, written ℝ, are all the points: the line with no gaps. That "no gaps" is what calculus needs, and Level 5 will say exactly what it means.
 
 ## What the real numbers allow

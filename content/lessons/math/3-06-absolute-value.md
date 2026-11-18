@@ -64,6 +64,13 @@ On the number line, |x| is **how far x is from 0**. Both 5 and −5 are five ste
 
 And |a − b| is **the distance between a and b**. The distance from 2 to 5 is 3, whichever of them you subtract from the other.
 
+```widget
+type: number-line
+range: [0, 7]
+points: [2, 5]
+distance: [2, 5]
+```
+
 ```exercise
 id: a-distance
 ```
@@ -84,7 +91,14 @@ id: either-way
 
 ## Close to
 
-"|x − 3| < 1" says that x is less than 1 away from 3. On the number line, those are the points strictly between 2 and 4: a window of half-width 1 centred on 3.
+"|x − 3| < 1" says that x is less than 1 away from 3. On the number line, those are the points strictly between 2 and 4: a window of half-width 1 centred on 3. Move x in and out of the window, and watch its distance from 3.
+
+```widget
+type: number-line
+range: [0, 6]
+near: [3, 1]
+probe: 3.4
+```
 
 This is the most important use of absolute value. "x is within ε of a" is written |x − a| < ε, and the definitions of calculus, of a limit and of continuity, are built from statements of that form.
 
@@ -114,7 +128,17 @@ In terms of distance it reads better with three points. Going from a to c direct
 
 |a − c| ≤ |a − b| + |b − c|
 
-On a line, if b is between a and c the two sides are equal, and if b is off to one side the detour is longer. The name comes from the same fact about the corners of a triangle in the plane.
+On a line, if b is between a and c the two sides are equal, and if b is off to one side the detour is longer. Below, going from a to c by way of b covers 5 and then 3, where the direct distance is 2.
+
+```widget
+type: number-line
+range: [0, 8]
+points: ["1: a", "3: c", "6: b"]
+distance: [1, 3]
+via: 6
+```
+
+The name comes from the same fact about the corners of a triangle in the plane.
 
 The first form is in the library as `abs_add_le`:
 
