@@ -30,7 +30,7 @@ scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only
 web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor
 web/src/widgets/         one component per widget; registry.ts maps registered names to them
 web/src/exercises/       one component per exercise kind (ProveIt, FillGap), mapped the same way
-web/src/pages/           Home (the Path), Lesson, Moves (#/moves), Playground, Gallery (#/gallery)
+web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/moves), Playground, Gallery (#/gallery)
 ```
 
 ## Rules that keep it working

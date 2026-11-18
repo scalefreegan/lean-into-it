@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 // route survives a reload and a Dock relaunch without any server routing.
 //   #/                 home (the Path)
 //   #/lesson/<id>      a lesson
+//   #/review           today's review session: due concepts, one exercise each
 //   #/moves            every move the curriculum teaches, with its mastery
 //   #/playground       free Lean, nothing scored
 //   #/gallery          every widget and exercise kind in the registry;

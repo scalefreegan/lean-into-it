@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MOVES, lineShape } from "./moves.ts";
 import { loadContent } from "../server/loader.ts";
-import { solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, type AttemptLike } from "./progress.ts";
+import { isDue, reviewSession, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, type AttemptLike } from "./progress.ts";
 
 const content = {
   levels: [
@@ -95,8 +95,9 @@ test("a refused board line inside a string is not a move", () => {
 test("mastered needs 80%: a high share just under it is not", () => {
   // Weights 1..5: wrong first, then four right gives 14/15; wrong last of five gives 10/15.
   assert.equal(masteryFrom(content, [row("b", "x1", false), ...[2, 3, 4, 5].map((i) => row("b", `x${i}`, true))]).concepts.and.mastered, true);
-  const low = masteryFrom(content, [...[1, 2, 3, 4].map((i) => row("b", `x${i}`, true)), row("b", "x5", false)]).concepts.and;
-  assert.equal(low.mastery, 10 / 15);
+  // Wrong, right, wrong, right, right: 11/15, and never 80% on the way.
+  const low = masteryFrom(content, [false, true, false, true, true].map((ok, i) => row("b", `x${i}`, ok))).concepts.and;
+  assert.equal(low.mastery, 11 / 15);
   assert.equal(low.mastered, false);
 });
 
@@ -160,4 +161,64 @@ test("a lesson's mastery is the mean over its concepts, untried ones as 0", () =
   assert.equal(lessonMastered(lesson, m), false);
   const all = masteryFrom(content, ["a", "b"].flatMap((e) => [1, 2, 3, 4].map((i) => row(e, `x${i}`, true))));
   assert.equal(lessonMastered(lesson, all), true);
+});
+
+// Local days: built with the local Date constructor, so these hold in any time zone.
+const on = (day: number, hour = 10) => new Date(2026, 0, day, hour);
+const at = (exerciseId: string, body: string, solved: boolean, when: Date, extra: Partial<AttemptLike> = {}): AttemptLike => ({ lessonId: "l", exerciseId, body, solved, createdAt: when, ...extra });
+const learn = (day: number) => [1, 2, 3, 4].map((i) => at("b", `p${i}`, true, on(day, 9 + i)));
+
+test("mastering a concept puts it in review, due the next calendar day", () => {
+  const m = masteryFrom(content, learn(1)).concepts.and;
+  assert.equal(m.box, 1);
+  assert.equal(m.dueAt, startOfDay(on(2)).toISOString());
+  assert.equal(isDue(m.dueAt, on(1, 23)), false, "not later the same day");
+  assert.equal(isDue(m.dueAt, on(2, 0)), true, "from midnight, not 24 hours on");
+});
+
+test("each review passed lengthens the gap; a miss drops two boxes and is due tomorrow", () => {
+  const rows = [...learn(1), at("b", "r1", true, on(2)), at("b", "r2", true, on(5)), at("b", "r3", true, on(12))];
+  const up = masteryFrom(content, rows).concepts.and;
+  assert.equal(up.box, 4);
+  assert.equal(up.dueAt, startOfDay(on(12), 14).toISOString());
+  const miss = masteryFrom(content, [...rows, at("b", "r4", false, on(26))]).concepts.and;
+  assert.equal(miss.box, 2);
+  assert.equal(miss.dueAt, startOfDay(on(27)).toISOString());
+  assert.equal(miss.mastered, true, "in review it stays mastered");
+});
+
+test("answers before the review is due change the score only; assisted leaves it due", () => {
+  const early = masteryFrom(content, [...learn(1), at("b", "e", false, on(1, 20))]).concepts.and;
+  assert.equal(early.box, 1);
+  assert.equal(early.dueAt, startOfDay(on(2)).toISOString());
+  const helped = masteryFrom(content, [...learn(1), at("b", "h", true, on(3), { assisted: true })]).concepts.and;
+  assert.equal(helped.box, 1);
+  assert.equal(isDue(helped.dueAt, on(3, 12)), true);
+});
+
+test("the same proof checked again counts again on a later day: that is a review", () => {
+  const m = masteryFrom(content, [...learn(1), at("b", "p4", true, on(2))]).concepts.and;
+  assert.equal(m.box, 2);
+});
+
+test("a review session offers each due concept's least recently checked exercise", () => {
+  const two = { ...content, lessons: [{ id: "l", exercises: [{ id: "a", concept: "and", mode: "board" }, { id: "b", concept: "and", mode: "board" }, { id: "c", concept: "or", mode: "board" }] }] } as unknown as typeof content;
+  const rows = [...learn(1), at("a", "q", true, on(1, 8))];
+  const m = masteryFrom(two, rows);
+  assert.deepEqual(reviewSession(two, m, rows, on(1, 22)), [], "nothing due yet");
+  // b was checked last (on day 1 at 13:00), a at 8:00: a is offered.
+  assert.deepEqual(reviewSession(two, m, rows, on(2)), [{ lessonId: "l", exerciseId: "a", concepts: ["and"] }]);
+});
+
+test("a concept with no exercise is never due, and a session holds at most REVIEW_SIZE", () => {
+  const map = { concepts: {} as Record<string, ReturnType<typeof masteryFrom>["concepts"][string]>, tactics: {} };
+  const lessons: { id: string; exercises: { id: string; concept: string; mode: string }[] }[] = [{ id: "l", exercises: [] }];
+  for (let i = 0; i < REVIEW_SIZE + 3; i++) {
+    lessons[0].exercises.push({ id: `e${i}`, concept: `c${i}`, mode: "board" });
+    map.concepts[`c${i}`] = { ...masteryFrom(content, learn(1)).concepts.and };
+  }
+  map.concepts.gone = { ...map.concepts.c0 };
+  const session = reviewSession({ lessons } as unknown as typeof content, map, [], on(5));
+  assert.equal(session.length, REVIEW_SIZE);
+  assert.ok(!session.some((s) => s.concepts.includes("gone")));
 });

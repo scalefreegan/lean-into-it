@@ -4,7 +4,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ProgressReply } from "../shared/wire.ts";
-import { masteryFrom } from "../shared/progress.ts";
+import { masteryFrom, reviewSession } from "../shared/progress.ts";
 import { attemptsFor, solvedFor } from "../../scripts/db/progress.ts";
 import { learnerId, rawDb } from "./db.ts";
 import { loadContent } from "./loader.ts";
@@ -20,7 +20,10 @@ export async function progressReply(): Promise<ProgressReply> {
     if (!Object.hasOwn(solved, row.lessonId)) solved[row.lessonId] = Object.create(null);
     solved[row.lessonId][row.exerciseId] = { solvedAt: row.solvedAt.toISOString(), solution: row.solution };
   }
-  return { solved, mastery: masteryFrom(loadContent(), await attemptsFor(db, learner)) };
+  const content = loadContent();
+  const rows = await attemptsFor(db, learner);
+  const mastery = masteryFrom(content, rows);
+  return { solved, mastery, review: reviewSession(content, mastery, rows, new Date()) };
 }
 
 export async function handleProgress(req: IncomingMessage, res: ServerResponse): Promise<void> {

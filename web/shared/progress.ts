@@ -22,6 +22,16 @@
 // An assisted solve (the Tutor's last hint rung gave the line) is seen but
 // proves nothing: it counts as an attempt and adds no answer.
 //
+// Spaced review is the same replay. A concept or move that becomes mastered
+// enters box 1, due the next calendar day. The first answer on or after the
+// day it is due is its review: right moves it up a box (a longer gap, by
+// REVIEW_INTERVAL_DAYS), wrong moves it down two boxes (not below 1) and
+// makes it due tomorrow, assisted leaves it as it was, still due. Answers
+// before it is due change its score only. Once in review it stays mastered:
+// a few refused moves do not un-learn it, a missed review only brings it
+// back sooner. Days are the learner's local days: server and browser are
+// the same machine.
+//
 // Never change a concept id or a move id once live: these scores are keyed
 // on them, through the lesson files.
 
@@ -31,6 +41,10 @@ import { lex } from "./proof.ts";
 export const RECENT_WINDOW = 12;
 export const MASTERY_THRESHOLD = 0.8;
 export const MIN_ATTEMPTS = 4;
+/** Days until the next review, by box. */
+export const REVIEW_INTERVAL_DAYS = [1, 3, 7, 14, 30, 60, 120];
+/** At most this many exercises in one review session. */
+export const REVIEW_SIZE = 8;
 
 /** One recorded check, as the server reads it from the attempts table. */
 export interface AttemptLike {
@@ -55,6 +69,10 @@ export interface Mastery {
   lastSeenAt: string | null;
   /** Newest last, at most RECENT_WINDOW. */
   recent: boolean[];
+  /** 0 while learning; 1+ in spaced review, a higher box a longer gap. */
+  box: number;
+  /** ISO start of the local day the next review falls due; null at box 0. */
+  dueAt: string | null;
 }
 
 export interface MasteryMap {
@@ -80,7 +98,7 @@ export function masteryOf(recent: boolean[]): number {
 }
 
 export function blankMastery(): Mastery {
-  return { mastery: 0, attempts: 0, correct: 0, mastered: false, lastSeenAt: null, recent: [] };
+  return { mastery: 0, attempts: 0, correct: 0, mastered: false, lastSeenAt: null, recent: [], box: 0, dueAt: null };
 }
 
 /** Every move a level introduces, in curriculum order, each once. */
@@ -108,18 +126,43 @@ function lastLine(body: string): string {
   return "";
 }
 
-function answer(map: Record<string, Mastery>, id: string, right: boolean | null, at: string): void {
+/** The start of the local day `d` falls on, `plus` days on. */
+export function startOfDay(d: Date, plus = 0): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + plus);
+}
+
+/** Due once the local day `dueAt` names has begun. */
+export function isDue(dueAt: string | null, now: Date): boolean {
+  return dueAt !== null && Date.parse(dueAt) <= now.getTime();
+}
+
+const intervalFor = (box: number): number => REVIEW_INTERVAL_DAYS[Math.min(box, REVIEW_INTERVAL_DAYS.length) - 1];
+
+function answer(map: Record<string, Mastery>, id: string, right: boolean | null, when: Date): void {
   if (!id || id === "__proto__") return;
   const prev = masteryFor(map, id) ?? blankMastery();
   const recent = right === null ? prev.recent : [...prev.recent, right].slice(-RECENT_WINDOW);
   const mastery = masteryOf(recent);
+  const reached = recent.length >= MIN_ATTEMPTS && mastery >= MASTERY_THRESHOLD;
+  let { box, dueAt } = prev;
+  const due = (days: number) => startOfDay(when, days).toISOString();
+  if (box === 0) {
+    if (reached) [box, dueAt] = [1, due(intervalFor(1))];
+  } else if (right !== null && isDue(prev.dueAt, when)) {
+    if (right) {
+      box = Math.min(box + 1, REVIEW_INTERVAL_DAYS.length);
+      dueAt = due(intervalFor(box));
+    } else [box, dueAt] = [Math.max(1, box - 2), due(1)];
+  }
   map[id] = {
     mastery,
     attempts: prev.attempts + 1,
     correct: prev.correct + (right ? 1 : 0),
-    mastered: recent.length >= MIN_ATTEMPTS && mastery >= MASTERY_THRESHOLD,
-    lastSeenAt: at,
+    mastered: box >= 1 || reached,
+    lastSeenAt: when.toISOString(),
     recent,
+    box,
+    dueAt,
   };
 }
 
@@ -144,10 +187,11 @@ export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: 
     const key = `${row.lessonId}\u0000${row.exerciseId}`;
     const exercise = exercises.get(key);
     if (exercise === undefined) continue;
-    const same = `${row.solved}\u0000${row.assisted ? 1 : 0}\u0000${row.body}`;
+    // The same check again on the same day; on another day it is a review.
+    const same = `${startOfDay(new Date(row.createdAt)).getTime()}\u0000${row.solved}\u0000${row.assisted ? 1 : 0}\u0000${row.body}`;
     if (previous.get(key) === same) continue;
     previous.set(key, same);
-    const at = new Date(row.createdAt).toISOString();
+    const at = new Date(row.createdAt);
     const right = row.assisted ? null : row.solved;
     answer(concepts, exercise.concept, right, at);
     const moves = row.solved ? used(row.body) : exercise.mode === "board" ? used(lastLine(row.body)) : [];
@@ -174,4 +218,44 @@ export function solvedOf<T>(solved: Record<string, Record<string, T>>, lessonId:
 /** Every one of a lesson's exercise concepts is mastered. */
 export function lessonMastered(lesson: { exercises: { concept: string }[] }, map: MasteryMap): boolean {
   return lesson.exercises.length > 0 && lesson.exercises.every((e) => masteryFor(map.concepts, e.concept)?.mastered === true);
+}
+
+/** One exercise of a review session, and the due concepts it reviews. */
+export interface ReviewItem {
+  lessonId: string;
+  exerciseId: string;
+  concepts: string[];
+}
+
+/**
+ * Today's review session: for each concept that is due (earliest due
+ * first), the exercise testing it that was checked least recently, at most
+ * REVIEW_SIZE in all. Only concepts are scheduled for review, not moves:
+ * an exercise can be solved without the move it was offered for, and a
+ * review the learner cannot clear is no use. A concept the content no
+ * longer has an exercise for is never due.
+ */
+export function reviewSession(content: Pick<Content, "lessons">, map: MasteryMap, rows: AttemptLike[], now: Date): ReviewItem[] {
+  const last = new Map<string, number>();
+  for (const r of rows) {
+    const key = `${r.lessonId}\u0000${r.exerciseId}`;
+    last.set(key, Math.max(last.get(key) ?? 0, new Date(r.createdAt).getTime()));
+  }
+  const due = Object.entries(map.concepts)
+    .filter(([, m]) => m.box >= 1 && isDue(m.dueAt, now))
+    .sort((a, b) => Date.parse(a[1].dueAt!) - Date.parse(b[1].dueAt!) || a[0].localeCompare(b[0]));
+  const session: ReviewItem[] = [];
+  for (const [concept] of due) {
+    const covered = session.find((s) => content.lessons.some((l) => l.id === s.lessonId && l.exercises.some((e) => e.id === s.exerciseId && e.concept === concept)));
+    if (covered) {
+      covered.concepts.push(concept);
+      continue;
+    }
+    if (session.length >= REVIEW_SIZE) continue;
+    const options = content.lessons.flatMap((l) => l.exercises.filter((e) => e.concept === concept).map((e) => ({ lessonId: l.id, exerciseId: e.id, seen: last.get(`${l.id}\u0000${e.id}`) ?? 0 })));
+    if (!options.length) continue;
+    options.sort((a, b) => a.seen - b.seen);
+    session.push({ lessonId: options[0].lessonId, exerciseId: options[0].exerciseId, concepts: [concept] });
+  }
+  return session;
 }

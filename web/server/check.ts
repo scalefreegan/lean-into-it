@@ -7,7 +7,8 @@ import { parseGoals } from "../shared/goals.ts";
 import { assemble, axiomsOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
-import { isSolved, recordAttempt } from "../../scripts/db/progress.ts";
+import { recordAttempt, solvedSince } from "../../scripts/db/progress.ts";
+import { startOfDay } from "../shared/progress.ts";
 import { learnerId, rawDb } from "./db.ts";
 import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, type LeanCheck, type LeanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
@@ -136,15 +137,18 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
   sendJson(res, 200, reply);
 }
 
-/** Which checks become attempt rows (wire.ts CheckRequest.record). A proof
- *  typed live is re-checked on every pause, so a solved body is kept only
- *  the first time or when it was submitted. */
+/** Which checks become attempt rows (wire.ts CheckRequest.record). A solve
+ *  is kept once a day: a proof typed live is re-checked on every pause, so a
+ *  live solve is kept only if the exercise was not solved yet today, and a
+ *  submitted one only if that same proof was not. On a later day it is kept
+ *  again, because then it is a review (web/shared/progress.ts). */
 async function keep(lessonId: string, exerciseId: string, body: string, reply: CheckReply, record: unknown): Promise<void> {
   const refused = reply.error !== null || reply.forbidden.length > 0 || reply.refusal !== null;
   const db = rawDb();
   const learner = await learnerId();
   if (reply.solved) {
-    if (record !== "submitted" && (await isSolved(db, learner, lessonId, exerciseId))) return;
+    const today = startOfDay(new Date());
+    if (await solvedSince(db, learner, lessonId, exerciseId, today, record === "submitted" ? body : undefined)) return;
     await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: true });
     return;
   }

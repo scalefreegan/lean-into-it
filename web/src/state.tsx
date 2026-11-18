@@ -14,6 +14,8 @@ interface AppData {
   content: Content;
   solved: ProgressReply["solved"];
   mastery: ProgressReply["mastery"];
+  /** Today's review session (its length is the count due). */
+  review: ProgressReply["review"];
   reloadProgress: () => void;
   lean: LeanStatus;
   markSolved: (lessonId: string, exerciseId: string, solution: string) => void;
@@ -43,6 +45,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   const [content, setContent] = useState<Content | null>(null);
   const [solved, setSolved] = useState<ProgressReply["solved"] | null>(null);
   const [mastery, setMastery] = useState<ProgressReply["mastery"] | null>(null);
+  const [review, setReview] = useState<ProgressReply["review"]>([]);
   const [lean, setLean] = useState<LeanStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +57,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         setContent(c);
         setSolved(p.solved);
         setMastery(p.mastery);
+        setReview(p.review);
         setLean(l);
       })
       .catch((e: Error) => live && setError(e.message));
@@ -73,7 +77,13 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
 
   // The solved map is kept as it is: markSolved may be ahead of a reply in flight.
   const reloadProgress = useCallback(() => {
-    getProgress().then((p) => setMastery(p.mastery), () => {});
+    getProgress().then(
+      (p) => {
+        setMastery(p.mastery);
+        setReview(p.review);
+      },
+      () => {},
+    );
   }, []);
 
   const reloadLean = useCallback(() => {
@@ -96,8 +106,8 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   }, [state, installed, reloadLean]);
 
   const value = useMemo(
-    () => (content && solved && mastery && lean ? { content, solved, mastery, reloadProgress, lean, markSolved, reloadLean, restartLean } : null),
-    [content, solved, mastery, reloadProgress, lean, markSolved, reloadLean, restartLean],
+    () => (content && solved && mastery && lean ? { content, solved, mastery, review, reloadProgress, lean, markSolved, reloadLean, restartLean } : null),
+    [content, solved, mastery, review, reloadProgress, lean, markSolved, reloadLean, restartLean],
   );
   if (!value) return <>{fallback({ error })}</>;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

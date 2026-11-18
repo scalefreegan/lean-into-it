@@ -4,7 +4,7 @@
 //
 // Erasable TypeScript only, like schema.ts: `node --test` imports it as is.
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema.ts";
 import { attempts, learners, solvedExercises } from "./schema.ts";
@@ -82,6 +82,25 @@ export async function attemptsFor(db: Db, learnerId: string): Promise<AttemptRow
     .from(attempts)
     .where(eq(attempts.learnerId, learnerId))
     .orderBy(asc(attempts.createdAt), asc(attempts.id));
+}
+
+/** Whether the exercise was solved on or after `since`, by `body` if one is given. */
+export async function solvedSince(db: Db, learnerId: string, lessonId: string, exerciseId: string, since: Date, body?: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: attempts.id })
+    .from(attempts)
+    .where(
+      and(
+        eq(attempts.learnerId, learnerId),
+        eq(attempts.lessonId, lessonId),
+        eq(attempts.exerciseId, exerciseId),
+        eq(attempts.solved, true),
+        gte(attempts.createdAt, since),
+        ...(body === undefined ? [] : [eq(attempts.body, body)]),
+      ),
+    )
+    .limit(1);
+  return rows.length > 0;
 }
 
 /** How many checks of one exercise are on record. */

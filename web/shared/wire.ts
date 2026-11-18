@@ -1,7 +1,7 @@
 // What the API sends and accepts, shared by the server routes and the
 // client so the two cannot drift.
 
-import type { MasteryMap } from "./progress.ts";
+import type { MasteryMap, ReviewItem } from "./progress.ts";
 import type { Goal } from "./goals.ts";
 import type { BodyDiagnostic, Position } from "./proof.ts";
 
@@ -90,4 +90,6 @@ export interface ProgressReply {
   solved: Record<string, Record<string, SolvedExercise>>;
   /** Per concept and per move, from every check on record (web/shared/progress.ts). */
   mastery: MasteryMap;
+  /** Today's review session; its length is the count due. */
+  review: ReviewItem[];
 }
