@@ -4,10 +4,10 @@
 //
 // Erasable TypeScript only, like schema.ts: `node --test` imports it as is.
 
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, isNotNull, lt, max } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema.ts";
-import { attempts, learners, solvedExercises } from "./schema.ts";
+import { attempts, chatMessages, learners, solvedExercises } from "./schema.ts";
 
 /** The server's pool-backed handle and the tests' PGlite one both fit. */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -32,12 +32,14 @@ export interface AttemptInput {
   body: string;
   solved: boolean;
   error?: string | null;
+  /** The highest Tutor hint rung climbed on the exercise (hintRung). */
+  rung?: number | null;
 }
 
-/** Record one check. A solved one also marks the exercise solved, keeping
+/** Record one check. Rung 3 (the Tutor gave the line) marks it assisted. A solved one also marks the exercise solved, keeping
  *  the first solution if it was solved before. */
 export async function recordAttempt(db: Db, learnerId: string, a: AttemptInput): Promise<void> {
-  await db.insert(attempts).values({ learnerId, lessonId: a.lessonId, exerciseId: a.exerciseId, body: a.body, solved: a.solved, error: a.error ?? null });
+  await db.insert(attempts).values({ learnerId, lessonId: a.lessonId, exerciseId: a.exerciseId, body: a.body, solved: a.solved, error: a.error ?? null, rung: a.rung ?? null, assisted: (a.rung ?? 0) >= 3 });
   if (a.solved) {
     await db.insert(solvedExercises).values({ learnerId, lessonId: a.lessonId, exerciseId: a.exerciseId, solution: a.body }).onConflictDoNothing();
   }
@@ -71,6 +73,7 @@ export interface AttemptRow {
   exerciseId: string;
   body: string;
   solved: boolean;
+  assisted: boolean;
   createdAt: Date;
 }
 
@@ -78,7 +81,7 @@ export interface AttemptRow {
  *  worked out from (web/shared/progress.ts). */
 export async function attemptsFor(db: Db, learnerId: string): Promise<AttemptRow[]> {
   return db
-    .select({ lessonId: attempts.lessonId, exerciseId: attempts.exerciseId, body: attempts.body, solved: attempts.solved, createdAt: attempts.createdAt })
+    .select({ lessonId: attempts.lessonId, exerciseId: attempts.exerciseId, body: attempts.body, solved: attempts.solved, assisted: attempts.assisted, createdAt: attempts.createdAt })
     .from(attempts)
     .where(eq(attempts.learnerId, learnerId))
     .orderBy(asc(attempts.createdAt), asc(attempts.id));
@@ -109,4 +112,94 @@ export async function attemptCount(db: Db, learnerId: string, lessonId: string, 
     .from(attempts)
     .where(and(eq(attempts.learnerId, learnerId), eq(attempts.lessonId, lessonId), eq(attempts.exerciseId, exerciseId)));
   return rows.length;
+}
+
+/* ------------------------------ the Tutor chat ----------------------------- */
+
+/** The newest chat rows kept per learner; older ones are deleted on write. */
+export const CHAT_KEEP = 400;
+
+export type ChatRole = "user" | "assistant" | "note";
+
+export interface ChatInput {
+  role: ChatRole;
+  text: string;
+  /** A hint: the exercise it was for, and its rung (1-3). */
+  lessonId?: string | null;
+  exerciseId?: string | null;
+  rung?: number | null;
+}
+
+export interface ChatRow {
+  id: number;
+  role: ChatRole;
+  text: string;
+  lessonId: string | null;
+  exerciseId: string | null;
+  rung: number | null;
+  createdAt: Date;
+}
+
+const chatColumns = {
+  id: chatMessages.id,
+  role: chatMessages.role,
+  text: chatMessages.text,
+  lessonId: chatMessages.lessonId,
+  exerciseId: chatMessages.exerciseId,
+  rung: chatMessages.rung,
+  createdAt: chatMessages.createdAt,
+};
+
+/** Add one chat line, then trim the transcript to its newest CHAT_KEEP rows. */
+export async function appendChat(db: Db, learnerId: string, m: ChatInput, keep = CHAT_KEEP): Promise<ChatRow> {
+  const [row] = await db
+    .insert(chatMessages)
+    .values({ learnerId, role: m.role, text: m.text, lessonId: m.lessonId ?? null, exerciseId: m.exerciseId ?? null, rung: m.rung ?? null })
+    .returning(chatColumns);
+  const [cut] = await db
+    .select({ id: chatMessages.id })
+    .from(chatMessages)
+    .where(eq(chatMessages.learnerId, learnerId))
+    .orderBy(desc(chatMessages.id))
+    .offset(keep - 1)
+    .limit(1);
+  if (cut) await db.delete(chatMessages).where(and(eq(chatMessages.learnerId, learnerId), lt(chatMessages.id, cut.id)));
+  return row as ChatRow;
+}
+
+/** The newest `limit` chat rows, oldest first. */
+export async function chatFor(db: Db, learnerId: string, limit = CHAT_KEEP): Promise<ChatRow[]> {
+  const rows = await db.select(chatColumns).from(chatMessages).where(eq(chatMessages.learnerId, learnerId)).orderBy(desc(chatMessages.id)).limit(limit);
+  return (rows as ChatRow[]).reverse();
+}
+
+export async function clearChat(db: Db, learnerId: string): Promise<void> {
+  await db.delete(chatMessages).where(eq(chatMessages.learnerId, learnerId));
+}
+
+/**
+ * The highest hint rung the Tutor gave on an exercise since it was last
+ * solved (or ever, if never solved); 0 for none. A solve starts the ladder
+ * again: the next time the exercise comes round, in review, it is unaided
+ * until a hint is asked for.
+ */
+export async function hintRung(db: Db, learnerId: string, lessonId: string, exerciseId: string): Promise<number> {
+  const [last] = await db
+    .select({ at: max(attempts.createdAt) })
+    .from(attempts)
+    .where(and(eq(attempts.learnerId, learnerId), eq(attempts.lessonId, lessonId), eq(attempts.exerciseId, exerciseId), eq(attempts.solved, true)));
+  const since = last?.at ? new Date(last.at) : null;
+  const [top] = await db
+    .select({ rung: max(chatMessages.rung) })
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.learnerId, learnerId),
+        eq(chatMessages.lessonId, lessonId),
+        eq(chatMessages.exerciseId, exerciseId),
+        isNotNull(chatMessages.rung),
+        ...(since ? [gt(chatMessages.createdAt, since)] : []),
+      ),
+    );
+  return top?.rung ?? 0;
 }

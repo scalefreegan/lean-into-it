@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { after, before, test } from "node:test";
-import { attemptCount, ensureLearner, solvedFor } from "../../scripts/db/progress.ts";
+import { appendChat, attemptCount, attemptsFor, ensureLearner, solvedFor } from "../../scripts/db/progress.ts";
 import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
@@ -19,6 +19,8 @@ import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, type LeanServer 
 import { loadContent } from "./loader.ts";
 import { documentedLesson } from "./doclesson.ts";
 import type { HttpError } from "./sse.ts";
+import { handleTutor, lineProblem, setAgent } from "./tutor.ts";
+import type { TutorReply } from "../shared/wire.ts";
 
 // The tests that need a real Lean: they start `lake serve` in lean/ and
 // check real proofs, so the first one waits for Mathlib to load (tens of
@@ -389,6 +391,62 @@ test("/api/check records attempts, not the re-check of a stored solution, and a 
   await query("update attempts set created_at = created_at - interval '2 days'");
   await post({ ...base, body: "intro hP\nexact hP", record: "live" });
   assert.equal(await count(), 5);
+});
+
+test("rung 3's line is Lean's to pass: one that works is offered, one that does not is not", { skip }, async () => {
+  const use = exercise("use-it");
+  // A board line one of the moves writes, that changes the goals.
+  assert.equal(await lineProblem(use, "", "apply hPQ"), null);
+  assert.equal(await lineProblem(use, "apply hPQ", "exact hP"), null);
+  // An error, a line that changes nothing, and a line no move on offer writes.
+  assert.ok(await lineProblem(use, "", "exact hP"));
+  assert.match((await lineProblem(use, "", "skip"))!, /moves|goals/);
+  assert.match((await lineProblem(use, "", "simp [hP, hPQ]"))!, /moves/);
+  // A typed exercise takes any line, but not a forbidden one.
+  const typed = exercise("typed");
+  assert.equal(await lineProblem(typed, "intro hPQ", "intro hP"), null);
+  assert.match((await lineProblem(typed, "", "tauto"))!, /tauto/);
+});
+
+test("/api/tutor rung 3: a line Lean refuses is retried once, then not shown; a line it accepts makes the next check assisted", { skip }, async (t) => {
+  const learner = await ensureLearner(db);
+  const ex = exercise("chain");
+  const context = { page: "lesson", lessonId: lesson.id, exerciseId: ex.id, body: "" };
+  const tutor = async (body: unknown): Promise<TutorReply> => {
+    const req = Object.assign(Readable.from([Buffer.from(JSON.stringify(body))]), { method: "POST", headers: {}, url: "/" }) as unknown as IncomingMessage;
+    let text = "";
+    const res = Object.assign(new (await import("node:events")).EventEmitter(), { destroyed: false, writeHead() { return this; }, end(c?: string) { text = c ?? ""; } }) as unknown as ServerResponse;
+    await handleTutor(req, res);
+    return JSON.parse(text) as TutorReply;
+  };
+  t.after(() => setAgent(null));
+  await appendChat(db, learner, { role: "assistant", text: "nudge", lessonId: lesson.id, exerciseId: ex.id, rung: 1 });
+  await appendChat(db, learner, { role: "assistant", text: "name", lessonId: lesson.id, exerciseId: ex.id, rung: 2 });
+
+  const asked: string[] = [];
+  setAgent(async ({ prompt }) => {
+    asked.push(prompt);
+    return "Close it.\nLINE: exact hQR";
+  });
+  const refused = await tutor({ hint: 3, context });
+  assert.equal(asked.length, 2, "one retry, told why");
+  assert.match(asked[1], /does not work there/);
+  assert.equal(refused.line, null);
+  assert.equal(refused.messages.at(-1)!.role, "note");
+  // Rung 3 was not reached: a check now is not assisted.
+  await post({ lessonId: lesson.id, exerciseId: ex.id, body: "exact hQR", record: "submitted" });
+  assert.equal((await attemptsFor(db, learner)).at(-1)!.assisted, false);
+
+  setAgent(async () => "Suppose P first.\nLINE: `intro hP`");
+  const given = await tutor({ hint: 3, context });
+  assert.equal(given.line, "intro hP");
+  assert.equal(given.messages.at(-1)!.rung, 3);
+  assert.match(given.messages.at(-1)!.text, /`intro hP`$/);
+  const solved = await post({ lessonId: lesson.id, exerciseId: ex.id, body: ex.solution, record: "submitted" });
+  assert.equal(solved.reply.solved, true);
+  const last = (await attemptsFor(db, learner)).at(-1)!;
+  assert.equal(last.assisted, true, "rung 3 makes the check assisted");
+  assert.equal(last.solved, true);
 });
 
 const fills = content.lessons.flatMap((l) => l.exercises.filter((e) => e.kind === "fill").map((e) => ({ lesson: l, e })));

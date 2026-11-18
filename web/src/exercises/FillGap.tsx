@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTutorWork } from "../tutor/store.ts";
 import { expandAt } from "../../shared/abbrev.ts";
 import { explain } from "../../shared/explain.ts";
 import { bodyLines, GAP, gapLine } from "../../shared/proof.ts";
@@ -63,6 +64,7 @@ export function FillGap({ lessonId, exercise, solution, onSolved }: ExerciseProp
   // What the gap has to prove. A fill Lean cannot read can leave it with
   // nothing to say there; the state from the empty gap still holds.
   const goals = (reply?.cursorGoals?.length ? reply.cursorGoals : null) ?? opening?.cursorGoals ?? reply?.cursorGoals ?? null;
+  useTutorWork(lessonId, exercise.id, { body: answer, goals, error: reply && !solved ? (reply.error?.message ?? reply.refusal ?? (reply.forbidden.length ? `uses ${reply.forbidden.join(", ")}, which is switched off here` : null)) : null });
   const input = useRef<HTMLInputElement>(null);
   const [before, after] = at < 0 ? ["", ""] : lines[at].split(GAP);
 

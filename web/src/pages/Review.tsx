@@ -4,6 +4,7 @@ import type { ReviewItem } from "../../shared/progress.ts";
 import { EXERCISES } from "../../shared/registry.ts";
 import { ErrorBoundary } from "../ErrorBoundary.tsx";
 import { EXERCISE_COMPONENTS } from "../exercises/registry.ts";
+import { useTouch } from "../tutor/store.ts";
 import { href } from "../router.ts";
 import { useApp } from "../state.tsx";
 import { Notice, Tick } from "../ui.tsx";
@@ -111,8 +112,9 @@ export function Review() {
 
 function ReviewExercise({ lesson, exercise, number, done, onSolved }: { lesson: Lesson; exercise: Exercise; number: number; done: boolean; onSolved: (body: string) => void }) {
   const Kind = EXERCISE_COMPONENTS[exercise.kind];
+  const touch = useTouch(lesson.id, exercise.id);
   return (
-    <section data-exercise={exercise.id} className="flex flex-col gap-3">
+    <section data-exercise={exercise.id} className="flex flex-col gap-3" {...touch}>
       <div>
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-accent">
           {EXERCISES[exercise.kind].label} · {number}

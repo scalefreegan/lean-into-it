@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTutorSource } from "../tutor/store.ts";
 import type { Position } from "../../shared/proof.ts";
 import { playground } from "../api/client.ts";
 import { Closed, GoalView } from "../proof/GoalCards.tsx";
@@ -37,6 +38,7 @@ function stored(): string {
 export function Playground() {
   const [source, setSource] = useState(stored);
   const [caret, setCaret] = useState<Position>({ line: 0, character: 0 });
+  useTutorSource(source);
   const live = useLive({ source, caret }, (k, signal) => playground({ source: k.source, cursor: k.caret }, signal), 450);
 
   function change(text: string, c: Position) {

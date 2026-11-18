@@ -1,0 +1,250 @@
+// The headless Claude Code CLI: the Tutor's runtime. Mirrors Fret Not's
+// scripts/claude.mjs, cut down to the one profile this app uses: a turn that
+// may READ the repository (Read, Glob, Grep) and do nothing else. The Tutor
+// explains and hints; it never writes a file, runs a command or grades.
+//
+// The prompt (the transcript) goes in on STDIN from a temp file opened
+// read-only: an argument would one day cross macOS's ~1 MB argv cap, and a
+// pipe left open stalls the CLI, while a file simply ends. The system prompt
+// goes on the command line (--append-system-prompt). The run is detached so
+// its whole process group can be killed, and it runs on the user's Claude
+// Code login, never an API key. Only processes this module spawned are ever
+// signalled.
+
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+/** The Tutor's model. Explanations and hints are short: Sonnet is enough. */
+export const DEFAULT_MODEL = "claude-sonnet-5-5";
+
+/* ------------------------------ failure hints ----------------------------- */
+
+const AUTH_ERROR_RE = /invalid api key|please run \/login|not logged in|log ?in again|login expired|oauth token.{0,40}(expired|revoked|invalid)|authentication[_ ]?error|credentials?.{0,20}(expired|invalid|missing)|unauthorized|re-?authenticate/i;
+const LIMIT_ERROR_RE = /usage limit reached|session limit|hit your .{0,20}limit|limit will reset|out of (extra )?usage|rate.?limit(ed|_error)?|\b429\b/i;
+const OVERLOAD_ERROR_RE = /overloaded_error|overloaded|529|api.{0,20}(unavailable|internal server error)/i;
+const AUTH_FIX = "open a terminal, run `claude`, type `/login` and finish the browser sign-in, then ask again.";
+
+/** A known CLI failure in words the learner can act on, or null. */
+export function failureHint(text) {
+  if (AUTH_ERROR_RE.test(text)) return `The Claude Code sign-in has expired: ${AUTH_FIX}`;
+  if (LIMIT_ERROR_RE.test(text)) {
+    const m = text.match(/limit reached\|(\d{9,13})/);
+    const reset = m ? new Date(Number(m[1]) * (m[1].length <= 10 ? 1000 : 1)).toLocaleString() : null;
+    return `The Claude usage limit is reached. Wait for it to reset${reset ? ` (about ${reset})` : ""} and ask again.`;
+  }
+  if (OVERLOAD_ERROR_RE.test(text)) return "Claude is overloaded right now. Ask again in a minute.";
+  return null;
+}
+
+/* ------------------------------- the sandbox ------------------------------ */
+
+/** The only built-in tools the run has at all (`--tools`): a cap, not a list
+ *  to race against a registry that grows every release. */
+export const READ_TOOLS = ["Read", "Glob", "Grep"];
+
+/** Denied outright as well (`--disallowedTools`), the second layer. */
+export const DENIED = [
+  "Bash", "PowerShell", "Edit", "Write", "MultiEdit", "NotebookEdit", "WebFetch", "WebSearch",
+  "Task", "Agent", "Workflow", "SendMessage", "EnterWorktree", "ExitWorktree",
+  "ReadMcpResourceTool", "ReadMcpResourceDirTool", "ListMcpResourcesTool",
+  "TaskCreate", "TaskOutput", "TaskStop",
+];
+
+/** What no turn may read: the env files (DATABASE_URL) and Lean's build
+ *  tree (gigabytes of Mathlib, no use to a tutor), anywhere under root. */
+export function secretDenials(root = REPO_ROOT) {
+  const base = path.resolve(root).replace(/^\/+/, "");
+  return READ_TOOLS.flatMap((tool) => [`${tool}(//${base}/.env*)`, `${tool}(//${base}/**/.env*)`, `${tool}(//${base}/lean/.lake/**)`, `${tool}(//${base}/**/node_modules/**)`]);
+}
+
+/**
+ * The argv for one run: pure, so a test pins the sandbox without spawning.
+ *   --restricted               ignores the user's and the repo's settings
+ *                              files (no hooks, no rules of theirs), confines
+ *                              the file tools to cwd, refuses bypassPermissions
+ *   --permission-prompts none  nobody is there to answer: a prompt is a denial
+ *   --mcp-config <empty> --strict-mcp-config
+ *                              no MCP server loads (the user's mail, calendar…)
+ *   --no-session-persistence   the server keeps the history; nothing to resume
+ */
+export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, mcpConfigPath, repoRoot = REPO_ROOT }) {
+  const args = [
+    "-p",
+    "--output-format", "json",
+    "--max-turns", String(maxTurns),
+    "--model", model,
+    "--restricted",
+    "--permission-prompts", "none",
+    "--no-session-persistence",
+    "--tools", READ_TOOLS.join(","),
+    "--allowedTools", ...READ_TOOLS,
+    "--disallowedTools", ...DENIED, ...secretDenials(repoRoot),
+  ];
+  if (systemPrompt) args.push("--append-system-prompt", systemPrompt);
+  if (mcpConfigPath) args.push("--mcp-config", mcpConfigPath, "--strict-mcp-config");
+  return args;
+}
+
+/** The child's environment: the server's, minus an API key (the run bills
+ *  the Claude Code login) and the markers of a parent Claude Code session,
+ *  which a nested CLI reads as "I am a child" (the dev server is often
+ *  started from inside one). */
+export function childEnv(env = process.env) {
+  const out = {};
+  for (const [k, v] of Object.entries(env)) {
+    if (k === "ANTHROPIC_API_KEY" || k === "CLAUDECODE" || k.startsWith("CLAUDE_CODE_")) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+/* --------------------------------- running -------------------------------- */
+
+/** The result envelope: the whole output when it is one JSON object, else
+ *  the last `{"type":"result"}` line. null when the run died first. */
+export function resultEnvelope(stdout) {
+  try {
+    const whole = JSON.parse(stdout);
+    if (whole && typeof whole === "object" && !Array.isArray(whole)) return whole;
+  } catch { /* not one envelope */ }
+  const lines = stdout.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (!line.startsWith("{")) continue;
+    try {
+      const obj = JSON.parse(line);
+      if (obj && obj.type === "result") return obj;
+    } catch { /* a torn line */ }
+  }
+  return null;
+}
+
+/** A finished run: { ok: true, text } or { ok: false, message }. Pure. */
+export function classifyExit({ code, stdout, stderr }) {
+  const wrapper = resultEnvelope(stdout);
+  if (code !== 0 || (wrapper && wrapper.is_error)) {
+    const errors = wrapper && Array.isArray(wrapper.errors) ? wrapper.errors.filter((e) => typeof e === "string").join("; ") : "";
+    const resultText = wrapper && wrapper.result ? String(wrapper.result) : "";
+    const hint = failureHint(wrapper ? `${stderr}\n${resultText}` : `${stderr}\n${stdout}`);
+    if (hint) return { ok: false, message: hint };
+    const detail = stderr.trim() || resultText || errors || stdout.trim();
+    return {
+      ok: false,
+      message: detail ? `claude exited ${code}: ${detail.slice(0, 800)}` : `claude exited ${code} with no error output, most often an expired sign-in: ${AUTH_FIX}`,
+    };
+  }
+  return { ok: true, text: wrapper && typeof wrapper.result === "string" ? wrapper.result : stdout };
+}
+
+// Runs are detached (their own process group), so nothing ends them for
+// free when this process dies. Every live kill handle is kept, and a fatal
+// signal kills them all. The set lives on globalThis because Vite
+// re-evaluates server modules on edit.
+const reaper = (globalThis.__leanIntoItReaper ??= { liveKills: new Set(), armed: false });
+
+function armReaper() {
+  if (reaper.armed) return;
+  reaper.armed = true;
+  for (const sig of ["SIGTERM", "SIGINT", "SIGHUP"]) {
+    process.on(sig, () => {
+      for (const kill of reaper.liveKills) {
+        try { kill(); } catch { /* already gone */ }
+      }
+    });
+  }
+}
+
+const RUN_DIR_PREFIX = "lean-into-it-tutor-";
+
+/** Delete run temp directories (they hold the transcript) that a killed
+ *  server left behind, older than any run. Never throws. */
+export function sweepRunDirs({ maxAgeMs = 45 * 60_000, now = Date.now(), tmp = os.tmpdir() } = {}) {
+  let removed = 0;
+  try {
+    for (const name of fs.readdirSync(tmp)) {
+      if (!name.startsWith(RUN_DIR_PREFIX)) continue;
+      const dir = path.join(tmp, name);
+      try {
+        const st = fs.lstatSync(dir);
+        if (!st.isDirectory() || now - st.mtimeMs < maxAgeMs) continue;
+        fs.rmSync(dir, { recursive: true, force: true });
+        removed++;
+      } catch { /* gone, or not ours */ }
+    }
+  } catch { /* no temp folder */ }
+  return removed;
+}
+
+/**
+ * Start one read-only run in `cwd`. Returns { result, kill }; `result`
+ * resolves to { text } (the final reply) and rejects with a sentence the
+ * learner may read. `signal` aborting kills the run.
+ */
+export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd = REPO_ROOT, signal, maxTurns = 12, timeoutSec = 180 }) {
+  let dir = fs.mkdtempSync(path.join(os.tmpdir(), RUN_DIR_PREFIX));
+  const cleanup = () => {
+    if (!dir) return;
+    const d = dir;
+    dir = null;
+    try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* the OS will */ }
+  };
+  let proc;
+  let fd = null;
+  try {
+    const mcpConfigPath = path.join(dir, "mcp.json");
+    fs.writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: {} }), { mode: 0o600 });
+    const promptPath = path.join(dir, "prompt.txt");
+    fs.writeFileSync(promptPath, String(prompt ?? ""), { mode: 0o600 });
+    fd = fs.openSync(promptPath, "r");
+    proc = spawn("claude", buildArgs({ systemPrompt, model, maxTurns, mcpConfigPath, repoRoot: cwd }), { cwd, env: childEnv(), stdio: [fd, "pipe", "pipe"], detached: true });
+  } catch (e) {
+    cleanup();
+    throw e;
+  } finally {
+    if (fd !== null) { try { fs.closeSync(fd); } catch { /* closed */ } }
+  }
+
+  let killed = false;
+  let timedOut = false;
+  const kill = () => {
+    killed = true;
+    if (!proc.pid) return;
+    try { process.kill(-proc.pid, "SIGKILL"); } catch { /* gone */ }
+  };
+  armReaper();
+  reaper.liveKills.add(kill);
+  const done = () => { reaper.liveKills.delete(kill); cleanup(); };
+  proc.on("close", done);
+  proc.on("error", done);
+  if (signal) {
+    if (signal.aborted) kill();
+    else signal.addEventListener("abort", kill, { once: true });
+  }
+
+  const result = new Promise((resolve, reject) => {
+    let stdout = "", stderr = "";
+    proc.stdout.setEncoding("utf8");
+    proc.stdout.on("data", (d) => { stdout += d; });
+    proc.stderr.on("data", (d) => { stderr += d; });
+    const timer = setTimeout(() => { timedOut = true; kill(); }, timeoutSec * 1000);
+    proc.on("error", (err) => {
+      clearTimeout(timer);
+      reject(err.code === "ENOENT" ? new Error("The `claude` command is not installed (Claude Code, https://claude.com/claude-code), so the Tutor cannot answer.") : err);
+    });
+    proc.on("close", (code) => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", kill);
+      if (timedOut) return reject(new Error(`the Tutor took longer than ${timeoutSec} seconds`));
+      if (killed) return reject(new Error("stopped"));
+      const verdict = classifyExit({ code, stdout, stderr });
+      if (!verdict.ok) return reject(new Error(verdict.message));
+      resolve({ text: verdict.text });
+    });
+  });
+  return { result, kill };
+}

@@ -142,12 +142,14 @@ Landed in the first PR, the foundation slice:
   must decide whether it should stick.
   Nothing but the attempts is stored, so the score cannot drift from them.
   The Path shows a bar per lesson tried; `#/moves` lists every move the
-  levels teach with its score. An assisted solve counts as seen only; the
-  Tutor (`lii-2zo.1`) is what will set it, and adds the column.
+  levels teach with its score. An assisted check (the Tutor gave the line)
+  counts as seen only.
 - Spaced review (`lii-zjf.2`): the same replay of the attempt rows. A
   mastered concept enters box 1, due the next calendar day; a review
   passed moves it up a box (1, 3, 7, 14, 30, 60, 120 days), a miss drops
-  two boxes and brings it back tomorrow, an assisted pass leaves it due.
+  two boxes and brings it back tomorrow, an assisted check keeps the box
+  and brings it back tomorrow. An exercise solved with the Tutor's line is
+  in the next day's session until it is solved unaided.
   In review it stays mastered. `#/review` offers each due concept's least
   recently checked exercise, at most 8, and the Review tab shows how many.
   Moves are scored and kept mastered the same way but not scheduled: an
@@ -159,7 +161,23 @@ Landed in the first PR, the foundation slice:
   on record as the review. More than 8 due: the next batch is offered when
   one is done. Not yet: variant exercises (with few exercises per concept, a
   review repeats a proof already seen).
-- Tests: 244, including every reference solution checked by the real Lean,
+- Tutor drawer (`lii-2zo.1`): "Ask the Tutor" on every page opens a
+  drawer that sends each question with the page, the exercise last
+  touched, its proof so far, Lean's goals and its last error (the lesson
+  and exercise are looked up on the server, not taken from the page). It
+  is a headless `claude -p` on the Claude Code login (`scripts/claude.mjs`,
+  after Fret Not's), read-only: Read, Glob and Grep, nothing else, no MCP
+  servers, no settings files; one turn at a time. On an exercise, the hint
+  ladder: a nudge, the name of the move, the line, each its own request
+  and only in order. Lean checks rung 3's line first (it must raise no
+  error, change the goals or finish, and on the board be a line an offered
+  move writes); one retry, and a line Lean refuses is never shown. The rung
+  is stored on the chat row; the next check of that exercise carries it
+  (`attempts.rung`), and rung 3 makes it `assisted`. A solve starts the
+  ladder again. The chat is kept in Postgres (`chat_messages`, the newest
+  400 rows). Migration `0001_tutor`. Not yet: streaming (the reply arrives
+  whole), a choice of model.
+- Tests: 263, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -179,7 +197,7 @@ until it is added.
 
 ## Remaining
 
-40 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
+39 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -232,7 +250,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-2zo.1` | Tutor drawer: explain and hint, with the hint ladder and assisted marking | 1 | |
 | `lii-2zo.2` | Tutor lesson authoring with a Lean compile gate and worktree commits | 2 | `lii-2zo.1` |
 | `lii-2zo.3` | Tutor as proof partner in the Playground | 2 | `lii-2zo.1` |
 | `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |

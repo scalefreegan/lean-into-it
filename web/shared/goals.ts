@@ -116,3 +116,12 @@ export function isNatural(h: Hypothesis): boolean {
   // A name Lean made up and marked with a dagger cannot be written in a proof.
   return /^(ℕ|Nat|List\s[^→]+)$/.test(h.type.trim()) && h.names.some((n) => !n.includes("✝"));
 }
+
+/** Goals as Lean prints them: what the Tutor is told the state is. */
+export function goalsText(goals: Goal[] | null): string {
+  if (!goals) return "";
+  if (!goals.length) return "no goals: the proof is complete";
+  return goals
+    .map((g) => [...(g.caseName ? [`case ${g.caseName}`] : []), ...g.hypotheses.map((h) => `${h.names.join(" ")} : ${h.type}${h.value ? ` := ${h.value}` : ""}`), `⊢ ${g.target}`].join("\n"))
+    .join("\n\n");
+}
