@@ -144,7 +144,22 @@ Landed in the first PR, the foundation slice:
   The Path shows a bar per lesson tried; `#/moves` lists every move the
   levels teach with its score. An assisted solve counts as seen only; the
   Tutor (`lii-2zo.1`) is what will set it, and adds the column.
-- Tests: 234, including every reference solution checked by the real Lean,
+- Spaced review (`lii-zjf.2`): the same replay of the attempt rows. A
+  mastered concept enters box 1, due the next calendar day; a review
+  passed moves it up a box (1, 3, 7, 14, 30, 60, 120 days), a miss drops
+  two boxes and brings it back tomorrow, an assisted pass leaves it due.
+  In review it stays mastered. `#/review` offers each due concept's least
+  recently checked exercise, at most 8, and the Review tab shows how many.
+  Moves are scored and kept mastered the same way but not scheduled: an
+  exercise can be solved without the move it was offered for. Checks now
+  say whether they are attempts: re-checking a stored solution as an
+  exercise opens is not, so opening a lesson never passes a review. A live
+  or board solve is kept once a day, a submitted one always (the replay
+  counts a repeat of the row before it once), so a solve on a later day is
+  on record as the review. More than 8 due: the next batch is offered when
+  one is done. Not yet: variant exercises (with few exercises per concept, a
+  review repeats a proof already seen).
+- Tests: 244, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -206,10 +221,10 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-zjf.2` | Spaced review and the Review page | 1 | `lii-zjf.1` |
 | `lii-zjf.3` | Level unlocks | 2 | `lii-zjf.1` |
 | `lii-zjf.4` | Placement check | 2 | `lii-zjf.1`, `lii-zjf.3` |
 | `lii-zjf.7` | Record time taken per exercise attempt | 3 | |
+| `lii-zjf.8` | Review variants: more than one exercise per concept | 2 | |
 | `lii-zjf.5` | Database backup script | 3 | `lii-2zf.3` |
 | `lii-zjf.6` | Record a board move that changed nothing as an attempt | 3 | |
 

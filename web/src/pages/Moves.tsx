@@ -16,7 +16,7 @@ const TYPED_ONLY: Record<string, string> = {
 
 export function Moves() {
   const { content, mastery, reloadProgress } = useApp();
-  useEffect(reloadProgress, [reloadProgress]);
+  useEffect(() => void reloadProgress(), [reloadProgress]);
   const all = tacticsOf(content);
   const learned = all.filter((t) => masteryFor(mastery.tactics, t)?.mastered).length;
   const levelOf = (t: string) => content.levels.find((l) => l.moves.includes(t))!;

@@ -1,7 +1,7 @@
 // What the API sends and accepts, shared by the server routes and the
 // client so the two cannot drift.
 
-import type { MasteryMap } from "./progress.ts";
+import type { MasteryMap, ReviewItem } from "./progress.ts";
 import type { Goal } from "./goals.ts";
 import type { BodyDiagnostic, Position } from "./proof.ts";
 
@@ -21,10 +21,14 @@ export interface CheckRequest {
   /** A typed proof: where the caret is, to show the goals there. Not used
    *  for `fill`, where the server reads the goals at the gap. */
   cursor?: Position;
-  /** Which failed checks are kept as attempts. `rejected`: only a body Lean
-   *  refuses (a wrong move on the board). `submitted`: any unsolved body (the
-   *  Check button). Omitted: none. The first solved check is always kept. */
-  record?: "rejected" | "submitted";
+  /** Whether this check is an attempt, and which of its outcomes are kept.
+   *  `rejected`: a move on the board; kept if Lean refuses it, or if it
+   *  finishes a proof not solved yet today. `submitted`: the Check button;
+   *  always kept. `live`: a typed proof re-checked as it is edited; kept only
+   *  as a solve, and only if the exercise was not solved yet today. Omitted:
+   *  not an attempt (re-checking a stored solution when an exercise opens),
+   *  never kept, so opening a lesson is never a review passed. */
+  record?: "rejected" | "submitted" | "live";
 }
 
 export interface CheckReply {
@@ -90,4 +94,6 @@ export interface ProgressReply {
   solved: Record<string, Record<string, SolvedExercise>>;
   /** Per concept and per move, from every check on record (web/shared/progress.ts). */
   mastery: MasteryMap;
+  /** Today's review session; its length is the count due. */
+  review: ReviewItem[];
 }

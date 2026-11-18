@@ -10,7 +10,7 @@ import { cx, MasteryBar, Notice, Tick } from "../ui.tsx";
 
 export function Home() {
   const { content, solved, reloadProgress } = useApp();
-  useEffect(reloadProgress, [reloadProgress]);
+  useEffect(() => void reloadProgress(), [reloadProgress]);
   const next = content.lessons.find((l) => !lessonProgress(l, solved).complete) ?? null;
   const total = content.lessons.reduce((n, l) => n + l.exercises.length, 0);
   const done = content.lessons.reduce((n, l) => n + lessonProgress(l, solved).done, 0);

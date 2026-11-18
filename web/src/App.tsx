@@ -4,6 +4,7 @@ import { Gallery } from "./pages/Gallery.tsx";
 import { Home } from "./pages/Home.tsx";
 import { Lesson } from "./pages/Lesson.tsx";
 import { Moves } from "./pages/Moves.tsx";
+import { Review } from "./pages/Review.tsx";
 import { Playground } from "./pages/Playground.tsx";
 import { href, useRoute } from "./router.ts";
 import { AppProvider, useApp } from "./state.tsx";
@@ -23,8 +24,10 @@ export function App() {
 
 function Shell() {
   const route = useRoute();
+  const { review } = useApp();
   const tabs = [
     { name: "home", label: "Path", active: route.name === "home" || route.name === "lesson" },
+    { name: "review", label: "Review", active: route.name === "review" },
     { name: "moves", label: "Moves", active: route.name === "moves" },
     { name: "playground", label: "Playground", active: route.name === "playground" },
   ];
@@ -45,6 +48,12 @@ function Shell() {
                 className={cx("rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors", t.active ? "bg-accent-soft text-accent" : "text-fg-2 hover:bg-raised")}
               >
                 {t.label}
+                {t.name === "review" && review.length > 0 && (
+                  <span data-review-due={review.length} className="ml-1.5 rounded-full bg-accent px-1.5 py-0.5 font-mono text-xs text-accent-ink">
+                    {review.length}
+                    <span className="sr-only"> due today</span>
+                  </span>
+                )}
               </a>
             ))}
           </nav>
@@ -55,6 +64,8 @@ function Shell() {
         <ErrorBoundary label={route.name} key={`${route.name}/${route.arg ?? ""}`}>
           {route.name === "lesson" && route.arg ? (
             <Lesson id={route.arg} />
+          ) : route.name === "review" ? (
+            <Review />
           ) : route.name === "moves" ? (
             <Moves />
           ) : route.name === "playground" ? (

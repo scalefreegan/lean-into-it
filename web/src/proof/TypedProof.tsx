@@ -28,7 +28,11 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   const [trouble, setTrouble] = useState<string | null>(null);
   const told = useRef(false);
 
-  const live = useLive({ body, caret }, (k, signal) => check({ lessonId, exerciseId: exercise.id, body: k.body, cursor: k.caret }, signal));
+  // Re-checking the stored solution the exercise opened with is not an attempt.
+  const opening = useRef(solution);
+  const live = useLive({ body, caret }, (k, signal) =>
+    check({ lessonId, exerciseId: exercise.id, body: k.body, cursor: k.caret, ...(k.body === opening.current ? {} : { record: "live" as const }) }, signal),
+  );
   const reply = live.reply;
 
   // Lean accepting the proof is the finish line, whether or not Check was pressed.

@@ -7,7 +7,8 @@ import { parseGoals } from "../shared/goals.ts";
 import { assemble, axiomsOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
-import { isSolved, recordAttempt } from "../../scripts/db/progress.ts";
+import { recordAttempt, solvedSince } from "../../scripts/db/progress.ts";
+import { startOfDay } from "../shared/progress.ts";
 import { learnerId, rawDb } from "./db.ts";
 import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, type LeanCheck, type LeanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
@@ -136,15 +137,19 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
   sendJson(res, 200, reply);
 }
 
-/** Which checks become attempt rows (wire.ts CheckRequest.record). A proof
- *  typed live is re-checked on every pause, so a solved body is kept only
- *  the first time or when it was submitted. */
+/** Which checks become attempt rows (wire.ts CheckRequest.record). A check
+ *  with no `record` is not an attempt. A live or board solve is kept once a
+ *  day (a proof typed live is re-checked on every pause); a submitted one is
+ *  always kept, and the mastery replay counts a repeat of the row before it
+ *  on the same day only once (web/shared/progress.ts). On a later day a
+ *  solve is kept again: then it is a review. */
 async function keep(lessonId: string, exerciseId: string, body: string, reply: CheckReply, record: unknown): Promise<void> {
   const refused = reply.error !== null || reply.forbidden.length > 0 || reply.refusal !== null;
   const db = rawDb();
   const learner = await learnerId();
+  if (record !== "rejected" && record !== "submitted" && record !== "live") return;
   if (reply.solved) {
-    if (record !== "submitted" && (await isSolved(db, learner, lessonId, exerciseId))) return;
+    if (record !== "submitted" && (await solvedSince(db, learner, lessonId, exerciseId, startOfDay(new Date())))) return;
     await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: true });
     return;
   }

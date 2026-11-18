@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { attemptCount, attemptsFor, ensureLearner, isSolved, recordAttempt, solvedFor } from "../db/progress.ts";
+import { attemptCount, attemptsFor, solvedSince, ensureLearner, isSolved, recordAttempt, solvedFor } from "../db/progress.ts";
 import { freshDb } from "./testdb.mjs";
 
 // The real migrations on an in-process PGlite: no Postgres server, and
@@ -62,4 +62,16 @@ test("every check comes back for mastery, oldest first, and only the learner's o
   const rows = await attemptsFor(db, mine);
   assert.deepEqual(rows.map((r) => [r.body, r.solved]), [["intro h", false], ["intro h\nexact h", true]]);
   assert.ok(rows[0].createdAt instanceof Date);
+});
+
+test("solvedSince: a solve on or after a time", async (t) => {
+  const { db, query, close } = await freshDb();
+  t.after(close);
+  const me = await ensureLearner(db);
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: true });
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "f", body: "exact h", solved: false, error: "x" });
+  await query("update attempts set created_at = '2026-01-01T10:00:00Z' where exercise_id = 'e'");
+  assert.equal(await solvedSince(db, me, "l", "e", new Date("2026-01-01T00:00:00Z")), true);
+  assert.equal(await solvedSince(db, me, "l", "e", new Date("2026-01-02T00:00:00Z")), false, "solved before that day only");
+  assert.equal(await solvedSince(db, me, "l", "f", new Date(0)), false, "a refusal is not a solve");
 });
