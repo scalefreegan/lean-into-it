@@ -47,3 +47,20 @@ declare module "*/scripts/tests/testdb.mjs" {
     close: () => Promise<void>;
   }>;
 }
+
+declare module "*/scripts/claude.mjs" {
+  export const REPO_ROOT: string;
+  export const DEFAULT_MODEL: string;
+  export const READ_TOOLS: string[];
+  export const DENIED: string[];
+  export const SECRET_PATHS: string[];
+  export function armReaper(): void;
+  export function failureHint(text: string): string | null;
+  export function secretDenials(root?: string): string[];
+  export function buildArgs(o: { systemPrompt?: string; model?: string; maxTurns?: number; mcpConfigPath?: string; repoRoot?: string }): string[];
+  export function childEnv(env?: Record<string, string | undefined>): Record<string, string | undefined>;
+  export function resultEnvelope(stdout: string): Record<string, unknown> | null;
+  export function classifyExit(o: { code: number | null; stdout: string; stderr: string }): { ok: true; text: string } | { ok: false; message: string };
+  export function sweepRunDirs(o?: { maxAgeMs?: number; now?: number; tmp?: string }): number;
+  export function startClaude(o: { prompt: string; systemPrompt?: string; model?: string; cwd?: string; signal?: AbortSignal; maxTurns?: number; timeoutSec?: number }): { result: Promise<{ text: string }>; kill: () => void };
+}

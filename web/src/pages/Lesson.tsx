@@ -8,6 +8,7 @@ import { solvedOf } from "../../shared/progress.ts";
 import { lessonProgress, useApp } from "../state.tsx";
 import { Notice, Tick } from "../ui.tsx";
 import { RenderWidget } from "../widgets/RenderWidget.tsx";
+import { useTouch } from "../tutor/store.ts";
 
 // A lesson: prose, widgets and exercises in the order the file gives them. Lean
 // checks each exercise; a solved one is remembered (state.tsx markSolved,
@@ -90,8 +91,9 @@ function ExerciseBlock({ lesson, exercise, number, solution, onSolved }: { lesso
   // What kind of exercise this is, and so what it is called and how it is
   // drawn, comes from the registry and its table of components.
   const Kind = EXERCISE_COMPONENTS[exercise.kind];
+  const touch = useTouch(lesson.id, exercise.id);
   return (
-    <section data-exercise={exercise.id} className="flex flex-col gap-3">
+    <section data-exercise={exercise.id} className="flex flex-col gap-3" {...touch}>
       <div>
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-accent">
           {EXERCISES[exercise.kind].label} · {number}

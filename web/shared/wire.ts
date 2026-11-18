@@ -97,3 +97,58 @@ export interface ProgressReply {
   /** Today's review session; its length is the count due. */
   review: ReviewItem[];
 }
+
+/** What the page tells the Tutor about itself (web/server/tutor.ts rebuilds
+ *  it field by field; the lesson and exercise are looked up by id). */
+export interface TutorContext {
+  page: "path" | "lesson" | "review" | "moves" | "playground";
+  lessonId?: string;
+  /** The exercise in view, with the learner's work on it. */
+  exerciseId?: string;
+  /** Their proof so far (a fill: what is in the gap). */
+  body?: string;
+  /** Lean's goals now, as text. */
+  goals?: string;
+  /** Lean's last error, as text. */
+  error?: string;
+  /** The Playground's file. */
+  source?: string;
+}
+
+/** POST /api/tutor: a question (`message`), or a hint at rung 1-3 on the
+ *  exercise in the context. Rungs are climbed in order, one request each. */
+export interface TutorRequest {
+  message?: string;
+  hint?: 1 | 2 | 3;
+  context: TutorContext;
+}
+
+export interface TutorMessage {
+  id: number;
+  role: "user" | "assistant" | "note";
+  text: string;
+  lessonId: string | null;
+  exerciseId: string | null;
+  /** A hint's rung; null for anything else. */
+  rung: number | null;
+  at: string;
+}
+
+/** The rows the turn added (the ask, then the reply or a note). `line`:
+ *  rung 3's line, which Lean accepted as the next step. */
+export interface TutorReply {
+  messages: TutorMessage[];
+  line: string | null;
+}
+
+/** GET /api/tutor/history. `busy`: a turn is running now. */
+export interface TutorHistoryReply {
+  messages: TutorMessage[];
+  busy: boolean;
+}
+
+/** GET /api/tutor/ladder: the highest rung given on an exercise since it
+ *  was last solved (0: none yet). */
+export interface TutorLadderReply {
+  rung: number;
+}

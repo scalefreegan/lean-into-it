@@ -8,6 +8,7 @@ import { Button, Notice } from "../ui.tsx";
 import { Closed, GoalView, Refusal } from "./GoalCards.tsx";
 import { LeanEditor, SymbolHelp } from "./LeanEditor.tsx";
 import { useLive } from "./useLive.ts";
+import { useTutorWork } from "../tutor/store.ts";
 
 // A proof typed as Lean. The statement is fixed; the learner writes the
 // tactic lines. The panel beside the editor shows the goal state at the
@@ -70,6 +71,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   const verdict = submitted && submitted.body === body ? submitted.reply : null;
   const goals = reply ? (reply.cursorGoals ?? reply.goals) : null;
   const empty = !body.trim();
+  useTutorWork(lessonId, exercise.id, { body, goals, error: reply?.error ? `${reply.error.line !== null ? `line ${reply.error.line + 1}: ` : ""}${reply.error.message}` : (reply?.refusal ?? null) });
 
   return (
     <div data-typed={exercise.id} className="overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-sm">

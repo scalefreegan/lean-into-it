@@ -1,5 +1,5 @@
 import type { Content } from "../../shared/content.ts";
-import type { CheckReply, CheckRequest, ErrorReply, LeanStatus, PlaygroundReply, PlaygroundRequest, ProgressReply } from "../../shared/wire.ts";
+import type { CheckReply, CheckRequest, ErrorReply, LeanStatus, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest } from "../../shared/wire.ts";
 
 // The one fetch. Every call to the server goes through here, so an error is
 // always an ApiError carrying the server's own sentence.
@@ -17,11 +17,11 @@ export class ApiError extends Error {
 /** Fired on `window` when a request failed because Lean could not answer. */
 export const LEAN_TROUBLE = "lean-into-it:lean-trouble";
 
-async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
+async function api<T>(path: string, body?: unknown, signal?: AbortSignal, method?: string): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {
-      method: body === undefined ? "GET" : "POST",
+      method: method ?? (body === undefined ? "GET" : "POST"),
       ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
       ...(signal ? { signal } : {}),
     });
@@ -42,3 +42,7 @@ export const getLean = () => api<LeanStatus>("/api/lean");
 export const restartLean = () => api<LeanStatus>("/api/lean/restart", {});
 export const check = (req: CheckRequest, signal?: AbortSignal) => api<CheckReply>("/api/check", req, signal);
 export const playground = (req: PlaygroundRequest, signal?: AbortSignal) => api<PlaygroundReply>("/api/playground", req, signal);
+export const askTutor = (req: TutorRequest, signal?: AbortSignal) => api<TutorReply>("/api/tutor", req, signal);
+export const tutorHistory = () => api<TutorHistoryReply>("/api/tutor/history");
+export const clearTutor = () => api<{ ok: boolean }>("/api/tutor/history", undefined, undefined, "DELETE");
+export const tutorLadder = (lessonId: string, exerciseId: string) => api<TutorLadderReply>(`/api/tutor/ladder?lesson=${encodeURIComponent(lessonId)}&exercise=${encodeURIComponent(exerciseId)}`);

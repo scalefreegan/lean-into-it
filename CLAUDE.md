@@ -26,10 +26,13 @@ web/server/check.ts      /api/check, /api/playground, /api/lean (status), /api/l
 web/server/loader.ts     content/ -> Content, with readable refusals
 web/server/contentcheck.ts  what `npm run check:content` asks Lean (scripts/check-content.ts is the command)
 web/server/api.ts        wrap() and the route table
+web/server/tutor.ts      /api/tutor: the read-only Tutor, the hint ladder, rung 3 checked by Lean
+scripts/claude.mjs       the headless `claude -p` the Tutor runs on (read-only sandbox, argv pinned by a test)
 scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
 web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor
 web/src/widgets/         one component per widget; registry.ts maps registered names to them
 web/src/exercises/       one component per exercise kind (ProveIt, FillGap), mapped the same way
+web/src/tutor/           the Tutor drawer and what pages tell it (store.ts)
 web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/moves), Playground, Gallery (#/gallery)
 ```
 

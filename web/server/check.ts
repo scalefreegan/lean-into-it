@@ -7,7 +7,7 @@ import { parseGoals } from "../shared/goals.ts";
 import { assemble, axiomsOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
-import { recordAttempt, solvedSince } from "../../scripts/db/progress.ts";
+import { hintRung, recordAttempt, solvedSince } from "../../scripts/db/progress.ts";
 import { startOfDay } from "../shared/progress.ts";
 import { learnerId, rawDb } from "./db.ts";
 import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, type LeanCheck, type LeanServer } from "./lean/lsp.ts";
@@ -148,14 +148,17 @@ async function keep(lessonId: string, exerciseId: string, body: string, reply: C
   const db = rawDb();
   const learner = await learnerId();
   if (record !== "rejected" && record !== "submitted" && record !== "live") return;
+  // The Tutor's hints on this exercise today: rung 3 gave the line, and
+  // makes the check assisted (seen, not credited).
+  const rung = (await hintRung(db, learner, lessonId, exerciseId, startOfDay(new Date()))) || null;
   if (reply.solved) {
     if (record !== "submitted" && (await solvedSince(db, learner, lessonId, exerciseId, startOfDay(new Date())))) return;
-    await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: true });
+    await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: true, rung });
     return;
   }
   if (record === "submitted" || (record === "rejected" && refused)) {
     const error = reply.error?.message ?? reply.refusal ?? (reply.forbidden.length ? `uses ${reply.forbidden.join(", ")}` : "unsolved goals");
-    await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: false, error });
+    await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: false, error, rung });
   }
 }
 

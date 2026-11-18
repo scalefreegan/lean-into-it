@@ -75,3 +75,13 @@ test("solvedSince: a solve on or after a time", async (t) => {
   assert.equal(await solvedSince(db, me, "l", "e", new Date("2026-01-02T00:00:00Z")), false, "solved before that day only");
   assert.equal(await solvedSince(db, me, "l", "f", new Date(0)), false, "a refusal is not a solve");
 });
+
+test("a check made after rung 3 is assisted, and attemptsFor says so; the rung is kept", async (t) => {
+  const { db, close } = await freshDb();
+  t.after(close);
+  const me = await ensureLearner(db);
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: true, rung: 2 });
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: true, rung: 3 });
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: true });
+  assert.deepEqual((await attemptsFor(db, me)).map((r) => r.assisted), [false, true, false]);
+});

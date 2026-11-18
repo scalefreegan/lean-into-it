@@ -8,6 +8,9 @@ import { Review } from "./pages/Review.tsx";
 import { Playground } from "./pages/Playground.tsx";
 import { href, useRoute } from "./router.ts";
 import { AppProvider, useApp } from "./state.tsx";
+import { TutorDrawer } from "./tutor/Drawer.tsx";
+import { TutorProvider } from "./tutor/TutorProvider.tsx";
+import { useTutor } from "./tutor/store.ts";
 import { Button, cx, Notice } from "./ui.tsx";
 
 export function App() {
@@ -17,7 +20,9 @@ export function App() {
         <div className="mx-auto max-w-xl p-10">{error ? <Notice tone="bad">{error}</Notice> : <p className="text-fg-3">Loading…</p>}</div>
       )}
     >
-      <Shell />
+      <TutorProvider>
+        <Shell />
+      </TutorProvider>
     </AppProvider>
   );
 }
@@ -25,6 +30,7 @@ export function App() {
 function Shell() {
   const route = useRoute();
   const { review } = useApp();
+  const { open } = useTutor();
   const tabs = [
     { name: "home", label: "Path", active: route.name === "home" || route.name === "lesson" },
     { name: "review", label: "Review", active: route.name === "review" },
@@ -32,7 +38,7 @@ function Shell() {
     { name: "playground", label: "Playground", active: route.name === "playground" },
   ];
   return (
-    <div className="min-h-dvh">
+    <div className={cx("min-h-dvh", open && "lg:pr-[28rem]")}>
       <header className="sticky top-0 z-10 border-b border-line bg-panel/95 px-4 backdrop-blur sm:px-6">
         <div className="mx-auto flex max-w-[2400px] items-center gap-6 py-3">
           <a href={href("home")} className="flex items-center gap-2.5">
@@ -77,6 +83,7 @@ function Shell() {
           )}
         </ErrorBoundary>
       </main>
+      <TutorDrawer />
     </div>
   );
 }

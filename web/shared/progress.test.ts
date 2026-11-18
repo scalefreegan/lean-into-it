@@ -247,3 +247,23 @@ test("the concept due longest comes first in a session", () => {
   const m = masteryFrom(two, rows);
   assert.deepEqual(reviewSession(two, m, rows, on(5)).map((s) => s.concept), ["zeta", "alpha"]);
 });
+
+test("an exercise solved with the Tutor's line comes back the next day, until it is solved unaided", () => {
+  const rows = [at("a", "p", true, on(1), { assisted: true })];
+  const m = masteryFrom(content, rows);
+  assert.equal(m.concepts.implication.correct, 0, "assisted is not an answer");
+  assert.deepEqual(reviewSession(content, m, rows, on(1, 22)), [], "not the same day");
+  assert.deepEqual(reviewSession(content, m, rows, on(2)), [{ lessonId: "l", exerciseId: "a", concept: "implication" }]);
+  const after = [...rows, at("a", "p", true, on(2))];
+  assert.deepEqual(reviewSession(content, masteryFrom(content, after), after, on(3)), []);
+});
+
+test("an assisted check of a concept in review makes it due tomorrow, keeping its box", () => {
+  // Mastered on day 1 (box 1, due day 2); passed on day 2 (box 2, due day 5).
+  const rows = [...learn(1), at("b", "r", true, on(2))];
+  const before = masteryFrom(content, rows).concepts.and;
+  assert.equal(before.box, 2);
+  const helped = masteryFrom(content, [...rows, at("t", "x", true, on(3), { assisted: true })]).concepts.and;
+  assert.equal(helped.box, 2);
+  assert.equal(helped.dueAt, startOfDay(on(4)).toISOString());
+});

@@ -19,14 +19,15 @@
 //     its last line, which is the move that was just refused. A typed proof
 //     that is refused counts against its concept only: where in it Lean
 //     stopped is not on record, and its last line may be a move that worked.
-// An assisted solve (the Tutor's last hint rung gave the line) is seen but
+// An assisted check (the Tutor's last hint rung gave the line) is seen but
 // proves nothing: it counts as an attempt and adds no answer.
 //
 // Spaced review is the same replay. A concept or move that becomes mastered
 // enters box 1, due the next calendar day. The first answer on or after the
 // day it is due is its review: right moves it up a box (a longer gap, by
 // REVIEW_INTERVAL_DAYS), wrong moves it down two boxes (not below 1) and
-// makes it due tomorrow, assisted leaves it as it was, still due. Answers
+// makes it due tomorrow, assisted (on or before the day) keeps its box and
+// makes it due tomorrow: the line was given, so it is asked again. Answers
 // before it is due change its score only. Once in review it stays mastered:
 // a few refused moves do not un-learn it, a missed review only brings it
 // back sooner. Days are the learner's local days: server and browser are
@@ -148,7 +149,10 @@ function answer(map: Record<string, Mastery>, id: string, right: boolean | null,
   const due = (days: number) => startOfDay(when, days).toISOString();
   if (box === 0) {
     if (reached) [box, dueAt] = [1, due(intervalFor(1))];
-  } else if (right !== null && isDue(prev.dueAt, when)) {
+  } else if (right === null) {
+    // Assisted: the Tutor gave the line. Asked again tomorrow, whatever the box.
+    if (prev.dueAt === null || Date.parse(prev.dueAt) > startOfDay(when, 1).getTime()) dueAt = due(1);
+  } else if (isDue(prev.dueAt, when)) {
     if (right) {
       box = Math.min(box + 1, REVIEW_INTERVAL_DAYS.length);
       dueAt = due(intervalFor(box));
@@ -229,9 +233,11 @@ export interface ReviewItem {
 }
 
 /**
- * Today's review session: for each concept that is due (earliest due
- * first), the exercise testing it that was checked least recently, at most
- * REVIEW_SIZE in all. Only concepts are scheduled for review, not moves:
+ * Today's review session: first every exercise whose latest solve was
+ * assisted (the Tutor gave the line) on an earlier day, so it is tried again
+ * unaided; then for each concept that is due (earliest due first), the
+ * exercise testing it that was checked least recently, at most REVIEW_SIZE
+ * in all, each exercise once. Only concepts are scheduled for review, not moves:
  * an exercise can be solved without the move it was offered for, and a
  * review the learner cannot clear is no use. A concept the content no
  * longer has an exercise for is never due.
@@ -246,12 +252,32 @@ export function reviewSession(content: Pick<Content, "lessons">, map: MasteryMap
     .filter(([, m]) => m.box >= 1 && isDue(m.dueAt, now))
     .sort((a, b) => Date.parse(a[1].dueAt!) - Date.parse(b[1].dueAt!) || a[0].localeCompare(b[0]));
   const session: ReviewItem[] = [];
+  const latestSolve = new Map<string, AttemptLike>();
+  for (const r of rows) {
+    if (!r.solved) continue;
+    const key = `${r.lessonId}\u0000${r.exerciseId}`;
+    const had = latestSolve.get(key);
+    if (!had || new Date(r.createdAt).getTime() >= new Date(had.createdAt).getTime()) latestSolve.set(key, r);
+  }
+  const today = startOfDay(now).getTime();
+  const taken = new Set<string>();
+  const assisted = [...latestSolve.values()].filter((r) => r.assisted && new Date(r.createdAt).getTime() < today).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  for (const r of assisted) {
+    if (session.length >= REVIEW_SIZE) break;
+    const lesson = content.lessons.find((l) => l.id === r.lessonId);
+    const exercise = lesson?.exercises.find((e) => e.id === r.exerciseId);
+    if (!exercise) continue;
+    taken.add(`${r.lessonId}\u0000${r.exerciseId}`);
+    session.push({ lessonId: r.lessonId, exerciseId: r.exerciseId, concept: exercise.concept });
+  }
+  const covered = new Set(session.map((i) => i.concept));
   for (const [concept] of due) {
     if (session.length >= REVIEW_SIZE) break;
+    if (covered.has(concept)) continue;
     const options = content.lessons.flatMap((l) => l.exercises.filter((e) => e.concept === concept).map((e) => ({ lessonId: l.id, exerciseId: e.id, seen: last.get(`${l.id}\u0000${e.id}`) ?? 0 })));
-    if (!options.length) continue;
-    options.sort((a, b) => a.seen - b.seen);
-    session.push({ lessonId: options[0].lessonId, exerciseId: options[0].exerciseId, concept });
+    const open = options.filter((o) => !taken.has(`${o.lessonId}\u0000${o.exerciseId}`)).sort((a, b) => a.seen - b.seen);
+    if (!open.length) continue;
+    session.push({ lessonId: open[0].lessonId, exerciseId: open[0].exerciseId, concept });
   }
   return session;
 }

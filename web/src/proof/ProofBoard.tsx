@@ -6,6 +6,7 @@ import { MOVES, misfit, moveLine, type Move } from "../../shared/moves.ts";
 import { ApiError, check } from "../api/client.ts";
 import { Button, cx, Notice } from "../ui.tsx";
 import { Closed, GoalView, Refusal } from "./GoalCards.tsx";
+import { useTutorWork } from "../tutor/store.ts";
 
 // The proof board: a proof made by clicking. The cards are Lean's own goal
 // state; a move is one tactic; every accepted move adds its line to "Lean
@@ -79,6 +80,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
   }, [load]);
 
   const now = history[history.length - 1];
+  useTutorWork(lessonId, exercise.id, { body: now?.lines.join("\n") ?? "", goals: now?.goals ?? null, error: refusal ? `${refusal.line}: ${refusal.raw}` : null });
   const before = history.length > 1 ? history[history.length - 2] : null;
 
   // `busy` is state, so two clicks in one frame both see it false; this is
