@@ -62,9 +62,17 @@ export interface PlaygroundReply {
   cursorGoals: Goal[] | null;
 }
 
-/** GET /api/lean: whether Lean can run here. */
+/** GET /api/lean (also /api/lean/status), and the reply of POST
+ *  /api/lean/restart: whether Lean can check a proof now. */
 export interface LeanStatus {
-  ready: boolean;
+  /** `starting`: loading its library for the first time, which takes a
+   *  while. `restarting`: the same, after a stop. `down`: not installed, or
+   *  it stopped twice in a row and is waiting to be restarted. */
+  state: "starting" | "ready" | "restarting" | "down";
+  /** False when Lean or its libraries are not on this machine at all. */
+  installed: boolean;
+  /** The Lean version the project pins, e.g. `leanprover/lean4:v4.36.0`. */
+  toolchain: string | null;
   /** What to do when it cannot. */
   problem: string | null;
 }

@@ -38,6 +38,29 @@ export interface LeanCheck {
 }
 
 export class LeanUnavailable extends Error {}
+/** One check ran out of time. Lean itself is still there for the next. */
+export class LeanTimeout extends LeanUnavailable {}
+/** The server process went away by itself, taking the checks it held. */
+class LeanCrashed extends LeanUnavailable {}
+
+/** `starting`: first start, Mathlib not yet loaded. `restarting`: the same
+ *  after a stop. `down`: it cannot run, or stopped twice in a row. */
+export type LeanState = "starting" | "ready" | "restarting" | "down";
+
+export interface LeanHealth {
+  state: LeanState;
+  /** Why it is down, in a sentence; null otherwise. */
+  problem: string | null;
+}
+
+/** The Lean version the project pins (lean/lean-toolchain), or null. */
+export function leanToolchain(dir = LEAN_DIR): string | null {
+  try {
+    return fs.readFileSync(path.join(dir, "lean-toolchain"), "utf8").trim() || null;
+  } catch {
+    return null;
+  }
+}
 
 /** elan's and Homebrew's bin directories ahead of PATH: the Dock app starts
  *  the server without the shell profile that would add them. */
@@ -53,6 +76,11 @@ export function leanProblem(dir = LEAN_DIR): string | null {
     return "Lean's libraries are not installed yet. Run `npm run lean:setup` (a one-time download of about 7 GB), then try again.";
   }
   return null;
+}
+
+/** The import lines a source opens with, or "" when it has none. */
+function importsOf(source: string): string {
+  return /^(\s*import[^\n]*\n)+/.exec(source)?.[0] ?? "";
 }
 
 const SEVERITY = ["error", "error", "warning", "info", "info"] as const;
@@ -82,8 +110,13 @@ export interface LeanServerOptions {
   dir?: string;
   /** How many documents (each a Lean worker process holding Mathlib) stay open. */
   maxDocs?: number;
-  /** A check that takes longer than this restarts the server. */
+  /** How long one check may take once its document has Mathlib loaded. A
+   *  check that runs past it is given up on and its document closed, which
+   *  ends the Lean worker that was running it. */
   timeoutMs?: number;
+  /** How long the first check of a document may take: it pays for
+   *  `import Mathlib`. Past it the whole server is restarted. */
+  loadTimeoutMs?: number;
   /** How long the server may take to answer `initialize`. */
   bootTimeoutMs?: number;
 }
@@ -92,7 +125,16 @@ export class LeanServer {
   private dir: string;
   private maxDocs: number;
   private timeoutMs: number;
+  private loadTimeoutMs: number;
   private bootTimeoutMs: number;
+  /** A check has finished on the current server process: Mathlib is loaded. */
+  private warm = false;
+  /** A check has finished on some server process since this object was made. */
+  private everWarm = false;
+  /** Times in a row the server went away or failed to start with no check
+   *  finishing in between. It is brought back by itself once, not for ever. */
+  private failures = 0;
+  private lastFailure: string | null = null;
   private proc: ChildProcessWithoutNullStreams | null = null;
   private starting: Promise<void> | null = null;
   private closed = false;
@@ -106,7 +148,8 @@ export class LeanServer {
   constructor(opts: LeanServerOptions = {}) {
     this.dir = opts.dir ?? LEAN_DIR;
     this.maxDocs = opts.maxDocs ?? 3;
-    this.timeoutMs = opts.timeoutMs ?? 120_000;
+    this.timeoutMs = opts.timeoutMs ?? 20_000;
+    this.loadTimeoutMs = opts.loadTimeoutMs ?? 120_000;
     this.bootTimeoutMs = opts.bootTimeoutMs ?? 60_000;
   }
 
@@ -128,20 +171,78 @@ export class LeanServer {
       doc.active--;
     });
     doc.tail = run.catch(() => {});
-    return run;
+    try {
+      return await run;
+    } catch (e) {
+      // The server died under this check, or the worker for its document
+      // did (Lean answers the request with an error). Neither is the
+      // proof's doing as far as anyone knows, so it is tried once more, on
+      // a fresh server or a fresh document. A second loss is reported.
+      const lost = e instanceof LeanCrashed || !(e instanceof LeanUnavailable);
+      if (!lost || !mayRetry || this.closed) throw e instanceof LeanUnavailable ? e : new LeanUnavailable(`Lean could not check this: ${(e as Error).message}`);
+      if (!(e instanceof LeanCrashed)) this.drop(doc);
+      return this.enqueue(key, source, positions, false);
+    }
+  }
+
+  /** Whether Lean can check a proof right now, and if not, why. */
+  health(): LeanHealth {
+    const missing = leanProblem(this.dir);
+    if (missing) return { state: "down", problem: missing };
+    if (this.closed) return { state: "down", problem: "The Lean server was shut down." };
+    if (this.proc && this.warm) return { state: "ready", problem: null };
+    if (!this.starting && this.failures > 1) return { state: "down", problem: this.lastFailure ?? "Lean stopped and did not come back." };
+    return { state: this.everWarm || this.failures > 0 ? "restarting" : "starting", problem: null };
+  }
+
+  /** Stop the server and start a new one now, forgetting earlier failures.
+   *  For the Restart button. Resolves once the new server answers. */
+  restart(): Promise<void> {
+    this.stop();
+    this.failures = 0;
+    this.lastFailure = null;
+    return this.start();
   }
 
   /** Stop the server; the next check starts a new one. */
-  stop(): void {
+  stop(why: LeanUnavailable = new LeanUnavailable("the Lean server stopped")): void {
     const proc = this.proc;
     this.generation++;
     this.proc = null;
     this.starting = null;
+    this.warm = false;
     this.docs.clear();
     this.buffer = Buffer.alloc(0);
-    for (const p of this.pending.values()) p.reject(new LeanUnavailable("the Lean server stopped"));
+    for (const p of this.pending.values()) p.reject(why);
     this.pending.clear();
+    // Only ever the child this object spawned: never a pid from anywhere else.
     proc?.kill("SIGKILL");
+  }
+
+  /** The server went away, or had to be killed, without being asked to
+   *  stop. It is started again at once, so the next check does not wait for
+   *  it; but only once in a row, so a Lean that cannot stay up is reported
+   *  and not restarted for ever. */
+  private lost(why: string, error: LeanUnavailable): void {
+    this.failures++;
+    this.lastFailure = why;
+    this.stop(error);
+    if (this.failures <= 1 && !this.closed) this.start().catch(() => {});
+  }
+
+  /** Close one document, which ends the Lean worker elaborating it. Checks
+   *  waiting on it see that it is gone and open a new one. */
+  private drop(doc: Doc): void {
+    if (this.docs.get(this.safe(doc.key)) === doc) this.docs.delete(this.safe(doc.key));
+    const open = doc.generation === this.generation && doc.version > 0;
+    doc.generation = -1;
+    if (open) this.notify("textDocument/didClose", { textDocument: { uri: doc.uri } });
+  }
+
+  /** For tests: end the server process the way a crash would, with none of
+   *  stop()'s bookkeeping. Only the child this object spawned. */
+  crash(): void {
+    this.proc?.kill("SIGKILL");
   }
 
   /** Stop for good: unlike stop(), no later check starts a server again.
@@ -157,7 +258,11 @@ export class LeanServer {
       const starting: Promise<void> = this.boot().catch((e) => {
         // Only a boot that is still the current one may stop the server: a
         // boot that lost to a stop() must not kill what was started after it.
-        if (this.starting === starting) this.stop();
+        if (this.starting === starting) {
+          this.failures++;
+          this.lastFailure = (e as Error).message;
+          this.stop();
+        }
         throw e;
       });
       this.starting = starting;
@@ -178,12 +283,12 @@ export class LeanServer {
     proc.stderr.on("data", () => {}); // Lean logs worker chatter here; nothing a learner needs
     const gone = (why: string) => {
       if (this.proc === proc) {
-        this.stop();
         console.error(`[lean-into-it] lean server ${why}`);
+        this.lost(`The Lean server ${why}.`, new LeanCrashed("the Lean server stopped by itself"));
       }
     };
     proc.on("error", (e) => gone(`failed to start: ${e.message} (is elan installed? brew install elan-init)`));
-    proc.on("exit", (code) => gone(`exited (${code})`));
+    proc.on("exit", (code, signal) => gone(`stopped unexpectedly (${signal ?? `exit code ${code}`})`));
     proc.stdin.on("error", () => {}); // a write to a dead server; the exit handler reports it
     let timer: NodeJS.Timeout | undefined;
     const slow = new Promise<never>((_, reject) => {
@@ -200,8 +305,12 @@ export class LeanServer {
     this.notify("initialized", {});
   }
 
+  private safe(key: string): string {
+    return key.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80) || "scratch";
+  }
+
   private doc(key: string): Doc {
-    const safe = key.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 80) || "scratch";
+    const safe = this.safe(key);
     let doc = this.docs.get(safe);
     if (!doc) {
       doc = {
@@ -232,9 +341,7 @@ export class LeanServer {
         if (oldest === null || d.lastUsed < this.docs.get(oldest)!.lastUsed) oldest = k;
       }
       if (oldest === null) return;
-      const d = this.docs.get(oldest)!;
-      this.docs.delete(oldest);
-      if (d.version > 0) this.notify("textDocument/didClose", { textDocument: { uri: d.uri } });
+      this.drop(this.docs.get(oldest)!);
     }
   }
 
@@ -247,24 +354,61 @@ export class LeanServer {
       if (mayRetry) return this.enqueue(doc.key, source, positions, false);
       throw new LeanUnavailable("Lean was restarted while this proof was waiting to be checked. Try again.");
     }
+    // A new document first loads its imports, alone and with the long
+    // limit that Mathlib needs. The proof itself then always runs under the
+    // short one, whether or not it is the first thing its document sees:
+    // Lean keeps the loaded imports when only the text after them changes.
+    const imports = importsOf(source);
+    if (doc.version === 0 && imports && imports !== source) await this.timed(doc, proc, imports, [], true);
+    return this.timed(doc, proc, source, positions, imports === source);
+  }
+
+  /** Send one version of a document and wait for Lean's answer, for at most
+   *  the time its kind allows. `loading`: the text is imports alone. */
+  private async timed(doc: Doc, proc: ChildProcessWithoutNullStreams, source: string, positions: Position[], loading: boolean): Promise<LeanCheck> {
+    if (doc.generation !== this.generation || this.proc !== proc) throw new LeanCrashed("the Lean server stopped by itself");
     const version = ++doc.version;
     if (version === 1) {
       this.notify("textDocument/didOpen", { textDocument: { uri: doc.uri, languageId: "lean4", version, text: source } });
     } else {
       this.notify("textDocument/didChange", { textDocument: { uri: doc.uri, version }, contentChanges: [{ text: source }] });
     }
+    const limit = loading ? this.loadTimeoutMs : this.timeoutMs;
+    const seconds = Math.round(limit / 1000);
     let timer: NodeJS.Timeout | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => {
-        // A proof that never finishes (or a wedged worker) would hold every
-        // later check. Only the process this check ran on is killed: by now
-        // a newer one may be serving other checks.
-        if (this.proc === proc) this.stop();
-        reject(new LeanUnavailable(`Lean took longer than ${Math.round(this.timeoutMs / 1000)} seconds and was restarted.`));
-      }, this.timeoutMs);
+        // A proof that never finishes would hold every later check of its
+        // document. Closing the document ends the worker running it and
+        // leaves the rest of Lean warm. If Lean could not even load its
+        // library in time, the server itself is wedged and is replaced:
+        // only the process this check ran on, since by now a newer one may
+        // be serving other checks.
+        if (!loading) {
+          this.drop(doc);
+          // Open it again with its imports alone, so that the library is
+          // loading while the learner reads why the check stopped.
+          const imports = importsOf(source);
+          if (imports && !this.closed) this.check(doc.key, imports).catch(() => {});
+        } else if (this.proc === proc) this.lost(`Lean did not finish loading its library within ${seconds} seconds.`, new LeanUnavailable("the Lean server was restarted"));
+        reject(
+          new LeanTimeout(
+            loading
+              ? `Lean took longer than ${seconds} seconds to load its library and was restarted. Try again in a moment.`
+              : `Lean took longer than ${seconds} seconds on this and gave up. A step such as simp or decide on the wrong goal can run for a very long time. Change the last step and check again.`,
+          ),
+        );
+      }, limit);
     });
     try {
-      return await Promise.race([this.elaborate(doc, version, positions), timeout]);
+      const result = await Promise.race([this.elaborate(doc, version, positions), timeout]);
+      if (this.proc === proc) {
+        this.warm = true;
+        this.everWarm = true;
+        this.failures = 0;
+        this.lastFailure = null;
+      }
+      return result;
     } finally {
       clearTimeout(timer);
     }

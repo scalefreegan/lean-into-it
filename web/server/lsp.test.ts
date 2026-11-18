@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { assemble, endOfBody, toSource } from "../shared/proof.ts";
-import { LeanServer, LeanUnavailable, leanProblem } from "./lean/lsp.ts";
+import { LeanServer, LeanTimeout, LeanUnavailable, leanProblem, leanToolchain } from "./lean/lsp.ts";
 
 // How the Lean client behaves when its server stops, is slow or is absent.
 // All but the last test start a real `lake serve`; where Lean is not
@@ -88,11 +88,95 @@ test("a server that does not answer in time is given up on, and the next check s
 
 test("a check that runs out of time is refused with a reason", { skip }, async (t) => {
   // 50 ms is far less than loading Mathlib takes, so the first check of a cold server cannot finish.
-  const lean = new LeanServer({ timeoutMs: 50 });
+  const lean = new LeanServer({ loadTimeoutMs: 50 });
   t.after(() => lean.stop());
   const started = Date.now();
-  await assert.rejects(lean.check("exercise", source("exact hP"), []), (e: Error) => e instanceof LeanUnavailable && /took longer/.test(e.message));
+  await assert.rejects(lean.check("exercise", source("exact hP"), []), (e: Error) => e instanceof LeanTimeout && /took longer than 0 seconds to load its library/.test(e.message));
   assert.ok(Date.now() - started < 30_000);
+});
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const until = async (what: () => boolean, ms = 30_000) => {
+  const end = Date.now() + ms;
+  while (!what() && Date.now() < end) await sleep(50);
+};
+/** A file whose elaboration never ends: a program that counts for ever. */
+const ENDLESS = "import Mathlib\npartial def spin (n : Nat) : Nat := spin (n + 1)\n#eval spin 0\n";
+const fine = (n: number) => `import Mathlib\nexample : ${n} = ${n} := rfl\n`;
+
+test("a check that never ends is given up on inside the limit, and Lean goes on working", { skip }, async (t) => {
+  const lean = new LeanServer({ timeoutMs: 3000 });
+  t.after(() => lean.stop());
+  assert.equal(lean.health().state, "starting");
+  await lean.check("a", fine(1));
+  await lean.check("b", fine(1));
+  assert.deepEqual(lean.health(), { state: "ready", problem: null });
+
+  const started = Date.now();
+  const endless = lean.check("a", ENDLESS);
+  // A check of the same document, waiting behind the one that will not end.
+  const behind = lean.check("a", fine(2));
+  await assert.rejects(endless, (e: Error) => e instanceof LeanTimeout && /took longer than 3 seconds on this and gave up/.test(e.message));
+  const took = Date.now() - started;
+  assert.ok(took >= 2900 && took < 6000, `gave up after ${took} ms`);
+  // Only that document was closed: the server is the same one, still warm,
+  assert.equal(lean.health().state, "ready");
+  // and the other document answers without loading Mathlib again.
+  const other = Date.now();
+  assert.deepEqual((await lean.check("b", fine(2))).diagnostics, []);
+  assert.ok(Date.now() - other < 3000, `the other document took ${Date.now() - other} ms`);
+  // The check that was waiting, and the next one, run on a new document.
+  assert.deepEqual((await behind).diagnostics, []);
+  assert.deepEqual((await lean.check("a", fine(3))).diagnostics, []);
+  // The same when the endless file is the first thing a document is given:
+  // loading the library has its own, longer, limit, and the file does not borrow it.
+  await assert.rejects(lean.check("c", ENDLESS), (e: Error) => e instanceof LeanTimeout && /took longer than 3 seconds on this and gave up/.test(e.message));
+  assert.equal(lean.health().state, "ready");
+  // A real error is still an error there.
+  assert.match((await lean.check("a", "import Mathlib\nexample : 1 = 2 := rfl\n")).diagnostics[0]?.message ?? "", /not definitionally equal|rfl|1 = 2/i);
+});
+
+test("a Lean that dies under a check is started again and the check retried; twice in a row it is reported, and can be restarted", { skip }, async (t) => {
+  const lean = new LeanServer();
+  t.after(() => lean.stop());
+  await lean.check("a", fine(1));
+
+  // Killed by hand in the middle of a check: the check is not lost.
+  const during = lean.check("a", fine(2));
+  await new Promise((r) => setImmediate(r));
+  lean.crash();
+  assert.deepEqual((await during).diagnostics, []);
+  assert.equal(lean.health().state, "ready");
+
+  // Killed while idle: it comes back by itself, and says so meanwhile.
+  lean.crash();
+  await until(() => lean.health().state !== "ready");
+  assert.deepEqual(lean.health(), { state: "restarting", problem: null });
+  assert.deepEqual((await lean.check("a", fine(3))).diagnostics, []);
+  assert.equal(lean.health().state, "ready");
+
+  // Killed twice with no check finishing in between: not restarted again.
+  lean.crash();
+  await until(() => lean.health().state === "restarting");
+  await sleep(200);
+  lean.crash();
+  await until(() => lean.health().state === "down");
+  const down = lean.health();
+  assert.equal(down.state, "down");
+  assert.match(down.problem ?? "", /^The Lean server stopped unexpectedly \(SIGKILL\)\.$/);
+  await sleep(500);
+  assert.equal(lean.health().state, "down", "it stays down until asked");
+
+  // The Restart button.
+  await lean.restart();
+  assert.deepEqual(lean.health(), { state: "restarting", problem: null }, "running, and Mathlib not loaded yet");
+  assert.deepEqual((await lean.check("a", fine(4))).diagnostics, []);
+  assert.deepEqual(lean.health(), { state: "ready", problem: null });
+});
+
+test("the toolchain is read from the project", () => {
+  assert.match(leanToolchain() ?? "", /^leanprover\/lean4:v\d+\.\d+\.\d+/);
+  assert.equal(leanToolchain(os.tmpdir()), null);
 });
 
 test("a folder with no Lean project is a reason, not a hang", async () => {

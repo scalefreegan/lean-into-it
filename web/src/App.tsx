@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import { Gallery } from "./pages/Gallery.tsx";
 import { Home } from "./pages/Home.tsx";
@@ -5,7 +6,7 @@ import { Lesson } from "./pages/Lesson.tsx";
 import { Playground } from "./pages/Playground.tsx";
 import { href, useRoute } from "./router.ts";
 import { AppProvider, useApp } from "./state.tsx";
-import { cx, Notice } from "./ui.tsx";
+import { Button, cx, Notice } from "./ui.tsx";
 
 export function App() {
   return (
@@ -21,7 +22,6 @@ export function App() {
 
 function Shell() {
   const route = useRoute();
-  const { lean } = useApp();
   const tabs = [
     { name: "home", label: "Path", active: route.name === "home" || route.name === "lesson" },
     { name: "playground", label: "Playground", active: route.name === "playground" },
@@ -49,13 +49,7 @@ function Shell() {
         </div>
       </header>
       <main className="px-4 py-8 sm:px-6">
-        {!lean.ready && (
-          <div className="mx-auto mb-6 max-w-[2400px]">
-            <Notice tone="warn">
-              <strong>Lean is not set up yet.</strong> {lean.problem} Lessons can be read, but proofs cannot be checked until then.
-            </Notice>
-          </div>
-        )}
+        <LeanBanner />
         <ErrorBoundary label={route.name} key={`${route.name}/${route.arg ?? ""}`}>
           {route.name === "lesson" && route.arg ? (
             <Lesson id={route.arg} />
@@ -68,6 +62,45 @@ function Shell() {
           )}
         </ErrorBoundary>
       </main>
+    </div>
+  );
+}
+
+/** What Lean is doing when it cannot check a proof yet, and the way to
+ *  start it again when it has stopped. Nothing when it is ready. */
+function LeanBanner() {
+  const { lean, restartLean } = useApp();
+  const [asking, setAsking] = useState(false);
+  if (lean.state === "ready") return null;
+  return (
+    <div className="mx-auto mb-6 max-w-[2400px]" data-lean-state={lean.state} role="status">
+      {!lean.installed ? (
+        <Notice tone="warn">
+          <strong>Lean is not set up yet.</strong> {lean.problem} Lessons can be read, but proofs cannot be checked until then.
+        </Notice>
+      ) : lean.state === "down" ? (
+        <Notice tone="bad">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              <strong>Lean has stopped.</strong> {lean.problem} Lessons can be read, but proofs cannot be checked until it is running again.
+            </span>
+            <Button
+              disabled={asking}
+              onClick={() => {
+                setAsking(true);
+                void restartLean().finally(() => setAsking(false));
+              }}
+            >
+              {asking ? "Restarting…" : "Restart Lean"}
+            </Button>
+          </div>
+        </Notice>
+      ) : (
+        <Notice tone="warn">
+          <strong>{lean.state === "starting" ? "Lean is starting." : "Lean is restarting."}</strong> It is loading its library of mathematics, which takes up to half a minute. Proofs will be checked as soon as it
+          is ready; lessons can be read meanwhile.
+        </Notice>
+      )}
     </div>
   );
 }

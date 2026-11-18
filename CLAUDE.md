@@ -20,7 +20,7 @@ web/shared/explain.ts    Lean's error messages in plain words
 web/shared/registry.ts   every widget and exercise kind, with its parameters (the loader checks lessons against it)
 web/shared/wire.ts       request and reply types shared by server and client
 web/server/lean/lsp.ts   the warm Lean: one `lake serve`, JSON-RPC over stdio
-web/server/check.ts      /api/check, /api/playground, /api/lean
+web/server/check.ts      /api/check, /api/playground, /api/lean (status), /api/lean/restart
 web/server/loader.ts     content/ -> Content, with readable refusals
 web/server/api.ts        wrap() and the route table
 scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
@@ -51,6 +51,9 @@ web/src/pages/           Home (the Path), Lesson, Playground, Gallery (#/gallery
 - All exercises share one Lean document (`"exercise"`), the Playground has
   its own. A new document pays for `import Mathlib` again (several seconds);
   a changed one costs about 200 ms. Do not add a document per exercise.
+- A check has 20 seconds (`web/server/lean/lsp.ts`); past it the document is
+  closed, which ends its Lean worker, and the reply says Lean took too long.
+  Only the child process this server spawned is ever signalled.
 - Personal rows are read and written only through `scripts/db/progress.ts`,
   whose functions all take the learner id.
 - Never change a lesson `id` or an exercise `id` once live: progress is keyed

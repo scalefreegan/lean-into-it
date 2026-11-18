@@ -101,10 +101,16 @@ Landed in the first PR, the foundation slice:
 - Attempts and exercise and lesson completion stored in Postgres
   (`lean_into_it`, one implicit learner, no login) and shown on the Path.
 - The API refuses any request that is not same-origin from this machine.
-- A check that runs past two minutes restarts Lean, and a check that was
-  waiting behind it moves to the new server (the rest of `lii-1ou.2`
-  remains).
-- Tests: 181, including every reference solution checked by the real Lean,
+- Lean that cannot wedge the app (`lii-1ou.2`). A check gets 20 seconds;
+  one that runs past it is given up on with a sentence saying so, and only
+  its document is closed, so the rest of Lean stays warm. Loading Mathlib is
+  a step of its own with two minutes. If Lean dies it is started again and
+  the check it held is retried; if it dies twice in a row the app says so
+  and offers a Restart button. `GET /api/lean` reports starting, ready,
+  restarting or down and the toolchain; `POST /api/lean/restart` restarts
+  it. The app shows "Lean is starting" while Mathlib loads. Left for
+  `lii-1ou.6`: cancelling a superseded check, and a memory limit.
+- Tests: 185, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -129,7 +135,7 @@ land first.
 |---|---|---|---|
 | `lii-1ou.4` | Re-check a passing proof in a fresh kernel | 2 | |
 | `lii-1ou.5` | Adversarial review of exercise grading (the PR 2 review did not complete it) | 1 | |
-| `lii-1ou.2` | Lean checker timeouts and a restart path | 1 | |
+| `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
 
 ### Proof board (epic `lii-8wq`)
@@ -176,7 +182,7 @@ land first.
 |---|---|---|---|
 | `lii-2zo.1` | Tutor drawer: explain and hint, with the hint ladder and assisted marking | 1 | |
 | `lii-2zo.2` | Tutor lesson authoring with a Lean compile gate and worktree commits | 2 | `lii-2zo.1`, `lii-2zf.1`, `lii-2zf.2` |
-| `lii-2zo.3` | Tutor as proof partner in the Playground | 2 | `lii-2zo.1`, `lii-1ou.2` |
+| `lii-2zo.3` | Tutor as proof partner in the Playground | 2 | `lii-2zo.1` |
 | `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |
 | `lii-2zo.5` | Tutor read-only access to attempt history | 2 | `lii-2zo.1`, `lii-zjf.1` |
 

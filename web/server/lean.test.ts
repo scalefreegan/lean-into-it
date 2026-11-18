@@ -5,11 +5,11 @@ import { Readable } from "node:stream";
 import { after, before, test } from "node:test";
 import { attemptCount, ensureLearner, solvedFor } from "../../scripts/db/progress.ts";
 import { freshDb } from "../../scripts/tests/testdb.mjs";
-import type { CheckReply, CheckRequest, PlaygroundReply } from "../shared/wire.ts";
+import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../shared/wire.ts";
 import { explain } from "../shared/explain.ts";
 import { misfit, moveLine, readLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, toBody } from "../shared/proof.ts";
-import { checkExercise, handleCheck, handlePlayground } from "./check.ts";
+import { checkExercise, handleCheck, handleLean, handlePlayground } from "./check.ts";
 import { setDb, type Db } from "./db.ts";
 import { leanProblem, leanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
@@ -475,6 +475,33 @@ test("/api/check on a fill-the-gap exercise takes the fill, and records it", { s
   assert.equal(await count(), 2);
   // What is kept is the learner's fill, not the proof it went into, and not the spaces around it.
   assert.deepEqual((await solvedFor(db, learner)).filter((r) => r.exerciseId === "add-one").map((r) => r.solution), ["abs_add_le x 1"]);
+});
+
+test("/api/lean says what Lean is doing, and /api/lean/restart starts it again", { skip }, async () => {
+  const ask = async (method: string, url: string) => {
+    let status = 0;
+    let text = "";
+    const res = { writeHead: (code: number) => ((status = code), res), end: (chunk?: string) => void (text = chunk ?? "") } as unknown as ServerResponse;
+    await handleLean(Object.assign(Readable.from([]), { method, headers: {}, url }) as unknown as IncomingMessage, res);
+    return { status, reply: JSON.parse(text) as LeanStatus & { error?: string } };
+  };
+  await checkExercise(leanServer(), exercise("use-it"), "exact hPQ hP");
+  for (const url of ["/", "", "/status", "/status?x=1"]) {
+    const { status, reply } = await ask("GET", url);
+    assert.equal(status, 200, url);
+    assert.deepEqual({ state: reply.state, installed: reply.installed, problem: reply.problem }, { state: "ready", installed: true, problem: null }, url);
+    assert.match(reply.toolchain ?? "", /^leanprover\/lean4:v/);
+  }
+  assert.equal((await ask("POST", "/")).status, 405);
+  assert.equal((await ask("GET", "/restart")).status, 405);
+  assert.equal((await ask("GET", "/elsewhere")).status, 404);
+  // Restarting answers once the new server is up; its library is still loading.
+  const restarted = await ask("POST", "/restart");
+  assert.equal(restarted.status, 200);
+  assert.equal(restarted.reply.state, "restarting");
+  // And a check after it works.
+  assert.equal((await checkExercise(leanServer(), exercise("use-it"), "exact hPQ hP")).solved, true);
+  assert.equal((await ask("GET", "/")).reply.state, "ready");
 });
 
 test("/api/check refuses an exercise that does not exist", { skip }, async () => {
