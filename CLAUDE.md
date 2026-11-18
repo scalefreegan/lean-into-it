@@ -26,7 +26,7 @@ web/server/api.ts        wrap() and the route table
 scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
 web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor
 web/src/widgets/         one component per widget; registry.ts maps registered names to them
-web/src/exercises/       one component per exercise kind, mapped the same way
+web/src/exercises/       one component per exercise kind (ProveIt, FillGap), mapped the same way
 web/src/pages/           Home (the Path), Lesson, Playground, Gallery (#/gallery)
 ```
 

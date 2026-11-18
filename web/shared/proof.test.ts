@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assemble, axiomsOf, isBlank, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Diagnostic } from "./proof.ts";
+import { assemble, axiomsOf, isBlank, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Diagnostic, gapPosition, fillBody, fillProblem, GAP, gapLine } from "./proof.ts";
 
 /** judge with nothing forbidden and Lean's report that no axiom is used, unless said otherwise. */
 const judge = (diagnostics: BodyDiagnostic[], body: string, forbid: string[] = [], axioms: string[] | null = []) => judgeWith(diagnostics, body, forbid, axioms);
@@ -288,4 +288,40 @@ test("a ring that left its goal open is an error in a proof Lean has not accepte
   assert.equal(after([ring], [["⊢ A"], ["⊢ A'"]])[0].severity, "info");
   // An error of Lean's own is never a ring note, whatever it quotes.
   assert.deepEqual(ringNotes([at(4, "The `ring` tactic failed to close the goal.")]), []);
+});
+
+test("a fill is one line that stays in its gap", () => {
+  const proof = "intro h\n  rw [<gap>] at h\nlinarith";
+  assert.equal(GAP, "<gap>");
+  assert.equal(gapLine(proof), 1);
+  assert.equal(gapLine("exact h"), -1);
+  assert.equal(fillBody(proof, "  abs_lt \r"), "intro h\n  rw [abs_lt] at h\nlinarith");
+  // A fill is put in as written: `$&` and the like mean nothing.
+  assert.equal(fillBody("exact <gap>", "$& $1 $$"), "exact $& $1 $$");
+  assert.deepEqual(gapPosition(proof), { line: 1, character: 6 });
+  assert.deepEqual(gapPosition("calc a ≤ b := by <gap>\n  _ = c := h"), { line: 0, character: 17 });
+  assert.equal(gapPosition("exact h"), null);
+
+  for (const fine of ["abs_lt", "abs_add_le (a - b) (b - c)", "⟨h1, h2⟩", "simp [foo]; exact h", 'exact "a) -- b".length', "h.1 ▸ rfl"]) assert.equal(fillProblem(fine), null, fine);
+  assert.match(fillProblem("abs_lt\nsorry") ?? "", /one line/);
+  assert.match(fillProblem("abs_lt] at h -- ") ?? "", /comment/);
+  assert.match(fillProblem("abs_lt /- ") ?? "", /comment/);
+  assert.match(fillProblem("abs_lt] at h; simp [") ?? "", /“]” closes a bracket that the gap did not open/);
+  assert.match(fillProblem("foo)") ?? "", /closes a bracket/);
+  assert.match(fillProblem("(foo]") ?? "", /closes a bracket/);
+  assert.match(fillProblem("foo (bar") ?? "", /“\(” opens a bracket that is not closed/);
+  for (const open of ['"', 'exact "abc', 'r#"x', 's!"{x} and']) assert.match(fillProblem(open) ?? "", /string is opened/, open);
+  assert.equal(fillProblem('s!"{x}" ++ r#"a"b"#'), null);
+});
+
+test("in a fill-the-gap exercise the forbid list is about the fill, not the proof around it", () => {
+  const body = "rw [abs_lt] at h\nlinarith";
+  const axioms = ["propext"];
+  assert.equal(judgeWith([], body, ["linarith"], axioms).solved, false, "a whole proof may not use it");
+  assert.deepEqual(judgeWith([], body, ["linarith"], axioms, "abs_lt").forbidden, []);
+  assert.equal(judgeWith([], body, ["linarith"], axioms, "abs_lt").solved, true);
+  assert.deepEqual(judgeWith([], body, ["abs_lt"], axioms, "abs_lt").forbidden, ["abs_lt"]);
+  // Everything else is still judged on the whole body.
+  assert.match(judgeWith([], "rw [abs_lt] at h\nrun_tac foo", [], axioms, "abs_lt").refusal ?? "", /run_tac/);
+  assert.equal(judgeWith([], body, [], null, "abs_lt").solved, false);
 });

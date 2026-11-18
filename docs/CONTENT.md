@@ -71,7 +71,7 @@ exercises:
 | Field | Meaning |
 |---|---|
 | `id` | Lowercase letters, digits and hyphens. Unique within the lesson. |
-| `kind` | `prove` (the default, and the only kind so far). Every exercise has `id`, `kind`, `title` and `concept`; the other fields below are the parameters of `prove` in the registry. A field the kind does not take is refused, so a misspelt `forbid` cannot pass unnoticed. |
+| `kind` | `prove` (the default) or `fill` (below). Every exercise has `id`, `kind`, `title` and `concept`; the other fields in this table are the parameters of `prove` in the registry. A field the kind does not take is refused, so a misspelt `forbid` cannot pass unnoticed. |
 | `mode` | `board` or `typed`. Default `board`. |
 | `title` | A short heading. |
 | `says` | The claim in plain English, as a mathematician would say it, on one line. Shown above the exercise. |
@@ -84,6 +84,41 @@ exercises:
 
 Name hypotheses in the statement the way Lean users do: `hP` for a proof of
 `P`, `hPQ` for a proof of `P → Q`. The board shows those names on the cards.
+
+### Fill the gap
+
+`kind: fill` is a proof that is written out except for one step. It takes
+`says`, `statement`, `given` and `forbid` as above, and:
+
+| Field | Meaning |
+|---|---|
+| `proof` | The proof body with `<gap>` exactly once, where the missing step goes: a whole line, or part of one (`rw [<gap>] at h`). No `sorry`. |
+| `solution` | What goes in the gap: one line. `npm test` checks the completed proof against the real Lean. |
+| `options` | Optional. Two to five fills to choose from, the solution among them. With it the learner chooses and does not type. `npm test` checks that Lean refuses every option but the solution. |
+
+```yaml
+  - id: add-one
+    kind: fill
+    title: The reason for a link
+    says: For any real number x, |x + 1| ≤ |x| + 1.
+    statement: "(x : ℝ) : |x + 1| ≤ |x| + 1"
+    proof: |
+      calc |x + 1| ≤ |x| + |1| := <gap>
+        _ = |x| + 1 := by rw [abs_one]
+    solution: abs_add_le x 1
+```
+
+Lean checks the proof with the learner's fill in place, in both forms: a
+choice is not compared with `solution`, and a typed fill other than the
+`solution` is accepted if the proof goes through with it. A fill is one line,
+with its own brackets and strings closed and no comment, which keeps an
+ordinary answer inside its gap; grading does not rest on that, since Lean
+checks the whole completed proof. `forbid` applies to the fill only; the
+proof around it may use anything. Beside the proof the learner sees what
+the missing step has to show: Lean's goals where the gap starts, or at the
+start of its line when the gap is part of a term. Put the gap where a
+wrong answer fails on the gap's own line, not on a later one. The loader checks the shape; whether the solution compiles and
+the other options fail is checked by `npm test`, as for every solution.
 
 ### The body
 
@@ -162,12 +197,14 @@ copy the state from the app or the Playground.
 3. `npm test` checks that the examples pass the entry's own checks, and
    `#/gallery` draws them.
 
-That is all a widget needs. An exercise kind needs more, because only its
-parameters and its component go through the registry so far. The `Exercise`
-type (`web/shared/content.ts`), the object the loader builds
-(`parseExercise`) and the checking route (`web/server/check.ts`) are still
-shaped for `prove`: a statement, a proof body, Lean's verdict. The first
-kind that is not a proof (`lii-6xv.1`) has to widen those three.
+That is all a widget needs. An exercise kind needs more. Its parameters and
+its component go through the registry, but the `Exercise` type
+(`web/shared/content.ts`), the object the loader builds (`parseExercise`)
+and the checking route (`checkExercise` in `web/server/check.ts`) are
+written by hand for each kind. Both kinds so far are a statement and an
+answer that Lean judges, and `checkExercise` turns the answer into the
+proof body to check; `fill` shows how. A kind that Lean does not judge
+would need a route of its own.
 
 A widget parameter may not be called `type`, and an exercise kind's
 parameter may not be called `id`, `kind`, `title` or `concept`: those

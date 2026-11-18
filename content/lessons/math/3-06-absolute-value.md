@@ -43,6 +43,16 @@ exercises:
       constructor
       linarith
       linarith
+  - id: add-one
+    kind: fill
+    title: The reason for a link
+    says: For any real number x, |x + 1| ≤ |x| + 1.
+    statement: "(x : ℝ) : |x + 1| ≤ |x| + 1"
+    proof: |
+      calc |x + 1| ≤ |x| + |1| := <gap>
+        _ = |x| + 1 := by rw [abs_one]
+    forbid: [grind, bound, aesop, exact?, apply?, hint, rw?, simp, simpa, gcongr]
+    solution: abs_add_le x 1
   - id: triangle
     title: The triangle inequality, by hand
     mode: typed
@@ -145,6 +155,14 @@ The first form is in the library as `abs_add_le`:
 ```lean
 abs_add_le a b : |a + b| ≤ |a| + |b|
 ```
+
+The a and b there stand for any two numbers, and to use the fact you say which two. Here is a chain with the reason for its first link left out. The reason is the triangle inequality for two particular numbers: type it into the gap.
+
+```exercise
+id: add-one
+```
+
+The order matters to Lean: the fact for 1 and x is about |1 + x|, which is not what the link says.
 
 The second form follows from the first by one observation, and it is a trick used all through analysis: **a − c is (a − b) + (b − c)**. The b has been added and taken away. Then the triangle inequality applies to that sum.
 

@@ -24,6 +24,16 @@ exercises:
     moves: [linarith, gcongr]
     solution: |
       gcongr
+  - id: which-reason
+    kind: fill
+    title: Which reason?
+    says: Suppose x ≤ 2 and y ≤ 3. Then x + y ≤ 5.
+    statement: "(x y : ℝ) (h1 : x ≤ 2) (h2 : y ≤ 3) : x + y ≤ 5"
+    proof: |
+      calc x + y ≤ 2 + 3 := by <gap>
+        _ = 5 := by norm_num
+    options: [ring, gcongr, norm_num, rfl]
+    solution: gcongr
   - id: a-bound
     title: Bounding an expression
     mode: typed
@@ -88,6 +98,14 @@ id: side-by-side
 ```
 
 When `gcongr` cannot find one of the things it needs, it does not fail. It leaves that as a goal for you.
+
+Here is a chain with one reason missing. The second link is a calculation, and `norm_num` does it. Which move proves the first link? Lean checks the chain with your choice in place.
+
+```exercise
+id: which-reason
+```
+
+Whichever you chose, try the others and read what Lean says to each. The first link is not true of all numbers. It is true because of `h1` and `h2`, and only one of the four moves goes and looks for facts.
 
 ## A chain of your own
 

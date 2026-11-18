@@ -9,13 +9,16 @@ export interface ErrorReply {
   code?: string;
 }
 
-/** POST /api/check: check a proof body against an exercise's statement. */
+/** POST /api/check: check an answer to an exercise. Lean judges it against
+ *  the exercise's own statement. */
 export interface CheckRequest {
   lessonId: string;
   exerciseId: string;
-  /** The proof body: tactic lines, unindented. */
+  /** The answer. Kind `prove`: the proof body, tactic lines, unindented.
+   *  Kind `fill`: what goes in the gap, one line. */
   body: string;
-  /** Typed mode: where the caret is, to show the goals there. */
+  /** A typed proof: where the caret is, to show the goals there. Not used
+   *  for `fill`, where the server reads the goals at the gap. */
   cursor?: Position;
   /** Which failed checks are kept as attempts. `rejected`: only a body Lean
    *  refuses (a wrong move on the board). `submitted`: any unsolved body (the
@@ -27,7 +30,9 @@ export interface CheckReply {
   solved: boolean;
   /** Goals after the last line of the body. Not meaningful when `error` is set. */
   goals: Goal[];
-  /** Goals at the cursor, when one was sent and it is inside the proof. */
+  /** Goals at the cursor, when one was sent and it is inside the proof.
+   *  Kind `fill`: what the missing step has to prove (the goals where the
+   *  gap starts, or at the start of its line when the gap is part of a term). */
   cursorGoals: Goal[] | null;
   /** The first real error: the body does not hold up to this line. */
   error: BodyDiagnostic | null;

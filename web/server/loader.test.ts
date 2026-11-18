@@ -125,7 +125,25 @@ test("a lesson's own definitions go in front of each exercise's", () => {
   assert.deepEqual(content.lessons[0].exercises.map((e) => e.given), ["def two : Nat := 2", "def two : Nat := 2\n\ndef three : Nat := 3"]);
 });
 
+const FILL = "  - id: gap\n    kind: fill\n    title: Gap\n    says: P gives P.\n    statement: \"(P : Prop) (hP : P) : P\"\n    proof: exact <gap>\n    options: [hP, P]\n    solution: hP\n";
+
+test("a fill-the-gap exercise loads with its proof and its options, and is not a board exercise", () => {
+  const content = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": LESSON.replace("---\n\nOpening", `${FILL}---\n\nOpening`) }));
+  assert.deepEqual(content.problems, []);
+  const gap = content.lessons[0].exercises.find((e) => e.id === "gap")!;
+  assert.deepEqual([gap.kind, gap.mode, gap.proof, gap.options, gap.solution, gap.moves], ["fill", "typed", "exact <gap>", ["hP", "P"], "hP", []]);
+  // Spaces around a fill mean nothing: the solution is still the option it names.
+  const spaced = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": LESSON.replace("---\n\nOpening", `${FILL.replace("solution: hP", 'solution: " hP "')}---\n\nOpening`) }));
+  assert.deepEqual(spaced.problems, []);
+  assert.equal(spaced.lessons[0].exercises.find((e) => e.id === "gap")!.solution, "hP");
+  const first = content.lessons[0].exercises[0];
+  assert.deepEqual([first.kind, first.mode, first.proof, first.options], ["prove", "board", "", []]);
+});
+
 const broken: [string, (lesson: string) => string, RegExp][] = [
+  ["a fill-the-gap proof with no gap", (l) => l.replace("---\n\nOpening", `${FILL.replace("exact <gap>", "exact hP")}---\n\nOpening`), /exercise "gap": `proof` must contain <gap> exactly once/],
+  ["options that leave the solution out", (l) => l.replace("---\n\nOpening", `${FILL.replace("[hP, P]", "[P, Q]")}---\n\nOpening`), /exercise "gap": `options` must include the `solution`/],
+  ["a fill that would not stay in its gap", (l) => l.replace("---\n\nOpening", `${FILL.replace("solution: hP", 'solution: "hP -- x"').replace("[hP, P]", '[P, "hP -- x"]')}---\n\nOpening`), /exercise "gap": "hP -- x" cannot go in a gap/],
   ["an unknown track", (l) => l.replace("track: logic", "track: music"), /track "music" is not in curriculum/],
   ["an unknown level", (l) => l.replace("level: 1", "level: 9"), /level 9 is not in curriculum/],
   ["an unknown move", (l) => l.replace("moves: [intro, exact]", "moves: [intro, teleport]"), /move "teleport"/],
