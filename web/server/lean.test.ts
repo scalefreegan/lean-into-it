@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { unsolvedGoals } from "../shared/goals.ts";
 import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
@@ -10,6 +9,7 @@ import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { explain } from "../shared/explain.ts";
+import { unsolvedGoals } from "../shared/goals.ts";
 import { EXERCISES } from "../shared/registry.ts";
 import { misfit, moveLine, readLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, toBody } from "../shared/proof.ts";

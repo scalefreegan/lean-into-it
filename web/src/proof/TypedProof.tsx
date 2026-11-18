@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
 import { explain, suggestion } from "../../shared/explain.ts";
+import { stillOpenGoals } from "../../shared/goals.ts";
 import type { Position } from "../../shared/proof.ts";
 import type { CheckReply } from "../../shared/wire.ts";
 import { ApiError, check } from "../api/client.ts";
 import { Button, Notice } from "../ui.tsx";
-import { unsolvedGoals } from "../../shared/goals.ts";
 import { Closed, GoalView, Refusal } from "./GoalCards.tsx";
 import { LeanEditor, SymbolHelp } from "./LeanEditor.tsx";
 import { useLive } from "./useLive.ts";
@@ -73,7 +73,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   const goals = reply ? (reply.cursorGoals ?? reply.goals) : null;
   // No goal at this point, yet the proof is unfinished: a case left open
   // elsewhere (a bullet never started). Lean's "unsolved goals" error names it.
-  const stillOpen = reply && goals?.length === 0 && !reply.solved && !reply.refusal ? unsolvedGoals(reply.diagnostics) : [];
+  const stillOpen = stillOpenGoals(reply, goals);
   const empty = !body.trim();
   useTutorWork(lessonId, exercise.id, { body, goals: stillOpen.length ? stillOpen : goals, error: reply?.error ? `${reply.error.line !== null ? `line ${reply.error.line + 1}: ` : ""}${reply.error.message}` : (reply?.refusal ?? null) });
 

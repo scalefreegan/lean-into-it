@@ -132,5 +132,20 @@ export function goalsText(goals: Goal[] | null): string {
  *  case was never started), this is the only place they are shown. Empty
  *  when there is no such error. */
 export function unsolvedGoals(diagnostics: { severity: string; message: string }[]): Goal[] {
-  return diagnostics.flatMap((d) => (d.severity === "error" && /^unsolved goals\s*\n/.test(d.message) ? parseState(d.message.replace(/^unsolved goals\s*\n/, "")) : []));
+  return diagnostics.flatMap((d) => {
+    const text = d.message.trimStart();
+    return d.severity === "error" && /^unsolved goals\s*\n/.test(text) ? parseState(text.replace(/^unsolved goals\s*\n/, "")) : [];
+  });
+}
+
+/** What a typed proof's panel shows as "Still open": the unsolved goals,
+ *  only where nothing is open at this point and nothing else is wrong. Beside
+ *  a real error or a refusal, an "unsolved goals" report is where Lean
+ *  stopped, not a case the learner left open. */
+export function stillOpenGoals(
+  reply: { solved: boolean; refusal: string | null; error: unknown; diagnostics: { severity: string; message: string }[] } | null,
+  goalsHere: Goal[] | null,
+): Goal[] {
+  if (!reply || reply.solved || reply.refusal || reply.error || goalsHere?.length !== 0) return [];
+  return unsolvedGoals(reply.diagnostics);
 }
