@@ -67,7 +67,8 @@ export interface PlaygroundReply {
 export interface LeanStatus {
   /** `starting`: loading its library for the first time, which takes a
    *  while. `restarting`: the same, after a stop. `down`: not installed, or
-   *  it stopped twice in a row and is waiting to be restarted. */
+   *  not running and not on its way (it failed to start, or stopped twice
+   *  in a row); POST /api/lean/restart starts it. */
   state: "starting" | "ready" | "restarting" | "down";
   /** False when Lean or its libraries are not on this machine at all. */
   installed: boolean;

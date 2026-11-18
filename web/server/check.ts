@@ -27,11 +27,17 @@ async function withLean<T>(run: (lean: LeanServer) => Promise<T>): Promise<T> {
   try {
     return await run(leanServer());
   } catch (e) {
-    // Out of time on this proof: Lean is still there, and the sentence says what to change.
-    if (e instanceof LeanTimeout) throw new HttpError(503, e.message, "lean_timeout");
-    if (e instanceof LeanUnavailable) throw new HttpError(503, e.message, "lean_unavailable");
-    throw e;
+    throw leanError(e);
   }
+}
+
+/** What a failure of Lean itself becomes for the browser: a 503 whose
+ *  sentence is Lean's own, and a code that says whether it was this proof
+ *  that ran out of time (Lean is still there) or Lean that could not answer. */
+export function leanError(e: unknown): unknown {
+  if (e instanceof LeanTimeout) return new HttpError(503, e.message, "lean_timeout");
+  if (e instanceof LeanUnavailable) return new HttpError(503, e.message, "lean_unavailable");
+  return e;
 }
 
 /**

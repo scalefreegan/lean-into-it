@@ -9,10 +9,11 @@ import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../s
 import { explain } from "../shared/explain.ts";
 import { misfit, moveLine, readLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, toBody } from "../shared/proof.ts";
-import { checkExercise, handleCheck, handleLean, handlePlayground } from "./check.ts";
+import { checkExercise, handleCheck, handleLean, handlePlayground, leanError } from "./check.ts";
 import { setDb, type Db } from "./db.ts";
-import { leanProblem, leanServer } from "./lean/lsp.ts";
+import { LeanTimeout, LeanUnavailable, leanProblem, leanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
+import type { HttpError } from "./sse.ts";
 
 // The tests that need a real Lean: they start `lake serve` in lean/ and
 // check real proofs, so the first one waits for Mathlib to load (tens of
@@ -475,6 +476,16 @@ test("/api/check on a fill-the-gap exercise takes the fill, and records it", { s
   assert.equal(await count(), 2);
   // What is kept is the learner's fill, not the proof it went into, and not the spaces around it.
   assert.deepEqual((await solvedFor(db, learner)).filter((r) => r.exerciseId === "add-one").map((r) => r.solution), ["abs_add_le x 1"]);
+});
+
+test("a failure of Lean reaches the browser as a 503 with its own sentence and a code", () => {
+  const timeout = leanError(new LeanTimeout("Lean took longer than 20 seconds on this and gave up.")) as HttpError;
+  assert.deepEqual([timeout.status, timeout.code, timeout.message], [503, "lean_timeout", "Lean took longer than 20 seconds on this and gave up."]);
+  const down = leanError(new LeanUnavailable("Lean is stopped.")) as HttpError;
+  assert.deepEqual([down.status, down.code, down.message], [503, "lean_unavailable", "Lean is stopped."]);
+  // Anything else is a bug of ours and stays one.
+  const bug = new TypeError("x is not a function");
+  assert.equal(leanError(bug), bug);
 });
 
 test("/api/lean says what Lean is doing, and /api/lean/restart starts it again", { skip }, async () => {

@@ -103,14 +103,18 @@ Landed in the first PR, the foundation slice:
 - The API refuses any request that is not same-origin from this machine.
 - Lean that cannot wedge the app (`lii-1ou.2`). A check gets 20 seconds;
   one that runs past it is given up on with a sentence saying so, and only
-  its document is closed, so the rest of Lean stays warm. Loading Mathlib is
-  a step of its own with two minutes. If Lean dies it is started again and
-  the check it held is retried; if it dies twice in a row the app says so
-  and offers a Restart button. `GET /api/lean` reports starting, ready,
-  restarting or down and the toolchain; `POST /api/lean/restart` restarts
-  it. The app shows "Lean is starting" while Mathlib loads. Left for
-  `lii-1ou.6`: cancelling a superseded check, and a memory limit.
-- Tests: 185, including every reference solution checked by the real Lean,
+  its document is closed, so the rest of Lean stays warm (copies of the same
+  check waiting behind it are refused with it). Loading a library is a step
+  of its own with two minutes, whenever a document is new or its import
+  lines change, wherever in the file they sit. A file that crashes its Lean
+  worker is reported and not run again. If Lean itself dies it is started
+  again, reloads what it had open, and the check it held is retried; if it
+  dies twice in a row it stays stopped, the app says so and offers a
+  Restart button. `GET /api/lean` reports starting, ready, restarting or
+  down and the toolchain; `POST /api/lean/restart` restarts it. The app
+  shows "Lean is starting" while Mathlib loads. Left for `lii-1ou.6`:
+  cancelling a superseded check, and a memory limit.
+- Tests: 189, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

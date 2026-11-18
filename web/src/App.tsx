@@ -72,16 +72,20 @@ function LeanBanner() {
   const { lean, restartLean } = useApp();
   const [asking, setAsking] = useState(false);
   if (lean.state === "ready") return null;
+  // The sentence is announced (at once when Lean has stopped); the button
+  // sits beside it, outside the announced region.
   return (
-    <div className="mx-auto mb-6 max-w-[2400px]" data-lean-state={lean.state} role="status">
+    <div className="mx-auto mb-6 max-w-[2400px]" data-lean-state={lean.state}>
       {!lean.installed ? (
         <Notice tone="warn">
-          <strong>Lean is not set up yet.</strong> {lean.problem} Lessons can be read, but proofs cannot be checked until then.
+          <span role="status">
+            <strong>Lean is not set up yet.</strong> {lean.problem} Lessons can be read, but proofs cannot be checked until then.
+          </span>
         </Notice>
       ) : lean.state === "down" ? (
         <Notice tone="bad">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <span>
+            <span role="alert">
               <strong>Lean has stopped.</strong> {lean.problem} Lessons can be read, but proofs cannot be checked until it is running again.
             </span>
             <Button
@@ -97,8 +101,10 @@ function LeanBanner() {
         </Notice>
       ) : (
         <Notice tone="warn">
-          <strong>{lean.state === "starting" ? "Lean is starting." : "Lean is restarting."}</strong> It is loading its library of mathematics, which takes up to half a minute. Proofs will be checked as soon as it
-          is ready; lessons can be read meanwhile.
+          <span role="status">
+            <strong>{lean.state === "starting" ? "Lean is starting." : "Lean is restarting."}</strong> It is loading its library of mathematics, which can take a minute. Proofs will be checked as soon as it is
+            ready; lessons can be read meanwhile.
+          </span>
         </Notice>
       )}
     </div>
