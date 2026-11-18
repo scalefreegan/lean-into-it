@@ -5,6 +5,7 @@ import { EXERCISES } from "../../shared/registry.ts";
 import { EXERCISE_COMPONENTS } from "../exercises/registry.ts";
 import { href } from "../router.ts";
 import { solvedOf } from "../../shared/progress.ts";
+import { LevelLock } from "./LevelLock.tsx";
 import { lessonProgress, useApp } from "../state.tsx";
 import { Notice, Tick } from "../ui.tsx";
 import { RenderWidget } from "../widgets/RenderWidget.tsx";
@@ -15,7 +16,7 @@ import { useTouch } from "../tutor/store.ts";
 // and the server has already stored it).
 
 export function Lesson({ id }: { id: string }) {
-  const { content, solved, markSolved, reloadProgress } = useApp();
+  const { content, solved, levels, markSolved, reloadProgress } = useApp();
   const index = content.lessons.findIndex((l) => l.id === id);
   const lesson = content.lessons[index];
   if (!lesson) {
@@ -31,6 +32,9 @@ export function Lesson({ id }: { id: string }) {
   const progress = lessonProgress(lesson, solved);
   const level = content.levels.find((l) => l.id === lesson.level);
   const track = content.tracks.find((t) => t.id === lesson.track);
+  // A lesson in a locked level shows what opens it instead of its exercises.
+  const status = levels.find((s) => s.level === lesson.level);
+  const lockedBy = status?.state === "locked" ? status : null;
 
   return (
     <article className="mx-auto flex max-w-[2400px] flex-col gap-6" data-lesson-page={lesson.id}>
@@ -46,7 +50,13 @@ export function Lesson({ id }: { id: string }) {
         <p className="mt-2 text-lg text-fg-2">{lesson.summary}</p>
       </header>
 
-      {lesson.blocks.map((block, i) => {
+      {lockedBy ? (
+        <section data-lesson-locked className="rounded-2xl border border-line bg-panel p-5">
+          <p className="font-semibold text-fg">Level {lesson.level} is not open yet.</p>
+          <LevelLock status={lockedBy} />
+        </section>
+      ) : (
+        lesson.blocks.map((block, i) => {
         if (block.type === "prose") {
           // Running text keeps a readable line length; the proofs below it use the full width.
           return (
@@ -72,7 +82,8 @@ export function Lesson({ id }: { id: string }) {
             }}
           />
         );
-      })}
+        })
+      )}
 
       <footer className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
         <p className="flex items-center gap-2 text-fg-2" data-lesson-progress>

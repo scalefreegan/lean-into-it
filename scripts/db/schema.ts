@@ -114,3 +114,24 @@ export const hints = pgTable(
   },
   (t) => [check("hints_rung", sql`${t.rung} between 1 and 3`), index("hints_learner_exercise").on(t.learnerId, t.lessonId, t.exerciseId, t.createdAt)],
 );
+
+/**
+ * The levels that have opened for the learner, so a level once open stays
+ * open: after a missed review, and when the curriculum gains a concept the
+ * learner has not met. `how`: `earned` (the level before it was mastered,
+ * web/shared/progress.ts levelStatuses), `anyway` (the learner opened it
+ * themselves from the Path) or `placement` (lii-zjf.4). One row per level,
+ * the first way it opened.
+ */
+export const levelOpens = pgTable(
+  "level_opens",
+  {
+    learnerId: uuid("learner_id")
+      .notNull()
+      .references(() => learners.id, { onDelete: "cascade" }),
+    level: smallint("level").notNull(),
+    how: text("how").notNull(),
+    openedAt: tz("opened_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.learnerId, t.level] }), check("level_opens_how", sql`${t.how} in ('earned', 'anyway', 'placement')`)],
+);

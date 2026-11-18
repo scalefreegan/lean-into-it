@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MOVES, lineShape } from "./moves.ts";
 import { loadContent } from "../server/loader.ts";
-import { isDue, reviewSession, REVIEW_INTERVAL_DAYS, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, type AttemptLike } from "./progress.ts";
+import { isDue, reviewSession, REVIEW_INTERVAL_DAYS, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, blankMastery, levelOpen, levelStatuses, UNLOCK_FRACTION, type AttemptLike, type MasteryMap } from "./progress.ts";
 
 const content = {
   levels: [
@@ -266,4 +266,88 @@ test("an assisted check of a concept in review makes it due tomorrow, keeping it
   const helped = masteryFrom(content, [...rows, at("t", "x", true, on(3), { assisted: true })]).concepts.and;
   assert.equal(helped.box, 2);
   assert.equal(helped.dueAt, startOfDay(on(4)).toISOString());
+});
+
+/* --------------------------------- levels --------------------------------- */
+
+// Level 0 tests ten concepts; level 1 three; level 2 is written but tests
+// nothing (a lesson without exercises); level 3 tests one; level 4 is an outline.
+const lvl = (id: number, status: "written" | "outline" = "written") => ({ id, title: "", summary: "", status, topics: [], moves: [] });
+const tens = Array.from({ length: 10 }, (_, i) => `c${i}`);
+const ladder = {
+  levels: [lvl(0), lvl(1), lvl(2), lvl(3), lvl(4, "outline")],
+  lessons: [
+    { id: "zero", level: 0, exercises: tens.map((c) => ({ id: c, concept: c })) },
+    { id: "one", level: 1, exercises: ["d0", "d1", "d2"].map((c) => ({ id: c, concept: c })) },
+    { id: "two", level: 2, exercises: [] },
+    { id: "three", level: 3, exercises: [{ id: "e0", concept: "e0" }] },
+  ],
+} as unknown as Parameters<typeof levelStatuses>[0];
+const knowing = (...ids: string[]): MasteryMap => ({ concepts: Object.fromEntries(ids.map((id) => [id, { ...blankMastery(), mastered: true }])), tactics: {} });
+const states = (map: MasteryMap, opened: Parameters<typeof levelStatuses>[2] = [], rows: { lessonId: string }[] = [], solved = {}) =>
+  levelStatuses(ladder, map, opened, rows, solved).map((s) => s.state);
+
+test("a level opens when 70% of the concepts the level before it tests are mastered", () => {
+  assert.equal(UNLOCK_FRACTION, 0.7);
+  const six = knowing(...tens.slice(0, 6));
+  assert.deepEqual(states(six), ["open", "locked", "locked", "locked", "locked"]);
+  const s = levelStatuses(ladder, six, [], [], {})[1];
+  assert.deepEqual([s.gate, s.gateMastered, s.gateTotal, s.need], [0, 6, 10, 1]);
+  assert.deepEqual(states(knowing(...tens.slice(0, 7))), ["open", "open", "locked", "locked", "locked"]);
+  assert.equal(levelStatuses(ladder, knowing(...tens.slice(0, 7)), [], [], {})[1].why, "earned");
+});
+
+test("a level that tests nothing asks nothing: the next one looks back past it", () => {
+  // Level 1 mastered (2 of 3 is under 70%; 3 of 3 is not): level 2 opens on it,
+  // and level 3, gated past the empty level 2, opens on level 1 too.
+  const map = knowing(...tens.slice(0, 7), "d0", "d1", "d2");
+  const all = levelStatuses(ladder, map, [], [], {});
+  assert.deepEqual(all.map((s) => s.state), ["open", "open", "open", "open", "locked"]);
+  assert.equal(all[3].gate, 1, "level 3's gate is level 1, not the empty level 2");
+  assert.deepEqual(states(knowing(...tens.slice(0, 7), "d0", "d1")).slice(2, 4), ["locked", "locked"]);
+});
+
+test("a passed gate opens nothing while the written level before is locked", () => {
+  // Level 1 fully mastered but level 1 itself locked (level 0 not mastered): 2 and 3 stay locked.
+  const all = levelStatuses(ladder, knowing("d0", "d1", "d2"), [], [], {});
+  assert.deepEqual(all.map((s) => s.state), ["open", "locked", "locked", "locked", "locked"]);
+  assert.deepEqual([all[2].gate, all[2].need, all[3].gate, all[3].need], [1, 0, 1, 0], "level 3 is gated past the empty level 2, on level 1");
+});
+
+test("review never offers an exercise in a locked level", () => {
+  const two = {
+    lessons: [
+      { id: "low", level: 0, exercises: [{ id: "a", concept: "x" }] },
+      { id: "high", level: 2, exercises: [{ id: "b", concept: "x" }] },
+    ],
+  } as unknown as Parameters<typeof reviewSession>[0];
+  const map: MasteryMap = { concepts: { x: { ...blankMastery(), mastered: true, box: 1, dueAt: new Date(2026, 0, 1).toISOString() } }, tactics: {} };
+  const seenLow = [{ lessonId: "low", exerciseId: "a", body: "", solved: true, createdAt: new Date(2026, 0, 1) }];
+  const now = new Date(2026, 0, 5);
+  assert.equal(reviewSession(two, map, seenLow, now)[0].lessonId, "high", "unseen first, when every level is open");
+  assert.equal(reviewSession(two, map, seenLow, now, (l) => l < 2)[0].lessonId, "low");
+  assert.deepEqual(reviewSession(two, map, seenLow, now, () => false), []);
+});
+
+test("an outline level never opens, whatever is mastered or recorded", () => {
+  const map = knowing(...tens, "d0", "d1", "d2", "e0");
+  assert.equal(states(map, [{ level: 4, how: "anyway" }])[4], "locked");
+});
+
+test("a level once opened stays open, and opens every written level before it", () => {
+  // Nothing mastered: a recorded level stays open (a concept added later, a missed review).
+  assert.deepEqual(states(knowing(), [{ level: 1, how: "earned" }]), ["open", "open", "locked", "locked", "locked"]);
+  const anyway = levelStatuses(ladder, knowing(), [{ level: 3, how: "anyway" }], [], {});
+  assert.deepEqual(anyway.map((s) => s.state), ["open", "open", "open", "open", "locked"]);
+  assert.deepEqual(anyway.map((s) => s.why), ["first", "anyway", "anyway", "anyway", null]);
+  // Work on record in a level opens it: it was open before levels could lock.
+  assert.deepEqual(states(knowing(), [], [{ lessonId: "one" }, { lessonId: "gone" }]), ["open", "open", "locked", "locked", "locked"]);
+  assert.equal(levelStatuses(ladder, knowing(), [], [{ lessonId: "one" }], {})[1].why, "worked");
+});
+
+test("an open level is done when every exercise in it is solved", () => {
+  const solved = { one: { d0: {}, d1: {}, d2: {} }, two: {} };
+  assert.deepEqual(states(knowing(), [], [], solved).slice(0, 3), ["open", "locked", "locked"], "solved in a locked level is not done");
+  assert.deepEqual(states(knowing(), [{ level: 2, how: "anyway" }], [], solved).slice(0, 3), ["open", "done", "open"], "a level of no exercises is never done");
+  assert.equal(levelOpen(levelStatuses(ladder, knowing(), [], [], {}), 9), true, "a level not listed is not locked");
 });
