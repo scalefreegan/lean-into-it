@@ -17,7 +17,7 @@
 // learner strong in logic and rusty in algebra places between the two.
 
 import type { Content, Exercise } from "./content.ts";
-import { startOfDay, type ReviewItem } from "./progress.ts";
+import { masteryFor, PLACEMENT_BOX, startOfDay, type MasteryMap, type ReviewItem } from "./progress.ts";
 
 export const PLACEMENT_PASS = 0.75;
 /** At most this many questions per level, one concept each. */
@@ -99,12 +99,15 @@ export function placementVerdict(right: number, wrong: number, total: number): "
  * What a placement at `placedAt` credits: every concept tested in a written
  * level below it, each first due PLACEMENT_DUE_DAYS on plus 0 to
  * PLACEMENT_SPREAD_DAYS - 1 days in turn (curriculum order), from `now`.
- * A concept already in review keeps its own schedule (masteryFrom ignores a
- * credit for it).
+ * A concept already in PLACEMENT_BOX or past it (in `map`) keeps its own
+ * schedule and takes no day of the spread (masteryFrom would ignore a
+ * credit for it anyway).
  */
-export function placementCredits(content: PlacementContent, placedAt: number, now: Date): { concept: string; dueAt: Date }[] {
+export function placementCredits(content: PlacementContent, placedAt: number, now: Date, map?: MasteryMap): { concept: string; dueAt: Date }[] {
   const below = new Set(placementLevels(content).filter((l) => l < placedAt));
-  const concepts = [...new Set(content.lessons.filter((l) => below.has(l.level)).flatMap((l) => l.exercises.map((e) => e.concept)))];
+  const concepts = [...new Set(content.lessons.filter((l) => below.has(l.level)).flatMap((l) => l.exercises.map((e) => e.concept)))].filter(
+    (c) => !map || (masteryFor(map.concepts, c)?.box ?? 0) < PLACEMENT_BOX,
+  );
   return concepts.map((concept, n) => ({ concept, dueAt: startOfDay(now, PLACEMENT_DUE_DAYS + (n % PLACEMENT_SPREAD_DAYS)) }));
 }
 

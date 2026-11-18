@@ -203,11 +203,12 @@ Landed in the first PR, the foundation slice:
   miss. A level is settled as soon as 75% is reached or out of reach. The
   first level not passed opens (`level_opens`, `placement`) with those
   below it, and every concept the passed levels test is credited
-  (`concept_credits`): mastered, in review box 2, due 7 to 13 days on, one
-  day after another. Retaking keeps the first credits. "Continue" now passes
-  over lessons whose concepts are all mastered. By level, not by track: the
+  (`concept_credits`): mastered, in review box 2 (with four right answers
+  in its recent ones, so one miss lowers the score, not empties it), due 7
+  to 13 days on, one day after another. Retaking keeps the first credits.
+  "Continue" passes over a lesson the placement credited until it is tried. By level, not by track: the
   levels follow the tracks closely enough. Migration `0003_placement`.
-- Tests: 284, including every reference solution checked by the real Lean,
+- Tests: 286, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Lesson, Level } from "../../shared/content.ts";
-import { levelOpen, lessonMastered, lessonMastery, type LevelStatus } from "../../shared/progress.ts";
+import { levelOpen, lessonCredited, lessonMastered, lessonMastery, type LevelStatus } from "../../shared/progress.ts";
 import { href } from "../router.ts";
 import { lessonProgress, useApp } from "../state.tsx";
 import { cx, MasteryBar, Notice, Tick } from "../ui.tsx";
@@ -25,9 +25,9 @@ export function Home() {
   });
   const firstRun = !placed && Object.keys(mastery.concepts).length === 0;
   useEffect(() => void reloadProgress(), [reloadProgress]);
-  // The first lesson not done in an open level, passing over any whose
-  // concepts are all mastered already (a placement credited them).
-  const next = content.lessons.find((l) => levelOpen(levels, l.level) && !lessonProgress(l, solved).complete && !lessonMastered(l, mastery)) ?? null;
+  // The first lesson not done in an open level, passing over any the
+  // placement check credited and that has not been tried since.
+  const next = content.lessons.find((l) => levelOpen(levels, l.level) && !lessonProgress(l, solved).complete && !lessonCredited(l, mastery)) ?? null;
   const total = content.lessons.reduce((n, l) => n + l.exercises.length, 0);
   const done = content.lessons.reduce((n, l) => n + lessonProgress(l, solved).done, 0);
 

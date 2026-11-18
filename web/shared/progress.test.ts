@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MOVES, lineShape } from "./moves.ts";
 import { loadContent } from "../server/loader.ts";
-import { isDue, reviewSession, REVIEW_INTERVAL_DAYS, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, blankMastery, PLACEMENT_BOX, levelOpen, levelStatuses, UNLOCK_FRACTION, type AttemptLike, type MasteryMap } from "./progress.ts";
+import { isDue, reviewSession, REVIEW_INTERVAL_DAYS, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, blankMastery, lessonCredited, PLACEMENT_BOX, levelOpen, levelStatuses, UNLOCK_FRACTION, type AttemptLike, type MasteryMap } from "./progress.ts";
 
 const content = {
   levels: [
@@ -362,6 +362,8 @@ test("a placement credit masters a concept in box 2, due on its own day, without
   const miss = { lessonId: "l", exerciseId: "b", body: "x", solved: false, createdAt: new Date(2026, 0, 12) };
   const after = masteryFrom(content, [miss], [{ concept: "and", creditedAt: now, dueAt: due }]).concepts.and;
   assert.deepEqual([after.mastered, after.box, after.dueAt], [true, PLACEMENT_BOX, startOfDay(due).toISOString()]);
+  assert.equal(map.concepts.and.mastery, 1);
+  assert.ok(after.mastery > 0.5 && after.mastery < 1, `one miss lowers a credited score, not to nothing (${after.mastery})`);
   const review = { ...miss, body: "y", solved: true, createdAt: new Date(2026, 0, 19, 10) };
   assert.equal(masteryFrom(content, [miss, review], [{ concept: "and", creditedAt: now, dueAt: due }]).concepts.and.box, PLACEMENT_BOX + 1);
   // A concept already in PLACEMENT_BOX or past it keeps its own schedule; a credit for no concept is nothing.
@@ -369,4 +371,21 @@ test("a placement credit masters a concept in box 2, due on its own day, without
   assert.equal(twice.concepts.and.dueAt, startOfDay(due).toISOString());
   const far = { concepts: {}, tactics: {} };
   assert.deepEqual(masteryFrom(content, [], [{ concept: "__proto__", creditedAt: now, dueAt: due }]), far);
+});
+
+test("a lesson is passed over as credited only while its concepts are credited and untried", () => {
+  const lesson = { exercises: [{ concept: "and" }, { concept: "and" }] };
+  const credited = masteryFrom(content, [], [{ concept: "and", creditedAt: new Date(2026, 0, 1), dueAt: new Date(2026, 0, 9) }]);
+  assert.equal(lessonCredited(lesson, credited), true);
+  // Mastered by working on it, part way through the lesson: not passed over.
+  const worked = masteryFrom(content, [0, 1, 2, 3].map((i) => ({ lessonId: "l", exerciseId: "b", body: `p${i}`, solved: true, createdAt: new Date(2026, 0, 1, i) })));
+  assert.equal(worked.concepts.and.mastered, true);
+  assert.equal(lessonCredited(lesson, worked), false);
+  // Credited, then tried: it is the learner's again.
+  const tried = masteryFrom(content, [{ lessonId: "l", exerciseId: "b", body: "x", solved: true, createdAt: new Date(2026, 0, 2) }], [{ concept: "and", creditedAt: new Date(2026, 0, 1), dueAt: new Date(2026, 0, 9) }]);
+  assert.equal(lessonCredited(lesson, tried), false);
+  assert.equal(lessonCredited({ exercises: [] }, credited), false);
+  // The placement's own question, answered before the credit, does not count as trying it since.
+  const asked = masteryFrom(content, [{ lessonId: "l", exerciseId: "b", body: "x", solved: true, createdAt: new Date(2026, 0, 1, 0) }], [{ concept: "and", creditedAt: new Date(2026, 0, 1, 1), dueAt: new Date(2026, 0, 9) }]);
+  assert.equal(lessonCredited(lesson, asked), true);
 });

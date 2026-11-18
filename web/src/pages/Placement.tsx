@@ -28,6 +28,10 @@ export function Placement() {
   const [stage, setStage] = useState<Stage>({ at: "intro" });
   const [answers, setAnswers] = useState<boolean[]>([]);
   const saving = useRef(false);
+  /** The question already answered, so a late answer (the Tutor-ladder
+   *  look-up after a solve, racing a skip) never counts twice. "level/n". */
+  const answered = useRef<string | null>(null);
+  const [pending, setPending] = useState(false);
   const title = (id: number) => content.levels.find((l) => l.id === id)?.title ?? "";
   const asking = stage.at === "asking" ? stage.level : null;
   const items = useMemo(() => (asking === null ? [] : placementItems(content, asking, seed + asking, startSolved)), [content, asking, seed, startSolved]);
@@ -51,12 +55,18 @@ export function Placement() {
 
   const start = (level: number) => {
     setAnswers([]);
+    answered.current = null;
+    setPending(false);
     setStage({ at: "asking", level });
     window.scrollTo(0, 0);
   };
 
   const answer = (right: boolean) => {
     if (asking === null) return;
+    const key = `${asking}/${answers.length}`;
+    if (answered.current === key) return;
+    answered.current = key;
+    setPending(false);
     const all = [...answers, right];
     setAnswers(all);
     const verdict = placementVerdict(
@@ -108,7 +118,9 @@ export function Placement() {
           of={items.length}
           lesson={lesson}
           exercise={exercise}
+          pending={pending}
           onSolved={(body) => {
+            setPending(true);
             markSolved(lesson.id, exercise.id, body);
             // A solve with the Tutor's line (rung 3 today) is a miss here, as it is assisted everywhere.
             tutorLadder(lesson.id, exercise.id).then(
@@ -190,6 +202,7 @@ function PlacementQuestion({
   exercise,
   onSolved,
   onSkip,
+  pending,
 }: {
   level: number;
   levelTitle: string;
@@ -199,6 +212,8 @@ function PlacementQuestion({
   exercise: Exercise;
   onSolved: (body: string) => void;
   onSkip: () => void;
+  /** A solve is being looked at: no skipping meanwhile. */
+  pending: boolean;
 }) {
   const Kind = EXERCISE_COMPONENTS[exercise.kind];
   const touch = useTouch(lesson.id, exercise.id);
@@ -216,7 +231,7 @@ function PlacementQuestion({
         <Kind lessonId={lesson.id} exercise={exercise} onSolved={onSolved} />
       </ErrorBoundary>
       <div>
-        <Button data-placement-skip onClick={onSkip}>
+        <Button data-placement-skip onClick={onSkip} disabled={pending}>
           I don’t know this yet
         </Button>
       </div>

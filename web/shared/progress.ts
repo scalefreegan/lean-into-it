@@ -21,9 +21,11 @@
 //     stopped is not on record, and its last line may be a move that worked.
 // An assisted check (the Tutor's last hint rung gave the line) is seen but
 // proves nothing: it counts as an attempt and adds no answer.
-// A placement credit (lii-zjf.4, web/shared/placement.ts) is no answer
-// either: at the time it was given, a concept below PLACEMENT_BOX is put
-// in that box, mastered, due on the credit's own day.
+// A placement credit (lii-zjf.4, web/shared/placement.ts) is no attempt:
+// at the time it was given, a concept below PLACEMENT_BOX is put in that
+// box, mastered, due on the credit's own day, and MIN_ATTEMPTS right
+// answers join its recent ones, so one miss afterwards lowers its score
+// rather than emptying it.
 //
 // Spaced review is the same replay. A concept or move that becomes mastered
 // enters box 1, due the next calendar day. The first answer on or after the
@@ -87,6 +89,8 @@ export interface Mastery {
   box: number;
   /** ISO start of the local day the next review falls due; null at box 0. */
   dueAt: string | null;
+  /** ISO time the placement check credited it; absent if it never did. */
+  creditedAt?: string;
 }
 
 export interface MasteryMap {
@@ -187,7 +191,8 @@ function credit(map: Record<string, Mastery>, c: CreditLike): void {
   if (!c.concept || c.concept === "__proto__") return;
   const prev = masteryFor(map, c.concept) ?? blankMastery();
   if (prev.box >= PLACEMENT_BOX) return;
-  map[c.concept] = { ...prev, mastery: Math.max(prev.mastery, 1), mastered: true, box: PLACEMENT_BOX, dueAt: startOfDay(new Date(c.dueAt)).toISOString() };
+  const recent = [...prev.recent, ...Array.from({ length: MIN_ATTEMPTS }, () => true)].slice(-RECENT_WINDOW);
+  map[c.concept] = { ...prev, recent, mastery: masteryOf(recent), mastered: true, box: PLACEMENT_BOX, dueAt: startOfDay(new Date(c.dueAt)).toISOString(), creditedAt: new Date(c.creditedAt).toISOString() };
 }
 
 /**
@@ -244,6 +249,20 @@ export function lessonMastery(lesson: { exercises: { concept: string }[] }, map:
 export function solvedOf<T>(solved: Record<string, Record<string, T>>, lessonId: string, exerciseId: string): T | undefined {
   const mine = Object.hasOwn(solved, lessonId) ? solved[lessonId] : undefined;
   return mine && Object.hasOwn(mine, exerciseId) ? mine[exerciseId] : undefined;
+}
+
+/** A lesson the placement check let the learner skip: every concept it
+ *  tests was credited and none has been tried since (the placement's own
+ *  questions come before the credit). "Continue" on the Path passes over
+ *  it; a lesson merely mastered part way through is not passed over. */
+export function lessonCredited(lesson: { exercises: { concept: string }[] }, map: MasteryMap): boolean {
+  return (
+    lesson.exercises.length > 0 &&
+    lesson.exercises.every((e) => {
+      const m = masteryFor(map.concepts, e.concept);
+      return m?.creditedAt !== undefined && (m.lastSeenAt === null || Date.parse(m.lastSeenAt) <= Date.parse(m.creditedAt));
+    })
+  );
 }
 
 /** Every one of a lesson's exercise concepts is mastered. */

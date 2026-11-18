@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { loadContent } from "../server/loader.ts";
 import { PLACEMENT_DUE_DAYS, PLACEMENT_PER_LEVEL, PLACEMENT_SPREAD_DAYS, placementCredits, placementItems, placementLevels, placementOpens, placementVerdict, toPass } from "./placement.ts";
-import { startOfDay } from "./progress.ts";
+import { blankMastery, PLACEMENT_BOX, startOfDay } from "./progress.ts";
 
 const lvl = (id: number, status: "written" | "outline" = "written") => ({ id, title: "", summary: "", status, topics: [], moves: [] });
 const ex = (id: string, concept: string, extra: Record<string, unknown> = {}) => ({ id, concept, kind: "prove", mode: "typed", options: [], solution: "exact h", ...extra });
@@ -58,6 +58,11 @@ test("the passed levels' concepts are credited, due over the following one to tw
   assert.equal(new Set(days).size, PLACEMENT_SPREAD_DAYS, "spread over every day of the window");
   assert.deepEqual(placementCredits(content, 0, now), [], "placed at the start: nothing credited");
   assert.deepEqual(placementCredits(content, 1, now).map((c) => c.concept), ["a", "b", "c"]);
+  // A concept already in review takes no credit and no day of the spread.
+  const map = { concepts: { a: { ...blankMastery(), mastered: true, box: PLACEMENT_BOX } }, tactics: {} };
+  const rest = placementCredits(content, 1, now, map);
+  assert.deepEqual(rest.map((c) => c.concept), ["b", "c"]);
+  assert.equal(rest[0].dueAt.getTime(), startOfDay(now, PLACEMENT_DUE_DAYS).getTime());
 });
 
 test("a placement opens the first level not passed, or the last when all were", () => {

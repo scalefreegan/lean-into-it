@@ -160,3 +160,20 @@ test("/api/progress/placement opens the first level not passed and credits the l
   for (const c of credits) assert.equal(again.find((x) => x.concept === c.concept)!.dueAt.getTime(), c.dueAt.getTime());
   assert.ok(again.length > credits.length);
 });
+
+test("/api/progress/placement at the first level opens nothing new, credits nothing, and is a placement taken", async (t) => {
+  const { db, close } = await freshDb();
+  setDb(db);
+  t.after(async () => {
+    setDb(null);
+    await close();
+  });
+  const levels = placementLevels(loadContent());
+  const r = await call("POST", "/placement", { level: levels[0] });
+  assert.equal(r.status, 200);
+  assert.equal(r.reply.placed, true);
+  const learner = await ensureLearner(db);
+  assert.deepEqual(await creditsFor(db, learner), []);
+  assert.deepEqual((await levelOpensFor(db, learner)).map((x) => [x.level, x.how]), [[levels[0], "placement"]]);
+  assert.equal(r.reply.levels.find((s) => s.level === levels[1])!.state, "locked");
+});

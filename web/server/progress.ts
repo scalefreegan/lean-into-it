@@ -26,7 +26,8 @@ export async function progressReply(): Promise<ProgressReply> {
   }
   const content = loadContent();
   const rows = await attemptsFor(db, learner);
-  const mastery = masteryFrom(content, rows, await creditsFor(db, learner));
+  const credits = await creditsFor(db, learner);
+  const mastery = masteryFrom(content, rows, credits);
   const opened = await levelOpensFor(db, learner);
   const levels = levelStatuses(content, mastery, opened, rows, solved);
   // A level earned just now is kept: a concept added to the curriculum
@@ -41,7 +42,8 @@ export async function progressReply(): Promise<ProgressReply> {
     mastery,
     review: reviewSession(content, mastery, rows, new Date(), (level) => levelOpen(levels, level)),
     levels,
-    placed: opened.some((o) => o.how === "placement"),
+    // A placement whose level had already opened some other way leaves no placement row; its credits remain.
+    placed: opened.some((o) => o.how === "placement") || credits.length > 0,
   };
 }
 
@@ -70,10 +72,14 @@ async function place(req: IncomingMessage): Promise<ProgressReply> {
   const db = rawDb();
   const learner = await learnerId();
   const opens = placementOpens(content, level);
-  await recordCredits(db, learner, placementCredits(content, level, new Date()));
-  if (opens !== null) await recordLevelOpen(db, learner, opens, "placement");
-  // A placement at the first level opens nothing, and is still a placement taken.
-  else await recordLevelOpen(db, learner, levels[0], "placement");
+  const map = masteryFrom(content, await attemptsFor(db, learner), await creditsFor(db, learner));
+  const credits = placementCredits(content, level, new Date(), map);
+  // Both or neither: credits without the placement would master concepts no level was opened for.
+  await db.transaction(async (tx) => {
+    await recordCredits(tx, learner, credits);
+    // A placement at the first level opens nothing, and is still a placement taken.
+    await recordLevelOpen(tx, learner, opens ?? levels[0], "placement");
+  });
   return progressReply();
 }
 
