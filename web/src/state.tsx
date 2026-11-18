@@ -6,10 +6,14 @@ import { getContent, getLean, getProgress, LEAN_TROUBLE, restartLean as askResta
 // What every page needs: the curriculum, what has been solved, and whether
 // Lean can run. Loaded once; `markSolved` updates the solved map at once
 // when Lean accepts a proof, so the Path is right without a refetch.
+// Mastery moves with every check, refused ones too, so the pages that show
+// it fetch it again when they open (`reloadProgress`).
 
 interface AppData {
   content: Content;
   solved: ProgressReply["solved"];
+  mastery: ProgressReply["mastery"];
+  reloadProgress: () => void;
   lean: LeanStatus;
   markSolved: (lessonId: string, exerciseId: string, solution: string) => void;
   reloadLean: () => void;
@@ -36,6 +40,7 @@ export function lessonProgress(lesson: Lesson, solved: ProgressReply["solved"]):
 export function AppProvider({ children, fallback }: { children: ReactNode; fallback: (state: { error: string | null }) => ReactNode }) {
   const [content, setContent] = useState<Content | null>(null);
   const [solved, setSolved] = useState<ProgressReply["solved"] | null>(null);
+  const [mastery, setMastery] = useState<ProgressReply["mastery"] | null>(null);
   const [lean, setLean] = useState<LeanStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +51,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         if (!live) return;
         setContent(c);
         setSolved(p.solved);
+        setMastery(p.mastery);
         setLean(l);
       })
       .catch((e: Error) => live && setError(e.message));
@@ -60,6 +66,11 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
       const entry: SolvedExercise = { solvedAt: new Date().toISOString(), solution };
       return { ...prev, [lessonId]: { ...prev[lessonId], [exerciseId]: entry } };
     });
+  }, []);
+
+  // The solved map is kept as it is: markSolved may be ahead of a reply in flight.
+  const reloadProgress = useCallback(() => {
+    getProgress().then((p) => setMastery(p.mastery), () => {});
   }, []);
 
   const reloadLean = useCallback(() => {
@@ -82,8 +93,8 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   }, [state, installed, reloadLean]);
 
   const value = useMemo(
-    () => (content && solved && lean ? { content, solved, lean, markSolved, reloadLean, restartLean } : null),
-    [content, solved, lean, markSolved, reloadLean, restartLean],
+    () => (content && solved && mastery && lean ? { content, solved, mastery, reloadProgress, lean, markSolved, reloadLean, restartLean } : null),
+    [content, solved, mastery, reloadProgress, lean, markSolved, reloadLean, restartLean],
   );
   if (!value) return <>{fallback({ error })}</>;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

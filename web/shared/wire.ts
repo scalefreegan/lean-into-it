@@ -1,3 +1,5 @@
+import type { MasteryMap } from "./progress.ts";
+
 // What the API sends and accepts, shared by the server routes and the
 // client so the two cannot drift.
 
@@ -87,4 +89,6 @@ export interface SolvedExercise {
 /** GET /api/progress: lesson id → exercise id → when and how it was solved. */
 export interface ProgressReply {
   solved: Record<string, Record<string, SolvedExercise>>;
+  /** Per concept and per move, from every check on record (web/shared/progress.ts). */
+  mastery: MasteryMap;
 }

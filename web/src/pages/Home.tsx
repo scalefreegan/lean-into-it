@@ -1,13 +1,16 @@
+import { useEffect } from "react";
 import type { Lesson, Level } from "../../shared/content.ts";
+import { lessonMastery, masteryFor } from "../../shared/progress.ts";
 import { href } from "../router.ts";
 import { lessonProgress, useApp } from "../state.tsx";
-import { cx, Notice, Tick } from "../ui.tsx";
+import { cx, MasteryBar, Notice, Tick } from "../ui.tsx";
 
 // The Path: every level in order, the lessons written so far, and what each
 // unwritten level will cover.
 
 export function Home() {
-  const { content, solved } = useApp();
+  const { content, solved, reloadProgress } = useApp();
+  useEffect(reloadProgress, [reloadProgress]);
   const next = content.lessons.find((l) => !lessonProgress(l, solved).complete) ?? null;
   const total = content.lessons.reduce((n, l) => n + l.exercises.length, 0);
   const done = content.lessons.reduce((n, l) => n + lessonProgress(l, solved).done, 0);
@@ -56,7 +59,7 @@ export function Home() {
 }
 
 function LevelCard({ level, lessons, nextId }: { level: Level; lessons: Lesson[]; nextId: string | null }) {
-  const { content, solved } = useApp();
+  const { content, solved, mastery } = useApp();
   const trackTitle = (id: string) => content.tracks.find((t) => t.id === id)?.title ?? id;
   const written = lessons.length > 0;
   return (
@@ -83,6 +86,7 @@ function LevelCard({ level, lessons, nextId }: { level: Level; lessons: Lesson[]
         <ul className="mt-4 flex flex-col gap-2">
           {lessons.map((lesson) => {
             const p = lessonProgress(lesson, solved);
+            const known = lessonMastery(lesson, mastery);
             return (
               <li key={lesson.id}>
                 <a
@@ -103,6 +107,11 @@ function LevelCard({ level, lessons, nextId }: { level: Level; lessons: Lesson[]
                     <span className="block font-mono">
                       {p.done}/{p.total}
                     </span>
+                    {known !== null && (
+                      <span className="mt-1 block">
+                        <MasteryBar value={known} mastered={lesson.concepts.length > 0 && lesson.exercises.every((e) => masteryFor(mastery.concepts, e.concept)?.mastered)} label={`${lesson.title} mastery`} />
+                      </span>
+                    )}
                   </span>
                 </a>
               </li>
