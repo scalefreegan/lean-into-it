@@ -138,6 +138,8 @@ id: rev-app
 
 With the reverse of a join proved, reversing twice is a short step. In the `cons` case, `rev (x :: xs)` is `app (rev xs) [x]`, and reversing that join puts `rev [x]` first, followed by `rev (rev xs)`. The first is `[x]`, the second is `xs` by the induction hypothesis.
 
+The theorem you just proved is given to this exercise under the name `rev_app`, and `app_assoc` comes with it. Hand `rev_app` and the induction hypothesis to `simp`.
+
 ```exercise
 id: rev-rev
 ```
@@ -153,7 +155,7 @@ Do induction on xs.
 - **The `nil` case: f [] = [].** Use `h2` on `[]` and `[0]`: `obtain h := h2 [] [0]` names that fact `h`. The join `app [] [0]` is `[0]`, so `h2` says f [0] = app (f [0]) (f []). With `h1` that is [0] = app [0] (f []), and `app` unfolds the right side to 0 :: f []. Two lists that start the same are equal when their tails are, and `simp at h` turns h into exactly that: f [] = [].
 - **The `cons` case.** `x :: xs` is the join `app [x] xs`, so `obtain h := h2 [x] xs` splits `f (x :: xs)` into `app (f xs) (f [x])`. Then `h1` and the induction hypothesis turn that into `app (rev xs) [x]`, which is what `rev (x :: xs)` is.
 
-`rw [...] at h` rewrites a hypothesis instead of the goal, which is what both steps need.
+`rw [...] at h` rewrites a hypothesis instead of the goal, which is what both steps need. A definition can be a rewrite too: `rw [app]` unfolds one step of `app`, turning `app [x] xs` into `x :: app [] xs` and then, used again, into `x :: xs`; `rw [rev]` does the same for `rev`. `simp` unfolds every step it can at once, so in the `nil` case `simp [h1] at h` does the work of the `rw` and the `simp` together.
 
 ```exercise
 id: only-rev
