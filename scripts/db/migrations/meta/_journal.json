@@ -15,6 +15,13 @@
       "when": 1795031419558,
       "tag": "0001_tutor",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795038116634,
+      "tag": "0002_level_opens",
+      "breakpoints": true
     }
   ]
 }

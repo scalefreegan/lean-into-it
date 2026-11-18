@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ensureLearner, recordAttempt } from "../../scripts/db/progress.ts";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { Readable } from "node:stream";
+import { ensureLearner, levelOpensFor, recordAttempt } from "../../scripts/db/progress.ts";
 import { freshDb } from "../../scripts/tests/testdb.mjs";
 import { loadContent } from "./loader.ts";
 import { setDb } from "./db.ts";
-import { progressReply } from "./progress.ts";
+import { handleProgress, progressReply } from "./progress.ts";
+import type { ProgressReply } from "../shared/wire.ts";
 
 // /api/progress on PGlite with the real migrations and the real content/
 // (read only): mastery is worked out from the attempt rows.
@@ -46,4 +49,78 @@ test("/api/progress offers a mastered concept for review from the next day, and 
   assert.ok(due.some((d) => d.concept === exercise.concept));
   await recordAttempt(db, learner, { lessonId: lesson.id, exerciseId: exercise.id, body: "proof 0", solved: true });
   assert.ok(!(await progressReply()).review.some((d) => d.concept === exercise.concept));
+});
+
+function call(method: string, url: string, body?: unknown): Promise<{ status: number; reply: ProgressReply & { error?: string } }> {
+  const req = Object.assign(Readable.from(body === undefined ? [] : [Buffer.from(JSON.stringify(body))]), { method, headers: {}, url }) as unknown as IncomingMessage;
+  let status = 0;
+  let text = "";
+  const res = {
+    writeHead(code: number) {
+      status = code;
+      return this;
+    },
+    end(chunk?: string) {
+      text = chunk ?? "";
+    },
+  } as unknown as ServerResponse;
+  return handleProgress(req, res).then(
+    () => ({ status, reply: JSON.parse(text) }),
+    (e: { status?: number; message: string }) => ({ status: e.status ?? 500, reply: { error: e.message } as ProgressReply & { error?: string } }),
+  );
+}
+
+test("/api/progress: the first level is open and the next locked; Open anyway opens it and is recorded", async (t) => {
+  const { db, close } = await freshDb();
+  setDb(db);
+  t.after(async () => {
+    setDb(null);
+    await close();
+  });
+  const content = loadContent();
+  const written = content.levels.filter((l) => l.status !== "outline" && content.lessons.some((x) => x.level === l.id)).map((l) => l.id);
+  const outline = content.levels.find((l) => l.status === "outline")!;
+  const fresh = (await call("GET", "/")).reply.levels;
+  assert.equal(fresh.find((s) => s.level === written[0])!.state, "open");
+  assert.equal(fresh.find((s) => s.level === written[1])!.state, "locked");
+  assert.ok(fresh.find((s) => s.level === written[1])!.need > 0);
+
+  assert.equal((await call("POST", "/open", { level: 99 })).status, 400);
+  assert.equal((await call("POST", "/open", { level: outline.id })).status, 400, "an outline has nothing to open");
+  assert.equal((await call("POST", "/open", { level: "1" })).status, 400);
+  assert.equal((await call("GET", "/open")).status, 405);
+  assert.equal((await call("GET", "/nope")).status, 404);
+
+  const opened = await call("POST", "/open", { level: written[2] });
+  assert.equal(opened.status, 200);
+  for (const id of written.slice(0, 3)) assert.notEqual(opened.reply.levels.find((s) => s.level === id)!.state, "locked", `level ${id} is open`);
+  assert.equal(opened.reply.levels.find((s) => s.level === written[2])!.why, "anyway");
+  const learner = await ensureLearner(db);
+  assert.deepEqual((await levelOpensFor(db, learner)).map((r) => [r.level, r.how]), [[written[2], "anyway"]]);
+});
+
+test("/api/progress records a level when it is earned, so it stays open", async (t) => {
+  const { db, close } = await freshDb();
+  setDb(db);
+  t.after(async () => {
+    setDb(null);
+    await close();
+  });
+  const content = loadContent();
+  const first = content.lessons[0].level;
+  const exercises = content.lessons.filter((l) => l.level === first).flatMap((l) => l.exercises.map((e) => ({ lessonId: l.id, e })));
+  const learner = await ensureLearner(db);
+  // Four solves of each concept of the first level masters every one of them.
+  const seen = new Set<string>();
+  for (const { lessonId, e } of exercises) {
+    if (seen.has(e.concept)) continue;
+    seen.add(e.concept);
+    for (let i = 0; i < 4; i++) await recordAttempt(db, learner, { lessonId, exerciseId: e.id, body: `proof ${i}`, solved: true });
+  }
+  const levels = (await progressReply()).levels;
+  const next = levels.find((s) => s.level > first && s.state !== "locked")!;
+  assert.equal(next.why, "earned");
+  assert.deepEqual(await levelOpensFor(db, learner).then((r) => r.map((x) => [x.level, x.how])), [[next.level, "earned"]]);
+  // Once recorded, it is open on the record alone.
+  assert.equal((await progressReply()).levels.find((s) => s.level === next.level)!.why, "earned");
 });

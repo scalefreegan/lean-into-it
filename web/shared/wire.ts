@@ -1,7 +1,7 @@
 // What the API sends and accepts, shared by the server routes and the
 // client so the two cannot drift.
 
-import type { MasteryMap, ReviewItem } from "./progress.ts";
+import type { LevelStatus, MasteryMap, ReviewItem } from "./progress.ts";
 import type { Goal } from "./goals.ts";
 import type { BodyDiagnostic, Position } from "./proof.ts";
 
@@ -96,6 +96,13 @@ export interface ProgressReply {
   mastery: MasteryMap;
   /** Today's review session; its length is the count due. */
   review: ReviewItem[];
+  /** Every level in content.levels order: locked, open or done, and what opens it. */
+  levels: LevelStatus[];
+}
+
+/** POST /api/progress/open: the learner opens a locked level themselves. The reply is the progress after. */
+export interface OpenLevelRequest {
+  level: number;
 }
 
 /** What the page tells the Tutor about itself (web/server/tutor.ts rebuilds

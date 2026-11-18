@@ -1,17 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import type { Lesson, Level } from "../../shared/content.ts";
-import { lessonMastered, lessonMastery } from "../../shared/progress.ts";
+import { levelOpen, lessonMastered, lessonMastery, type LevelStatus } from "../../shared/progress.ts";
 import { href } from "../router.ts";
 import { lessonProgress, useApp } from "../state.tsx";
 import { cx, MasteryBar, Notice, Tick } from "../ui.tsx";
+import { LevelLock } from "./LevelLock.tsx";
 
 // The Path: every level in order, the lessons written so far, and what each
-// unwritten level will cover.
+// unwritten level will cover. A level opens as the one before it is
+// mastered (web/shared/progress.ts levelStatuses); a locked one says what it
+// needs, and can be opened anyway.
 
 export function Home() {
-  const { content, solved, reloadProgress } = useApp();
+  const { content, solved, levels, reloadProgress } = useApp();
   useEffect(() => void reloadProgress(), [reloadProgress]);
-  const next = content.lessons.find((l) => !lessonProgress(l, solved).complete) ?? null;
+  const next = content.lessons.find((l) => levelOpen(levels, l.level) && !lessonProgress(l, solved).complete) ?? null;
   const total = content.lessons.reduce((n, l) => n + l.exercises.length, 0);
   const done = content.lessons.reduce((n, l) => n + lessonProgress(l, solved).done, 0);
 
@@ -51,23 +54,37 @@ export function Home() {
       {/* Two columns where there is room; levels read left to right, then down. */}
       <div className="grid items-start gap-6 xl:grid-cols-2">
         {content.levels.map((level) => (
-          <LevelCard key={level.id} level={level} lessons={content.lessons.filter((l) => l.level === level.id)} nextId={next?.id ?? null} />
+          <LevelCard
+            key={level.id}
+            level={level}
+            status={levels.find((s) => s.level === level.id)}
+            lessons={content.lessons.filter((l) => l.level === level.id)}
+            nextId={next?.id ?? null}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function LevelCard({ level, lessons, nextId }: { level: Level; lessons: Lesson[]; nextId: string | null }) {
+function LevelCard({ level, status, lessons, nextId }: { level: Level; status: LevelStatus | undefined; lessons: Lesson[]; nextId: string | null }) {
   const { content, solved, mastery } = useApp();
   const trackTitle = (id: string) => content.tracks.find((t) => t.id === id)?.title ?? id;
   const written = lessons.length > 0;
+  const locked = written && status?.state === "locked";
+  const lit = written && !locked;
   return (
-    <section data-level={level.id} className={cx("rounded-2xl border bg-panel p-5", written ? "border-line-strong shadow-sm" : "border-line")}>
+    <section
+      data-level={level.id}
+      data-level-state={written ? (status?.state ?? "open") : "outline"}
+      className={cx("rounded-2xl border bg-panel p-5", lit ? "border-line-strong shadow-sm" : "border-line")}
+    >
       <div className="flex items-baseline gap-3">
-        <span className={cx("font-mono text-sm font-semibold", written ? "text-accent" : "text-fg-3")}>Level {level.id}</span>
-        <h2 className={cx("text-2xl font-semibold", written ? "text-fg" : "text-fg-2")}>{level.title}</h2>
+        <span className={cx("font-mono text-sm font-semibold", lit ? "text-accent" : "text-fg-3")}>Level {level.id}</span>
+        <h2 className={cx("text-2xl font-semibold", lit ? "text-fg" : "text-fg-2")}>{level.title}</h2>
         {!written && <span className="rounded-full bg-raised px-2 py-0.5 text-xs font-semibold text-fg-3">outlined</span>}
+        {locked && <span className="rounded-full bg-raised px-2 py-0.5 text-xs font-semibold text-fg-3">locked</span>}
+        {status?.state === "done" && <span className="rounded-full bg-good-soft px-2 py-0.5 text-xs font-semibold text-good">done</span>}
       </div>
       <p className="mt-1 text-fg-2">{level.summary}</p>
 
@@ -82,6 +99,8 @@ function LevelCard({ level, lessons, nextId }: { level: Level; lessons: Lesson[]
         </p>
       )}
 
+      {locked && status && <LevelLock status={status} />}
+
       {written && (
         <ul className="mt-4 flex flex-col gap-2">
           {lessons.map((lesson) => {
@@ -89,12 +108,14 @@ function LevelCard({ level, lessons, nextId }: { level: Level; lessons: Lesson[]
             const known = lessonMastery(lesson, mastery);
             return (
               <li key={lesson.id}>
-                <a
+                {/* A locked level's lessons are listed, not linked: the card says how to open it. */}
+                <LessonRow
+                  locked={locked}
                   href={href("lesson", lesson.id)}
                   data-lesson={lesson.id}
                   className={cx(
-                    "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-raised",
-                    lesson.id === nextId ? "border-accent bg-accent-soft" : "border-line",
+                    "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+                    locked ? "border-line opacity-70" : lesson.id === nextId ? "border-accent bg-accent-soft hover:bg-raised" : "border-line hover:bg-raised",
                   )}
                 >
                   {p.complete ? <Tick className="shrink-0 text-good" /> : <span className="h-5 w-5 shrink-0 rounded-full border-2 border-line-strong" />}
@@ -113,7 +134,7 @@ function LevelCard({ level, lessons, nextId }: { level: Level; lessons: Lesson[]
                       </span>
                     )}
                   </span>
-                </a>
+                </LessonRow>
               </li>
             );
           })}
@@ -131,5 +152,17 @@ function LevelCard({ level, lessons, nextId }: { level: Level; lessons: Lesson[]
         </details>
       )}
     </section>
+  );
+}
+
+function LessonRow({ locked, href: to, children, ...rest }: { locked: boolean; href: string; className: string; "data-lesson": string; children: ReactNode }) {
+  return locked ? (
+    <div aria-disabled="true" {...rest}>
+      {children}
+    </div>
+  ) : (
+    <a href={to} {...rest}>
+      {children}
+    </a>
   );
 }

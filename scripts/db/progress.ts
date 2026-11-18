@@ -7,7 +7,7 @@
 import { and, asc, desc, eq, gte, lt, max } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema.ts";
-import { attempts, chatMessages, hints, learners, solvedExercises } from "./schema.ts";
+import { attempts, chatMessages, hints, learners, levelOpens, solvedExercises } from "./schema.ts";
 
 /** The server's pool-backed handle and the tests' PGlite one both fit. */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -194,4 +194,23 @@ export async function hintRung(db: Db, learnerId: string, lessonId: string, exer
     .from(hints)
     .where(and(eq(hints.learnerId, learnerId), eq(hints.lessonId, lessonId), eq(hints.exerciseId, exerciseId), gte(hints.createdAt, since)));
   return top?.rung ?? 0;
+}
+
+/** How a level opened (schema.ts levelOpens). */
+export type LevelOpenHow = "earned" | "anyway" | "placement";
+
+export interface LevelOpenRow {
+  level: number;
+  how: LevelOpenHow;
+  openedAt: Date;
+}
+
+/** Record that a level is open. A level already recorded keeps its first row. */
+export async function recordLevelOpen(db: Db, learnerId: string, level: number, how: LevelOpenHow): Promise<void> {
+  await db.insert(levelOpens).values({ learnerId, level, how }).onConflictDoNothing();
+}
+
+export async function levelOpensFor(db: Db, learnerId: string): Promise<LevelOpenRow[]> {
+  const rows = await db.select({ level: levelOpens.level, how: levelOpens.how, openedAt: levelOpens.openedAt }).from(levelOpens).where(eq(levelOpens.learnerId, learnerId)).orderBy(asc(levelOpens.level));
+  return rows.map((r) => ({ ...r, how: r.how as LevelOpenHow }));
 }

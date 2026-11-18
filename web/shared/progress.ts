@@ -281,3 +281,120 @@ export function reviewSession(content: Pick<Content, "lessons">, map: MasteryMap
   }
   return session;
 }
+
+/* --------------------------------- levels --------------------------------- */
+
+/** A level opens when this share of the concepts its gate level tests are
+ *  mastered (Fret Not's rule). */
+export const UNLOCK_FRACTION = 0.7;
+
+/** Why a level is open: the first written level always is; `earned`, its gate
+ *  was passed; `anyway`, the learner opened it themselves; `placement`, the
+ *  placement check (lii-zjf.4); `worked`, the learner has checks on record in
+ *  it (it was open before levels could lock, or was opened some other way). */
+export type LevelOpenReason = "first" | "earned" | "anyway" | "placement" | "worked";
+
+export interface LevelStatus {
+  level: number;
+  /** Outline levels, and written levels not yet open, are `locked`. */
+  state: "locked" | "open" | "done";
+  /** Why it is open; null while locked. */
+  why: LevelOpenReason | null;
+  /** This level's own tested concepts: how many are mastered, of how many. */
+  mastered: number;
+  total: number;
+  /** The level whose mastery opens this one: the nearest earlier level whose
+   *  lessons test a concept. Null when nothing gates it. */
+  gate: number | null;
+  gateMastered: number;
+  gateTotal: number;
+  /** Concepts of the gate level still to master before this one opens; 0
+   *  once the gate is passed. */
+  need: number;
+}
+
+/** What the database holds about a level having opened (scripts/db/progress.ts). */
+export interface LevelOpened {
+  level: number;
+  how: "earned" | "anyway" | "placement";
+}
+
+const needOf = (mastered: number, total: number): number => Math.max(0, Math.ceil(total * UNLOCK_FRACTION - 1e-9) - mastered);
+
+/**
+ * Where each level stands, in content.levels order. A written level (one
+ * with lessons, not an outline) is open when any of these holds:
+ *   - it is the first written level;
+ *   - it, or a later level, is on record as opened (`opened`), or has checks
+ *     on record (`rows`): levels open in order, so opening one opens every
+ *     written level before it, and a level once open never locks again;
+ *   - the written level before it is open and its gate is passed: of the
+ *     concepts the gate level's exercises test, UNLOCK_FRACTION are mastered.
+ * The gate is the nearest earlier level whose lessons test a concept; a
+ * level that tests none (an outline, or lessons without exercises) asks
+ * nothing, so the next level looks back past it. An open level is done when
+ * every exercise in it is solved (`solved`). Mastery is sticky once a
+ * concept enters review (masteryFrom), so an earned level stays earned
+ * unless the curriculum gains concepts; the server records a level when it
+ * is earned (`earned` in `opened`) so that does not lock it again.
+ */
+export function levelStatuses(
+  content: Pick<Content, "levels" | "lessons">,
+  map: MasteryMap,
+  opened: LevelOpened[],
+  rows: Pick<AttemptLike, "lessonId">[],
+  solved: Record<string, Record<string, unknown>>,
+): LevelStatus[] {
+  const levelOfLesson = new Map(content.lessons.map((l) => [l.id, l.level]));
+  const recorded = new Map<number, LevelOpenReason>();
+  for (const o of opened) if (!recorded.has(o.level)) recorded.set(o.level, o.how);
+  for (const r of rows) {
+    const level = levelOfLesson.get(r.lessonId);
+    if (level !== undefined && !recorded.has(level)) recorded.set(level, "worked");
+  }
+  // The reason a level below a recorded one is open: the nearest recorded level at or above it.
+  const reasonAt = (id: number): LevelOpenReason | null => {
+    const above = [...recorded.keys()].filter((k) => k >= id).sort((a, b) => a - b);
+    return above.length ? recorded.get(above[0])! : null;
+  };
+  const byLevel = new Map<number, LevelStatus>();
+  let first = true;
+  let prevOpen = true;
+  let gate: { level: number; mastered: number; total: number } | null = null;
+  for (const level of [...content.levels].sort((a, b) => a.id - b.id)) {
+    const lessons = content.lessons.filter((l) => l.level === level.id);
+    const concepts = [...new Set(lessons.flatMap((l) => l.exercises.map((e) => e.concept)))];
+    const mastered = concepts.filter((c) => masteryFor(map.concepts, c)?.mastered === true).length;
+    const written = level.status !== "outline" && lessons.length > 0;
+    const need = first || !gate ? 0 : needOf(gate.mastered, gate.total);
+    let why: LevelOpenReason | null = null;
+    if (written) why = first ? "first" : (reasonAt(level.id) ?? (prevOpen && need === 0 ? "earned" : null));
+    const exercises = lessons.flatMap((l) => l.exercises.map((e) => [l.id, e.id] as const));
+    const done = why !== null && exercises.length > 0 && exercises.every(([l, e]) => solvedOf(solved, l, e) !== undefined);
+    byLevel.set(level.id, {
+      level: level.id,
+      state: why === null ? "locked" : done ? "done" : "open",
+      why,
+      mastered,
+      total: concepts.length,
+      gate: first ? null : (gate?.level ?? null),
+      gateMastered: first ? 0 : (gate?.mastered ?? 0),
+      gateTotal: first ? 0 : (gate?.total ?? 0),
+      need,
+    });
+    if (written) {
+      first = false;
+      prevOpen = why !== null;
+    }
+    if (concepts.length > 0) gate = { level: level.id, mastered, total: concepts.length };
+  }
+  return content.levels.map((l) => byLevel.get(l.id)!);
+}
+
+/** Is the level a lesson belongs to open? A level the statuses do not list
+ *  (not loaded yet, or not in the curriculum) is treated as open: the
+ *  loader reports a stray lesson, not the lock. */
+export function levelOpen(statuses: LevelStatus[], level: number): boolean {
+  const s = statuses.find((x) => x.level === level);
+  return !s || s.state !== "locked";
+}
