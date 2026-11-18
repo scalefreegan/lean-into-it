@@ -216,5 +216,42 @@ belong to the block.
 - One new move at a time, each used straight away in an exercise.
 - Board exercises first; a typed exercise once the moves are familiar.
 - A lesson is ten minutes or less.
-- Check it: `npm test` (every solution against Lean) and open the lesson in
+- Check it: `npm run check:content -- --lesson <id>` and open the lesson in
   the app.
+
+## Checking content
+
+`npm run check:content` reads `content/` as the app does and prints what the
+loader refuses. Then it starts a Lean of its own and, lesson by lesson:
+
+- gives every exercise's `solution` to Lean the way the app gives it a
+  learner's answer, and reports Lean's message, a goal left over, or a
+  forbidden tactic if it is not accepted;
+- gives every other `options` entry of a fill exercise to Lean, and reports
+  one that Lean accepts;
+- compiles the lesson's ` ```lean ` blocks that are whole declarations (the
+  first line starts with `def`, `theorem`, `example`, `#eval` and the
+  like). They are compiled in order in one file after the lesson's `given`,
+  so a block may use what an earlier block or the `given` defines, and may
+  show a definition that the `given` also has. A `theorem` shown as a
+  statement with no `:=` is checked as a statement;
+- looks up the name in a one-line block of the form
+  `abs_lt : |a| < b ↔ -b < a ∧ a < b` (a name with a `_` or a `.` in it).
+  Only the name is checked: the statement is written with variables the
+  lesson leaves unsaid.
+
+Any other ` ```lean ` block is a fragment and is not compiled: a proof
+state, a few tactic lines, a term, an outline with `…` in it. The summary
+line counts them. Each problem is printed as file, exercise or line, and
+reason, and the command exits 1 if there is any.
+
+| Option | |
+|---|---|
+| `--no-lean` | Structure only. Fast; nothing is checked against Lean. |
+| `--lean` | Fail where Lean is not installed. Without it the Lean pass is skipped there, with a line saying nothing was checked. |
+| `--lesson <id>` | The Lean pass for that lesson only. May be repeated. |
+| `--gaps` | Also list concepts no exercise tests, moves a level introduces that no exercise uses, levels with no lesson, and topics still to write. Never a failure. |
+
+`npm test` checks the same solutions and more (that each board solution is
+what the board's clicks write); `check:content` is the quicker one to run
+while writing, and the one that reads the lesson's prose.

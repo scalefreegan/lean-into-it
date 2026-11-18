@@ -10,6 +10,7 @@
     "test": "node --test --test-timeout=300000 \"web/shared/**/*.test.ts\" \"web/server/**/*.test.ts\" \"scripts/tests/*.test.mjs\"",
     "lint": "npm --prefix web run lint",
     "typecheck": "cd web && npx tsc -b",
+    "check:content": "node scripts/check-content.ts",
     "lean:setup": "bash scripts/lean-setup.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db/setup.mjs --migrate-only",
