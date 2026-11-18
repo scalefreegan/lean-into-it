@@ -159,8 +159,9 @@ Landed in the first PR, the foundation slice:
   or board solve is kept once a day, a submitted one always (the replay
   counts a repeat of the row before it once), so a solve on a later day is
   on record as the review. More than 8 due: the next batch is offered when
-  one is done. Not yet: variant exercises (with few exercises per concept, a
-  review repeats a proof already seen).
+  one is done. Variants (`lii-zjf.8`): every concept has 4 to 8 exercises,
+  and a review offers one never checked before any already seen, so the
+  same proof comes round again only after the others have.
 - Tutor drawer (`lii-2zo.1`): "Ask the Tutor" on every page opens a
   drawer that sends each question with the page, the exercise last
   touched, its proof so far, Lean's goals and its last error (the lesson
@@ -208,7 +209,7 @@ Landed in the first PR, the foundation slice:
   to 13 days on, one day after another. Retaking keeps the first credits.
   "Continue" passes over a lesson the placement credited until it is tried. By level, not by track: the
   levels follow the tracks closely enough. Migration `0003_placement`.
-- Tests: 286, including every reference solution checked by the real Lean,
+- Tests: 287, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -228,7 +229,7 @@ until it is added.
 
 ## Remaining
 
-37 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+36 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -271,7 +272,6 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-zjf.7` | Record time taken per exercise attempt | 3 | |
-| `lii-zjf.8` | Review variants: more than one exercise per concept | 2 | |
 | `lii-zjf.5` | Database backup script | 3 | `lii-2zf.3` |
 | `lii-zjf.6` | Record a board move that changed nothing as an attempt | 3 | |
 
