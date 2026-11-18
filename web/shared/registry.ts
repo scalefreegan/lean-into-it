@@ -2,6 +2,7 @@ import { checkExpr } from "./expr.ts";
 import { stateBlocks } from "./goals.ts";
 import { isMove } from "./moves.ts";
 import { readInterval, readPoint } from "./numberline.ts";
+import { fillProblem, GAP } from "./proof.ts";
 
 // The catalogue of widgets a lesson may embed and exercise kinds it may
 // declare, with the parameters each accepts. This file is the single source
@@ -180,7 +181,18 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
   },
 };
 
-export type ExerciseKind = "prove";
+export type ExerciseKind = "prove" | "fill";
+
+/** What is wrong with a statement and its definitions, whatever the kind. */
+function statementProblems(p: Params): string[] {
+  const out: string[] = [];
+  const statement = typeof p.statement === "string" ? p.statement : "";
+  const given = typeof p.given === "string" ? p.given : "";
+  if (statement && !statement.includes(":")) out.push("needs a Lean `statement` (binders, a colon, the claim)");
+  if (/:=|\bsorry\b/.test(statement)) out.push("the statement must not contain := or sorry");
+  if (/\b(sorry|admit|axiom)\b/.test(given)) out.push("`given` must not contain sorry, admit or an axiom");
+  return out;
+}
 
 export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
   prove: {
@@ -196,13 +208,40 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
       solution: { type: "text", required: true, doc: "A proof body, one tactic per line, that Lean accepts. `npm test` checks it against the real Lean." },
     },
     check: (p) => {
-      const out: string[] = [];
-      const statement = typeof p.statement === "string" ? p.statement : "";
-      const given = typeof p.given === "string" ? p.given : "";
-      if (statement && !statement.includes(":")) out.push("needs a Lean `statement` (binders, a colon, the claim)");
-      if (/:=|\bsorry\b/.test(statement)) out.push("the statement must not contain := or sorry");
-      if (/\b(sorry|admit|axiom)\b/.test(given)) out.push("`given` must not contain sorry, admit or an axiom");
+      const out = statementProblems(p);
       if ((p.mode ?? "board") === "board" && !(Array.isArray(p.moves) && p.moves.length)) out.push("a board exercise needs `moves`");
+      return out;
+    },
+  },
+  fill: {
+    doc: `A proof that is written out except for one step, marked \`${GAP}\`. The learner supplies the step: by typing one line, or, when \`options\` are given, by choosing one of them. Lean checks the completed proof either way; a choice is not compared with a stored answer.`,
+    label: "Fill the gap",
+    params: {
+      says: { type: "string", required: true, doc: "The claim in plain English. Shown above the exercise." },
+      statement: { type: "text", required: true, doc: "The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons." },
+      given: { type: "text", doc: "Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`." },
+      proof: { type: "text", required: true, doc: `The proof body with \`${GAP}\` exactly once, where the missing step goes: a whole line, or part of one.` },
+      solution: { type: "string", required: true, doc: "What goes in the gap: one line. `npm test` checks the completed proof against the real Lean." },
+      options: { type: "string[]", doc: "The choice form: two to five fills to choose from, the solution among them. `npm test` checks that Lean accepts the solution and refuses every other option." },
+      forbid: { type: "string[]", doc: "Names that may not appear in what is typed into the gap (the proof around it may use them)." },
+    },
+    check: (p) => {
+      const out = statementProblems(p);
+      const proof = typeof p.proof === "string" ? p.proof : "";
+      if (proof && proof.split(GAP).length !== 2) out.push(`\`proof\` must contain ${GAP} exactly once (it has ${proof.split(GAP).length - 1})`);
+      if (/\b(sorry|admit)\b/.test(proof)) out.push("`proof` must not contain sorry or admit");
+      const fills = [...(typeof p.solution === "string" ? [p.solution] : []), ...(Array.isArray(p.options) ? p.options.filter((o) => typeof o === "string") : [])];
+      for (const fill of new Set(fills)) {
+        const wrong = fillProblem(fill);
+        if (wrong) out.push(`${JSON.stringify(fill)} cannot go in a gap: ${wrong}`);
+        else if (!fill.trim()) out.push("an option must not be empty");
+      }
+      if (Array.isArray(p.options)) {
+        const options = p.options.map((o) => String(o).trim());
+        if (options.length < 2 || options.length > 5) out.push("`options` must offer two to five choices");
+        if (new Set(options).size !== options.length) out.push("`options` lists the same choice twice");
+        if (typeof p.solution === "string" && !options.includes(p.solution.trim())) out.push("`options` must include the `solution`");
+      }
       return out;
     },
   },

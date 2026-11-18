@@ -1,4 +1,5 @@
 import type { ExerciseKind } from "../../shared/registry.ts";
+import { FillGap } from "./FillGap.tsx";
 import { ProveIt } from "./ProveIt.tsx";
 import type { ExerciseComponent } from "./types.ts";
 
@@ -7,4 +8,5 @@ import type { ExerciseComponent } from "./types.ts";
 // web/shared/registry.ts; a kind added there and not here does not compile.
 export const EXERCISE_COMPONENTS: Record<ExerciseKind, ExerciseComponent> = {
   prove: ProveIt,
+  fill: FillGap,
 };

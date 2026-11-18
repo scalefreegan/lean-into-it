@@ -357,6 +357,96 @@ test("/api/check records a rejected move and the first solve, and nothing for a 
   assert.equal(await count(), 3);
 });
 
+const fills = content.lessons.flatMap((l) => l.exercises.filter((e) => e.kind === "fill").map((e) => ({ lesson: l, e })));
+const typedFill = content.lessons.find((l) => l.id === "math-3-absolute-value")!.exercises.find((e) => e.id === "left-edge")!;
+const choiceFill = content.lessons.find((l) => l.id === "math-3-calc")!.exercises.find((e) => e.id === "which-reason")!;
+
+test("fill the gap: Lean accepts the solution and refuses every other option", { skip }, async () => {
+  assert.ok(fills.length >= 2, `${fills.length} fill exercises`);
+  let refused = 0;
+  for (const { lesson: l, e } of fills) {
+    for (const option of e.options.filter((o) => o !== e.solution)) {
+      const reply = await checkExercise(leanServer(), e, option);
+      assert.equal(reply.solved, false, `${l.id}/${e.id}: the option "${option}" also completes the proof`);
+      refused++;
+    }
+  }
+  assert.ok(refused >= 3, `${refused} wrong options refused`);
+});
+
+test("fill the gap: Lean judges the proof with the fill in place, and says where it went wrong", { skip }, async () => {
+  const right = await checkExercise(leanServer(), typedFill, " abs_lt ");
+  assert.equal(right.solved, true);
+  // The state the gap's line starts from, with or without something in the gap.
+  assert.deepEqual(right.cursorGoals?.[0].hypotheses.map((h) => h.type), ["ℝ", "|x - 3| < 1"]);
+  const empty = await checkExercise(leanServer(), typedFill, "  ");
+  assert.equal(empty.solved, false);
+  assert.equal(empty.refusal, null);
+  assert.deepEqual(empty.cursorGoals?.[0].hypotheses.map((h) => h.type), ["ℝ", "|x - 3| < 1"]);
+  assert.equal(empty.cursorGoals?.[0].target, "2 < x");
+
+  // A fact that does not fit: the error is on the gap's line.
+  const wrong = await checkExercise(leanServer(), typedFill, "abs_nonneg");
+  assert.equal(wrong.solved, false);
+  assert.equal(wrong.error?.line, 0);
+  // A name Lean has never heard of.
+  const unknown = await checkExercise(leanServer(), typedFill, "abs_window");
+  assert.equal(unknown.solved, false);
+  assert.match(unknown.error?.message ?? "", /abs_window/i);
+  // Another fact that also does the job is accepted: there is no answer key.
+  const also = await checkExercise(leanServer(), typedFill, "abs_sub_lt_iff");
+  assert.equal(also.solved, true);
+  // A step Lean can read that does not finish the proof.
+  const weak = await checkExercise(leanServer(), { ...typedFill, proof: "<gap>" }, "skip");
+  assert.equal(weak.solved, false);
+  assert.equal(weak.error, null);
+
+  // The marker is not Lean: a proof whose gap was never filled is not a proof.
+  const unfilled = await checkExercise(leanServer(), { ...typedFill, kind: "prove" }, typedFill.proof);
+  assert.equal(unfilled.solved, false);
+  // sorry in the gap is still sorry.
+  for (const fill of ["sorry", "abs_lt] at h; sorry; rw [abs_lt"]) assert.equal((await checkExercise(leanServer(), typedFill, fill)).solved, false, fill);
+});
+
+test("fill the gap: a fill cannot leave its gap, and a choice must be one on offer", { skip }, async () => {
+  for (const [fill, why] of [
+    ["abs_lt] at h\nobtain ⟨h1, h2⟩ := h\nlinarith\n--", /one line/],
+    ["abs_lt] at h; obtain ⟨h1, h2⟩ := h; linarith --", /comment/],
+    ["abs_lt] at h; obtain ⟨h1, h2⟩ := h; linarith; simp [", /closes a bracket/],
+    ["abs_lt, show True by run_tac pure ()", /run_tac/],
+  ] as const) {
+    const reply = await checkExercise(leanServer(), typedFill, fill);
+    assert.equal(reply.solved, false, fill);
+    assert.match(reply.refusal ?? "", why, fill);
+  }
+  // The choice form takes what it offers and nothing else, though Lean would accept it.
+  assert.equal((await checkExercise(leanServer(), choiceFill, "gcongr")).solved, true);
+  const typedIn = await checkExercise(leanServer(), choiceFill, "linarith");
+  assert.equal(typedIn.solved, false);
+  assert.match(typedIn.refusal ?? "", /not one of the choices/);
+  assert.equal((await checkExercise(leanServer(), { ...choiceFill, options: [] }, "linarith")).solved, true);
+  // The forbid list is about the fill: the proof around it uses linarith freely.
+  const strict = { ...typedFill, forbid: ["linarith", "abs_sub_lt_iff"] };
+  assert.equal((await checkExercise(leanServer(), strict, "abs_lt")).solved, true);
+  const banned = await checkExercise(leanServer(), { ...typedFill, forbid: ["abs_lt"] }, "abs_lt");
+  assert.deepEqual([banned.solved, banned.forbidden], [false, ["abs_lt"]]);
+});
+
+test("/api/check on a fill-the-gap exercise takes the fill, and records it", { skip }, async () => {
+  const learner = await ensureLearner(db);
+  const base = { lessonId: "math-3-absolute-value", exerciseId: "left-edge" };
+  const count = () => attemptCount(db, learner, base.lessonId, base.exerciseId);
+  // Looking at the empty gap is not an attempt.
+  assert.equal((await post({ ...base, body: "" })).reply.solved, false);
+  assert.equal(await count(), 0);
+  assert.equal((await post({ ...base, body: "abs_nonneg", record: "submitted" })).reply.solved, false);
+  assert.equal(await count(), 1);
+  assert.equal((await post({ ...base, body: "abs_lt", record: "submitted" })).reply.solved, true);
+  assert.equal(await count(), 2);
+  // What is kept is the learner's fill, not the proof it went into.
+  assert.deepEqual((await solvedFor(db, learner)).filter((r) => r.exerciseId === "left-edge").map((r) => r.solution), ["abs_lt"]);
+});
+
 test("/api/check refuses an exercise that does not exist", { skip }, async () => {
   await assert.rejects(post({ lessonId: lesson.id, exerciseId: "nope", body: "" }), /no such exercise/);
   await assert.rejects(post({ lessonId: lesson.id, exerciseId: "use-it" }), /required/);

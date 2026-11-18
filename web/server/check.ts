@@ -3,7 +3,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals } from "../shared/goals.ts";
-import { assemble, axiomsOf, endOfBody, escapesIn, judge, ringFailures, ringNotes, toBody, toSource, type Position } from "../shared/proof.ts";
+import { assemble, axiomsOf, beforeGap, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapLine, judge, ringFailures, ringNotes, toBody, toSource, type Position } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { isSolved, recordAttempt } from "../../scripts/db/progress.ts";
@@ -32,12 +32,35 @@ async function withLean<T>(run: (lean: LeanServer) => Promise<T>): Promise<T> {
 }
 
 /**
- * Check `body` against an exercise: the pure part of /api/check, so tests
- * can run it against a real Lean without HTTP or a database. All exercises
- * share one Lean document: they share the import, so moving between them
- * costs a re-check, not a fresh Mathlib load.
+ * Check an answer to an exercise: the pure part of /api/check, so tests can
+ * run it against a real Lean without HTTP or a database. For kind `prove`
+ * the answer is the proof body. For `fill` it is what goes in the gap, and
+ * the body is the exercise's own proof with it put there.
  */
-export async function checkExercise(lean: LeanServer, exercise: Exercise, body: string, cursor?: Position): Promise<CheckReply> {
+export async function checkExercise(lean: LeanServer, exercise: Exercise, answer: string, cursor?: Position): Promise<CheckReply> {
+  if (exercise.kind !== "fill") return checkBody(lean, exercise, answer, answer, cursor);
+  const refuse = (refusal: string | null): CheckReply => ({ solved: false, goals: [], cursorGoals: null, error: null, diagnostics: [], forbidden: [], refusal });
+  const fill = answer.trim();
+  if (!fill) {
+    // Nothing in the gap yet: say what the gap's line starts from.
+    const reply = await checkBody(lean, exercise, beforeGap(exercise.proof), "");
+    return { ...refuse(null), cursorGoals: reply.goals };
+  }
+  const wrong = fillProblem(fill);
+  if (wrong) return refuse(wrong);
+  if (exercise.options.length && !exercise.options.includes(fill)) return refuse("That is not one of the choices.");
+  const at = gapLine(exercise.proof);
+  const indent = /^\s*/.exec(bodyLines(exercise.proof)[at])![0].length;
+  return checkBody(lean, exercise, fillBody(exercise.proof, fill), fill, { line: at, character: indent });
+}
+
+/**
+ * Check a proof body against an exercise's statement. `written` is the part
+ * of the body the learner wrote, which the forbid list applies to. All
+ * exercises share one Lean document: they share the import, so moving
+ * between them costs a re-check, not a fresh Mathlib load.
+ */
+async function checkBody(lean: LeanServer, exercise: Exercise, body: string, written: string, cursor?: Position): Promise<CheckReply> {
   // A body that would step outside a proof is never handed to Lean: what it
   // asks for (`run_tac`, `#eval` …) is a program, and this is not the Playground.
   const escapes = escapesIn(body);
@@ -55,7 +78,7 @@ export async function checkExercise(lean: LeanServer, exercise: Exercise, body: 
   const notes = ringNotes(result.diagnostics);
   const around = notes.length ? (await lean.check("exercise", source, notes.flatMap((d) => [d.start, d.end]))).goals : [];
   const diagnostics = toBody(ringFailures(result.diagnostics, notes, around), body, given);
-  const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body, given));
+  const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body, given), written);
   return {
     solved: verdict.solved,
     goals: parseGoals(result.goals[0] ?? []),

@@ -31,6 +31,16 @@ exercises:
     forbid: [grind, aesop, exact?, apply?, hint, rw?]
     solution: |
       exact abs_sub_comm a b
+  - id: left-edge
+    kind: fill
+    title: The missing fact
+    says: Suppose |x − 3| < 1. Then 2 < x.
+    statement: "(x : ℝ) (h : |x - 3| < 1) : 2 < x"
+    proof: |
+      rw [<gap>] at h
+      obtain ⟨h1, h2⟩ := h
+      linarith
+    solution: abs_lt
   - id: window
     title: Within 1 of 3
     mode: typed
@@ -115,6 +125,14 @@ rw [abs_lt] at h
 ```
 
 After that line `h` is an "and": `-1 < x - 3 ∧ x - 3 < 1`. You know how to take that apart, and each half of the goal then follows by linear arithmetic.
+
+First with the proof written out, all but the name of the fact to rewrite with. Type it into the gap.
+
+```exercise
+id: left-edge
+```
+
+Now the whole of it, both edges of the window.
 
 ```exercise
 id: window

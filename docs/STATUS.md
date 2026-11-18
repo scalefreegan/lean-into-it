@@ -58,6 +58,12 @@ Landed in the first PR, the foundation slice:
   cards, used in "Reading a goal, and proofs as things") and `move-list`.
   "Prove it" is the registered kind `prove`, with the board and the editor
   as its two modes.
+- Fill the gap (`lii-6xv.1`): the exercise kind `fill`, a proof with one
+  step marked `<gap>`. The learner types the step or, where the exercise
+  gives `options`, chooses it; Lean checks the proof with it in place, and
+  no answer is stored to compare with. A fill is one line that cannot
+  leave its gap. Two are in the lessons: a choice in "Chains", a typed one
+  in "Absolute value and distance".
 - Pictures for Level 3 (`lii-dvy.11`): three more widgets. `plot` graphs
   functions of x from a small expression parser of its own
   (`web/shared/expr.ts`, never `eval`), with a point to move along the
@@ -98,7 +104,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 168, including every reference solution checked by the real Lean,
+- Tests: 179, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -114,7 +120,7 @@ until it is added.
 
 ## Remaining
 
-44 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
+43 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -150,7 +156,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-6xv.1` | Exercise kind: Fill the gap | 1 | |
 | `lii-6xv.2` | Exercise kind: Predict and read | 2 | |
 | `lii-6xv.3` | Exercise kind: True or false | 2 | |
 

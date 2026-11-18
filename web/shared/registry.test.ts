@@ -24,7 +24,7 @@ test("every entry says what it is, documents each parameter, and its examples pa
     for (const [key, p] of Object.entries(e.params)) assert.ok(p.doc, `exercise kind ${name}.${key} needs a doc`);
   }
   assert.ok(isWidget("proof-state") && !isWidget("toString") && !isWidget("nope"));
-  assert.ok(isExerciseKind("prove") && !isExerciseKind("constructor"));
+  assert.ok(isExerciseKind("prove") && isExerciseKind("fill") && !isExerciseKind("constructor"));
 });
 
 test("parameter checks accept good values and explain bad ones", () => {
@@ -186,4 +186,23 @@ test("a whole set of parameters: unknown, missing, out of bounds, and the checks
   assert.match(checkParams(WIDGETS["proof-state"], {}).join(), /needs `state`/);
   assert.match(checkParams(WIDGETS["move-list"], { moves: [] }).join(), /needs `moves`/, "a required list with nothing in it");
   assert.match(checkParams(WIDGETS["move-list"], { moves: ["intro"], title: "x" }).join(), /has no parameter `title`/);
+});
+
+test("a fill-the-gap exercise has one gap, a fill that fits it, and options that include the fill", () => {
+  const fill = EXERCISES.fill;
+  const good = { says: "s", statement: "(x : ℝ) (h : |x| < 1) : x < 1", proof: "rw [<gap>] at h\nlinarith", solution: "abs_lt" };
+  assert.deepEqual(checkParams(fill, { id: "a", kind: "fill", title: "A", ...good }, EXERCISE_KEYS), []);
+  assert.deepEqual(checkParams(fill, { ...good, options: ["abs_lt", "abs_nonneg", "abs_add_le"] }), []);
+  assert.match(checkParams(fill, { ...good, proof: "rw [abs_lt] at h" }).join(), /`proof` must contain <gap> exactly once \(it has 0\)/);
+  assert.match(checkParams(fill, { ...good, proof: "rw [<gap>] at h\n<gap>" }).join(), /exactly once \(it has 2\)/);
+  assert.match(checkParams(fill, { ...good, proof: "rw [<gap>] at h\nsorry" }).join(), /must not contain sorry/);
+  assert.match(checkParams(fill, { ...good, solution: "abs_lt] at h; simp [" }).join(), /cannot go in a gap/);
+  assert.match(checkParams(fill, { ...good, solution: "abs_lt\nlinarith" }).join(), /`solution`|one line/);
+  assert.match(checkParams(fill, { ...good, options: ["abs_nonneg", "abs_add_le"] }).join(), /`options` must include the `solution`/);
+  assert.match(checkParams(fill, { ...good, options: ["abs_lt"] }).join(), /two to five/);
+  assert.match(checkParams(fill, { ...good, options: ["abs_lt", "abs_lt", "x"] }).join(), /same choice twice/);
+  assert.match(checkParams(fill, { ...good, options: ["abs_lt", "x -- y"] }).join(), /"x -- y" cannot go in a gap/);
+  assert.match(checkParams(fill, { ...good, statement: "x := sorry" }).join(), /must not contain := or sorry/);
+  assert.match(checkParams(fill, { ...good, mode: "board" }).join(), /has no parameter `mode`/);
+  assert.match(checkParams(fill, { ...good, solution: undefined }).join(), /needs `solution`/);
 });

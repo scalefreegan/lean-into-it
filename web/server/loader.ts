@@ -211,13 +211,16 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
   return {
     id,
     kind,
-    mode: e.mode === "typed" ? "typed" : "board",
+    // Only a `prove` exercise has a board; any other kind is not one.
+    mode: kind === "prove" && e.mode !== "typed" ? "board" : "typed",
     title: str(e.title),
     says: str(e.says),
     statement: str(e.statement).replace(/\s+/g, " "),
     given: [lessonGiven, own].filter(Boolean).join("\n\n"),
     moves: strings(e.moves),
     forbid: strings(e.forbid),
+    proof: typeof e.proof === "string" ? e.proof.replace(/\s+$/, "") : "",
+    options: strings(e.options).map((o) => o.trim()),
     solution: typeof e.solution === "string" ? e.solution.replace(/\s+$/, "") : "",
     concept,
   };

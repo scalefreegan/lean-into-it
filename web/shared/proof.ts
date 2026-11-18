@@ -236,6 +236,56 @@ export function escapesIn(body: string): Escape[] {
   return found;
 }
 
+/*
+ * Fill the gap. The exercise file holds a proof with one step missing,
+ * marked `<gap>`; the learner supplies what goes there and nothing else.
+ * The proof Lean checks is the file's with the gap filled, and it is judged
+ * exactly as a whole proof is: everything above applies to it.
+ *
+ * The marker is not Lean, so a proof whose gap was never filled cannot be
+ * accepted, and it is not `sorry`, so a stray `sorry` is still a `sorry`.
+ *
+ * A fill is one line with its own brackets balanced and no comment. That
+ * keeps it in its place: it cannot close a bracket of the proof around it,
+ * and cannot comment out the lines after it.
+ */
+export const GAP = "<gap>";
+
+/** The 0-based line of a proof that holds the gap, or -1. */
+export function gapLine(proof: string): number {
+  return bodyLines(proof).findIndex((l) => l.includes(GAP));
+}
+
+/** Why `fill` cannot go in a gap, in a sentence for the learner, or null. */
+export function fillProblem(fill: string): string | null {
+  const text = fill.replace(/\r/g, "").trim();
+  if (text.includes("\n")) return "The gap takes one line.";
+  const { code, bare } = lex(text);
+  if (code !== text) return "A comment cannot go in the gap.";
+  const stack: string[] = [];
+  for (const c of bare) {
+    if (c in CLOSER) stack.push(c);
+    else if (c in OPENER && stack.pop() !== OPENER[c]) return `“${c}” closes a bracket that the gap did not open.`;
+  }
+  if (stack.length) return `“${stack[stack.length - 1]}” opens a bracket that is not closed.`;
+  return null;
+}
+
+/** The proof with its gap filled. */
+export function fillBody(proof: string, fill: string): string {
+  return proof.replace(GAP, () => fill.replace(/\r/g, "").trim());
+}
+
+/** What stands in for a proof whose gap is still empty: the lines before
+ *  the gap, and a step that does nothing where the gap's line was. Lean's
+ *  goals at its end are the state the gap's line starts from. */
+export function beforeGap(proof: string): string {
+  const lines = bodyLines(proof);
+  const at = gapLine(proof);
+  if (at < 0) return proof;
+  return [...lines.slice(0, at), /^\s*/.exec(lines[at])![0] + PLACEHOLDER].join("\n");
+}
+
 /** The axioms ordinary mathematics in Lean rests on. Anything else (an axiom
  *  of the proof's own, `sorryAx`, the compiler's word for `native_decide`)
  *  is not a proof of the statement. */
@@ -409,14 +459,17 @@ export interface Verdict {
 
 /**
  * `axioms` is what `axiomsOf` read from the same check: the axioms the
- * theorem rests on, or null when Lean gave no report.
+ * theorem rests on, or null when Lean gave no report. `written` is the part
+ * of the body that is the learner's own, when that is not all of it.
  */
-export function judge(diagnostics: BodyDiagnostic[], body: string, forbid: string[], axioms: string[] | null): Verdict {
+export function judge(diagnostics: BodyDiagnostic[], body: string, forbid: string[], axioms: string[] | null, written = body): Verdict {
   const errors = diagnostics.filter((d) => d.severity === "error");
   const error = errors.find((d) => !UNSOLVED.test(d.message)) ?? null;
   const unfinished = !error && errors.some((d) => UNSOLVED.test(d.message));
   const sorry = diagnostics.some((d) => USES_SORRY.test(d.message));
-  const forbidden = forbiddenIn(body, forbid);
+  // The forbid list is about what the learner wrote: in a fill-the-gap
+  // exercise that is the fill (`written`), not the proof around it.
+  const forbidden = forbiddenIn(written, forbid);
   const empty = isBlank(body);
   const escapes = escapesIn(body);
   const clean = !empty && errors.length === 0 && !sorry;

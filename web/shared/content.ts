@@ -2,7 +2,7 @@
 // sends and the UI renders. The on-disk format is described in
 // docs/CONTENT.md.
 
-import type { WidgetType } from "./registry.ts";
+import type { ExerciseKind, WidgetType } from "./registry.ts";
 
 export interface Track {
   id: string; // "logic", "math", "lean", "programs"
@@ -24,12 +24,14 @@ export interface Level {
 /** How a proof is entered: clicking moves on the proof board, or typing Lean. */
 export type ProofMode = "board" | "typed";
 
-/** A "Prove it" exercise (kind `prove` in web/shared/registry.ts, which
- *  lists its fields for authors). Lean decides whether it is solved. */
+/** An exercise: a statement and, from the learner, an answer that Lean
+ *  judges. For kind `prove` the answer is the whole proof body; for `fill`
+ *  it is what goes in the gap of the proof the exercise comes with.
+ *  web/shared/registry.ts lists each kind's fields for authors. */
 export interface Exercise {
   /** Unique within its lesson; progress is keyed on lesson id + this. */
   id: string;
-  kind: "prove";
+  kind: ExerciseKind;
   mode: ProofMode;
   title: string;
   /** The claim in plain English, as a mathematician would say it. */
@@ -44,7 +46,13 @@ export interface Exercise {
   moves: string[];
   /** Tactic names that may not appear in an answer (e.g. `tauto`). */
   forbid: string[];
-  /** A proof body that Lean accepts; the tests check that it does. */
+  /** Kind `fill`: the proof with its missing step marked `<gap>`
+   *  (web/shared/proof.ts). Empty for `prove`. */
+  proof: string;
+  /** Kind `fill`: the choices on offer, when the gap is filled by choosing
+   *  and not by typing. Lean judges the one chosen; no answer key is kept. */
+  options: string[];
+  /** An answer Lean accepts (a proof body, or a fill); the tests check that it does. */
   solution: string;
   concept: string;
 }
