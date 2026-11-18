@@ -37,10 +37,14 @@ Landed in the first PR, the foundation slice:
   induction. Not yet: the induction dominoes widget (`lii-dvy.9`).
 - First verified programs written (`lii-dvy.4`), in Level 2 on the programs
   track: "A first function", "Saying what it should do", "Induction on a
-  list", "A test is not a proof"; 18 exercises about `len`, `app`, `total`,
-  `rev` and a buggy `badRev`. A lesson or an exercise can carry Lean
-  definitions of its own (`given`), placed before the theorem. Not yet: the
-  full specification of `rev` (`lii-dvy.10`), and the program stepper.
+  list", "A test is not a proof", "The whole of rev"; 23 exercises about
+  `len`, `app`, `total`, `rev` and a buggy `badRev`. A lesson or an exercise
+  can carry Lean definitions of its own (`given`), placed before the
+  theorem; an exercise's `given` also carries the lemmas proved before it.
+  "The whole of rev" (`lii-dvy.10`) proves `app` associative, the two
+  statements that specify reverse (one element, the reverse of a join),
+  reversing twice as a consequence, and that any function meeting the two
+  is `rev`. Not yet: the program stepper.
 - Level 3 written (`lii-dvy.5`): "The real numbers", "Identities",
   "Solving equations", "Inequalities", "Chains", "Absolute value and
   distance", "Functions, increasing and bounded", and on the Lean track
@@ -229,7 +233,7 @@ until it is added.
 
 ## Remaining
 
-36 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+35 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -297,7 +301,6 @@ land first.
 |---|---|---|---|
 | `lii-dvy.8` | Level 1: truth tables against proofs; True-or-false and Fill-the-gap exercises | 2 | `lii-53v.5` |
 | `lii-dvy.9` | Level 2: the induction dominoes widget in the Induction lesson | 2 | `lii-53v.5` |
-| `lii-dvy.10` | Verified programs: the full specification of `rev` (reverse twice, reverse of a join), with lemmas about `app` | 2 | |
 | `lii-oip` | A calc chain that proves ≤ where < is wanted leaves an unexplained goal like c < c | 3 | |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
 | `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3`, `lii-53v.3` |

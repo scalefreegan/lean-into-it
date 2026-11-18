@@ -132,7 +132,7 @@ id: what-it-does
 
 That is a complete description of `badRev`, proved for every list: it does nothing. A specification can pin a function down completely, and when it does, there is nowhere for a bug to hide.
 
-A specification of that strength for the real `rev` takes two statements: reversing a list of one element gives it back, and reversing a join gives the two reverses joined the other way round. Only one function satisfies both. A third, that reversing twice gives the list back, then follows. Those proofs need a few lemmas about `app` first, and they come later in this track.
+A specification of that strength for the real `rev` takes two statements: reversing a list of one element gives it back, and reversing a join gives the two reverses joined the other way round. Only one function satisfies both. A third, that reversing twice gives the list back, then follows. Those proofs need a few lemmas about `app` first. They are the next lesson.
 
 ## What you used
 
