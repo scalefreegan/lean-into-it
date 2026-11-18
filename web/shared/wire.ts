@@ -1,8 +1,7 @@
-import type { MasteryMap } from "./progress.ts";
-
 // What the API sends and accepts, shared by the server routes and the
 // client so the two cannot drift.
 
+import type { MasteryMap } from "./progress.ts";
 import type { Goal } from "./goals.ts";
 import type { BodyDiagnostic, Position } from "./proof.ts";
 

@@ -135,13 +135,16 @@ Landed in the first PR, the foundation slice:
 - Mastery per concept and per move (`lii-zjf.1`): `web/shared/progress.ts`
   works it out from the attempt rows (Fret Not's model: the last 12
   answers, newest weighing most, mastered at 80% over at least 4). Every
-  check is an answer for its exercise's concept; an accepted proof counts
-  for each move in it, a refused one against the move on its last line.
+  check is an answer for its exercise's concept, a repeat of the one before
+  it excepted; an accepted proof counts for each move in it, and a refused
+  board move against that move. A refused typed proof counts against its
+  concept only. "Mastered" is recomputed, not kept: Review and unlocks
+  must decide whether it should stick.
   Nothing but the attempts is stored, so the score cannot drift from them.
   The Path shows a bar per lesson tried; `#/moves` lists every move the
   levels teach with its score. An assisted solve counts as seen only; the
   Tutor (`lii-2zo.1`) is what will set it, and adds the column.
-- Tests: 226, including every reference solution checked by the real Lean,
+- Tests: 234, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -161,7 +164,7 @@ until it is added.
 
 ## Remaining
 
-39 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
+40 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -206,6 +209,7 @@ land first.
 | `lii-zjf.2` | Spaced review and the Review page | 1 | `lii-zjf.1` |
 | `lii-zjf.3` | Level unlocks | 2 | `lii-zjf.1` |
 | `lii-zjf.4` | Placement check | 2 | `lii-zjf.1`, `lii-zjf.3` |
+| `lii-zjf.7` | Record time taken per exercise attempt | 3 | |
 | `lii-zjf.5` | Database backup script | 3 | `lii-2zf.3` |
 | `lii-zjf.6` | Record a board move that changed nothing as an attempt | 3 | |
 

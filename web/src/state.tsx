@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Content, Lesson } from "../shared/content.ts";
 import type { LeanStatus, ProgressReply, SolvedExercise } from "../shared/wire.ts";
+import { solvedOf } from "../shared/progress.ts";
 import { getContent, getLean, getProgress, LEAN_TROUBLE, restartLean as askRestart } from "./api/client.ts";
 
 // What every page needs: the curriculum, what has been solved, and whether
@@ -31,8 +32,9 @@ export function useApp(): AppData {
 
 /** How many of a lesson's exercises are solved. */
 export function lessonProgress(lesson: Lesson, solved: ProgressReply["solved"]): { done: number; total: number; complete: boolean } {
-  const mine = solved[lesson.id] ?? {};
-  const done = lesson.exercises.filter((e) => mine[e.id]).length;
+  // Own properties only: an id such as `constructor` must find nothing.
+  const mine = Object.hasOwn(solved, lesson.id) ? solved[lesson.id] : {};
+  const done = lesson.exercises.filter((e) => Object.hasOwn(mine, e.id)).length;
   const total = lesson.exercises.length;
   return { done, total, complete: total > 0 && done === total };
 }
@@ -62,9 +64,10 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
 
   const markSolved = useCallback((lessonId: string, exerciseId: string, solution: string) => {
     setSolved((prev) => {
-      if (!prev || prev[lessonId]?.[exerciseId]) return prev;
+      if (!prev || solvedOf(prev, lessonId, exerciseId)) return prev;
       const entry: SolvedExercise = { solvedAt: new Date().toISOString(), solution };
-      return { ...prev, [lessonId]: { ...prev[lessonId], [exerciseId]: entry } };
+      const mine = Object.hasOwn(prev, lessonId) ? prev[lessonId] : {};
+      return { ...prev, [lessonId]: { ...mine, [exerciseId]: entry } };
     });
   }, []);
 

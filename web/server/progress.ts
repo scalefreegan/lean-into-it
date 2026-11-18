@@ -13,9 +13,12 @@ import { methodNotAllowed, sendJson } from "./sse.ts";
 export async function progressReply(): Promise<ProgressReply> {
   const db = rawDb();
   const learner = await learnerId();
-  const solved: ProgressReply["solved"] = {};
+  // Null-prototype maps: a lesson or exercise id such as `constructor` is
+  // an ordinary key here, not Object's built-in (JSON carries no prototype).
+  const solved: ProgressReply["solved"] = Object.create(null);
   for (const row of await solvedFor(db, learner)) {
-    (solved[row.lessonId] ??= {})[row.exerciseId] = { solvedAt: row.solvedAt.toISOString(), solution: row.solution };
+    if (!Object.hasOwn(solved, row.lessonId)) solved[row.lessonId] = Object.create(null);
+    solved[row.lessonId][row.exerciseId] = { solvedAt: row.solvedAt.toISOString(), solution: row.solution };
   }
   return { solved, mastery: masteryFrom(loadContent(), await attemptsFor(db, learner)) };
 }

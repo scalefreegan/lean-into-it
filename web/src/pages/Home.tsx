@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { Lesson, Level } from "../../shared/content.ts";
-import { lessonMastery, masteryFor } from "../../shared/progress.ts";
+import { lessonMastered, lessonMastery } from "../../shared/progress.ts";
 import { href } from "../router.ts";
 import { lessonProgress, useApp } from "../state.tsx";
 import { cx, MasteryBar, Notice, Tick } from "../ui.tsx";
@@ -109,7 +109,7 @@ function LevelCard({ level, lessons, nextId }: { level: Level; lessons: Lesson[]
                     </span>
                     {known !== null && (
                       <span className="mt-1 block">
-                        <MasteryBar value={known} mastered={lesson.concepts.length > 0 && lesson.exercises.every((e) => masteryFor(mastery.concepts, e.concept)?.mastered)} label={`${lesson.title} mastery`} />
+                        <MasteryBar value={known} mastered={lessonMastered(lesson, mastery)} label={`${lesson.title} mastery`} />
                       </span>
                     )}
                   </span>

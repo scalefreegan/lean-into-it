@@ -11,17 +11,21 @@
 //
 // What counts as an answer here:
 //   - every recorded check of an exercise is one answer for the exercise's
-//     concept: a proof Lean accepted is right, a refused one is wrong;
+//     concept: a proof Lean accepted is right, a refused one is wrong. A
+//     check that repeats the one before it on the same exercise (the same
+//     proof, the same verdict: Check pressed again) is not a new answer;
 //   - an accepted proof is a right answer for each move it uses;
-//   - a refused one is a wrong answer for the moves on its last line, which
-//     on the proof board is the move that was just refused.
+//   - on the proof board, a refused check is a wrong answer for the move on
+//     its last line, which is the move that was just refused. A typed proof
+//     that is refused counts against its concept only: where in it Lean
+//     stopped is not on record, and its last line may be a move that worked.
 // An assisted solve (the Tutor's last hint rung gave the line) is seen but
 // proves nothing: it counts as an attempt and adds no answer.
 //
 // Never change a concept id or a move id once live: these scores are keyed
 // on them, through the lesson files.
 
-import type { Content } from "./content.ts";
+import type { Content, Exercise } from "./content.ts";
 import { lex } from "./proof.ts";
 
 export const RECENT_WINDOW = 12;
@@ -84,33 +88,34 @@ export function tacticsOf(content: Pick<Content, "levels">): string[] {
   return [...new Set(content.levels.flatMap((l) => l.moves))];
 }
 
-const WORD_CHAR = "A-Za-z0-9_'!?.";
+// A word stops at these, so `exact` is not found in `exact?` nor `rw` in
+// `h.rw`. A trailing `'` is the primed form of the same move: the board
+// writes `induction' n with n ih`.
+const WORD_CHAR = "A-Za-z0-9_!?.";
+const matcher = (t: string) => new RegExp(`(^|[^${WORD_CHAR}'])${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}'?($|[^${WORD_CHAR}'])`);
 
 /** The moves of `tactics` a piece of Lean uses, comments and strings aside. */
 export function tacticsIn(lean: string, tactics: string[]): string[] {
   const { bare } = lex(lean);
-  return tactics.filter((t) => {
-    const word = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // `exact` is not found in `exact?`, nor `rw` in `Nat.rw`: a word stops at these.
-    return new RegExp(`(^|[^${WORD_CHAR}])${word}($|[^${WORD_CHAR}])`).test(bare);
-  });
+  return tactics.filter((t) => matcher(t).test(bare));
 }
 
+/** The last line of a body with code on it, strings and comments blanked:
+ *  a line inside a string is not a move. */
 function lastLine(body: string): string {
-  const lines = lex(body).code.split("\n");
-  for (let i = lines.length - 1; i >= 0; i--) if (lines[i].trim()) return body.replace(/\r/g, "").split("\n")[i];
+  const lines = lex(body).bare.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) if (lines[i].trim()) return lines[i];
   return "";
 }
 
 function answer(map: Record<string, Mastery>, id: string, right: boolean | null, at: string): void {
   if (!id || id === "__proto__") return;
-  const prev = Object.hasOwn(map, id) ? map[id] : blankMastery();
+  const prev = masteryFor(map, id) ?? blankMastery();
   const recent = right === null ? prev.recent : [...prev.recent, right].slice(-RECENT_WINDOW);
-  const attempts = prev.attempts + 1;
   const mastery = masteryOf(recent);
   map[id] = {
     mastery,
-    attempts,
+    attempts: prev.attempts + 1,
     correct: prev.correct + (right ? 1 : 0),
     mastered: recent.length >= MIN_ATTEMPTS && mastery >= MASTERY_THRESHOLD,
     lastSeenAt: at,
@@ -119,24 +124,34 @@ function answer(map: Record<string, Mastery>, id: string, right: boolean | null,
 }
 
 /**
- * Concept and move mastery from the attempt rows, oldest first or not (they
- * are sorted here). Rows for an exercise the content no longer has are
+ * Concept and move mastery from the attempt rows, in any order (they are
+ * sorted here by time). Rows for an exercise the content no longer has are
  * skipped: there is no concept to put them under.
  */
 export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: AttemptLike[]): MasteryMap {
-  const tactics = tacticsOf(content);
-  const exercises = new Map<string, string>();
-  for (const l of content.lessons) for (const e of l.exercises) exercises.set(`${l.id}\u0000${e.id}`, e.concept);
+  const tactics = tacticsOf(content).map((t) => ({ t, re: matcher(t) }));
+  const used = (lean: string) => {
+    const { bare } = lex(lean);
+    return tactics.filter(({ re }) => re.test(bare)).map(({ t }) => t);
+  };
+  const exercises = new Map<string, Pick<Exercise, "concept" | "mode">>();
+  for (const l of content.lessons) for (const e of l.exercises) exercises.set(`${l.id}\u0000${e.id}`, e);
   const concepts: Record<string, Mastery> = {};
   const byTactic: Record<string, Mastery> = {};
+  const previous = new Map<string, string>();
   const time = (r: AttemptLike) => new Date(r.createdAt).getTime();
   for (const row of [...rows].sort((a, b) => time(a) - time(b))) {
-    const concept = exercises.get(`${row.lessonId}\u0000${row.exerciseId}`);
-    if (concept === undefined) continue;
+    const key = `${row.lessonId}\u0000${row.exerciseId}`;
+    const exercise = exercises.get(key);
+    if (exercise === undefined) continue;
+    const same = `${row.solved}\u0000${row.assisted ? 1 : 0}\u0000${row.body}`;
+    if (previous.get(key) === same) continue;
+    previous.set(key, same);
     const at = new Date(row.createdAt).toISOString();
     const right = row.assisted ? null : row.solved;
-    answer(concepts, concept, right, at);
-    for (const t of tacticsIn(row.solved ? row.body : lastLine(row.body), tactics)) answer(byTactic, t, right, at);
+    answer(concepts, exercise.concept, right, at);
+    const moves = row.solved ? used(row.body) : exercise.mode === "board" ? used(lastLine(row.body)) : [];
+    for (const t of moves) answer(byTactic, t, right, at);
   }
   return { concepts, tactics: byTactic };
 }
@@ -148,4 +163,15 @@ export function lessonMastery(lesson: { exercises: { concept: string }[] }, map:
   const seen = ids.filter((id) => Object.hasOwn(map.concepts, id));
   if (!ids.length || !seen.length) return null;
   return ids.reduce((n, id) => n + (masteryFor(map.concepts, id)?.mastery ?? 0), 0) / ids.length;
+}
+
+/** The solved record of one exercise, read by own property only. */
+export function solvedOf<T>(solved: Record<string, Record<string, T>>, lessonId: string, exerciseId: string): T | undefined {
+  const mine = Object.hasOwn(solved, lessonId) ? solved[lessonId] : undefined;
+  return mine && Object.hasOwn(mine, exerciseId) ? mine[exerciseId] : undefined;
+}
+
+/** Every one of a lesson's exercise concepts is mastered. */
+export function lessonMastered(lesson: { exercises: { concept: string }[] }, map: MasteryMap): boolean {
+  return lesson.exercises.length > 0 && lesson.exercises.every((e) => masteryFor(map.concepts, e.concept)?.mastered === true);
 }
