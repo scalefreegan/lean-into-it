@@ -121,12 +121,17 @@ const CHAR_LITERAL = /^'(\\(x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|.)|[^\\'\n])'/;
  * as the body. Lean's own rules: `--` to the end of the line, `/- -/`
  * nesting, `"…"` with backslash escapes, raw strings `r"…"` and `r#"…"#`.
  * Where this and Lean could disagree it errs toward seeing more code, never
- * less: the worst a disagreement does is refuse a proof.
+ * less: the worst a disagreement does is refuse a proof. The one place it
+ * cannot know is a string Lean reads as interpolated (after `s!`, `m!`,
+ * `throwError` …), where `{…}` is code with strings of its own: so
+ * `braceInString` says where a `{` stands inside a string, and `escapesIn`
+ * refuses such a body outright.
  */
-export function lex(body: string): { code: string; bare: string; openComment: number | null; openString: boolean } {
+export function lex(body: string): { code: string; bare: string; openComment: number | null; openString: boolean; braceInString: number | null } {
   const text = body.replace(/\r/g, "");
-  const code = [...text];
-  const bare = [...text];
+  // UTF-16 units, as `text[i]` indexes: a character such as 𝓝 is two of them.
+  const code = text.split("");
+  const bare = text.split("");
   // Blank [from, to) in the given outputs, keeping line breaks.
   const blank = (from: number, to: number, outs: string[][]) => {
     for (let k = from; k < to && k < text.length; k++) if (text[k] !== "\n") for (const o of outs) o[k] = " ";
@@ -136,6 +141,8 @@ export function lex(body: string): { code: string; bare: string; openComment: nu
   let openComment: number | null = null;
   // Whether a string is opened and never closed.
   let openString = false;
+  // Where the first unescaped `{` inside a "…" string is, if there is one.
+  let braceInString: number | null = null;
   while (i < text.length) {
     const c = text[i];
     const next = text[i + 1];
@@ -165,7 +172,10 @@ export function lex(body: string): { code: string; bare: string; openComment: nu
       i = j;
     } else if (c === '"') {
       let j = i + 1;
-      while (j < text.length && text[j] !== '"') j += text[j] === "\\" ? 2 : 1;
+      while (j < text.length && text[j] !== '"') {
+        if (text[j] === "{" && braceInString === null) braceInString = j;
+        j += text[j] === "\\" ? 2 : 1;
+      }
       if (j >= text.length) openString = true;
       j = Math.min(j + 1, text.length);
       blank(i, j, [bare]);
@@ -178,101 +188,7 @@ export function lex(body: string): { code: string; bare: string; openComment: nu
       } else i++;
     } else i++;
   }
-  return { code: code.join(""), bare: bare.join(""), openComment, openString };
-}
-
-/**
- * The same as `lex`, read as if every string were interpolated: inside
- * `"…"`, a `{…}` is code, with strings and comments of its own, until its
- * matching `}`. Lean reads a string that way after `s!`, `m!`, `throwError`
- * and the like, and plainly elsewhere, and which it is depends on where the
- * string stands, which a lexer cannot see. So the checks that keep a body
- * from stepping outside a proof look at both readings and refuse what
- * either finds: `"{ "--" }"` is one string to Lean, and read plainly its
- * `--` would hide the rest of the line.
- */
-function lexInterpolated(body: string): { code: string; bare: string } {
-  const text = body.replace(/\r/g, "");
-  const code = [...text];
-  const bare = [...text];
-  const blank = (from: number, to: number, outs: string[][]) => {
-    for (let k = from; k < to && k < text.length; k++) if (text[k] !== "\n") for (const o of outs) o[k] = " ";
-  };
-  // Code from `start`; inside a string's braces, up to and past the `}` that closes them.
-  const codeFrom = (start: number, inBraces: boolean): number => {
-    let i = start;
-    let depth = 0;
-    while (i < text.length) {
-      const c = text[i];
-      const next = text[i + 1];
-      if (c === "-" && next === "-") {
-        let j = i;
-        while (j < text.length && text[j] !== "\n") j++;
-        blank(i, j, [code, bare]);
-        i = j;
-      } else if (c === "/" && next === "-") {
-        let nest = 1;
-        let j = i + 2;
-        while (j < text.length && nest > 0) {
-          const two = text.slice(j, j + 2);
-          if (two === "/-") nest++;
-          else if (two === "-/") nest--;
-          j += two === "/-" || two === "-/" ? 2 : 1;
-        }
-        blank(i, j, [code, bare]);
-        i = j;
-      } else if (c === "r" && (i === 0 || !IDENT_CHAR.test(text[i - 1])) && /^r#*"/.test(text.slice(i, i + 40))) {
-        const hashes = /^r(#*)"/.exec(text.slice(i, i + 40))![1];
-        const close = text.indexOf(`"${hashes}`, i + 2 + hashes.length);
-        const j = close < 0 ? text.length : close + 1 + hashes.length;
-        blank(i, j, [bare]);
-        i = j;
-      } else if (c === '"') {
-        i = stringFrom(i);
-      } else if (c === "'" && (i === 0 || !IDENT_CHAR.test(text[i - 1]))) {
-        const m = CHAR_LITERAL.exec(text.slice(i, i + 10));
-        if (m) {
-          blank(i, i + m[0].length, [bare]);
-          i += m[0].length;
-        } else i++;
-      } else if (inBraces && c === "{") {
-        depth++;
-        i++;
-      } else if (inBraces && c === "}") {
-        if (depth === 0) return i + 1;
-        depth--;
-        i++;
-      } else i++;
-    }
-    return i;
-  };
-  // A string from its opening quote: its text blanked in `bare`, its `{…}` read as code.
-  const stringFrom = (start: number): number => {
-    let i = start + 1;
-    let from = start;
-    while (i < text.length) {
-      const c = text[i];
-      if (c === "\\") i += 2;
-      else if (c === '"') {
-        blank(from, i + 1, [bare]);
-        return i + 1;
-      } else if (c === "{") {
-        blank(from, i + 1, [bare]);
-        i = codeFrom(i + 1, true);
-        from = i;
-      } else i++;
-    }
-    blank(from, text.length, [bare]);
-    return text.length;
-  };
-  codeFrom(0, false);
-  return { code: code.join(""), bare: bare.join("") };
-}
-
-/** Both readings of a body (`lex` and `lexInterpolated`): a check that must
- *  not miss code looks at each. */
-function readings(body: string): { code: string; bare: string }[] {
-  return [lex(body), lexInterpolated(body)];
+  return { code: code.join(""), bare: bare.join(""), openComment, openString, braceInString };
 }
 
 /** Ways a tactic block can run a program or change Lean's settings instead of proving. */
@@ -282,8 +198,6 @@ const ESCAPES: { pattern: RegExp; name: string }[] = [
     name: word,
   })),
   { pattern: /\+native($|[^A-Za-z0-9_'])/, name: "+native" },
-  // The same switch written as an option: `decide (config := { native := true })`.
-  { pattern: /(^|[^A-Za-z0-9_.'])native\s*:=/, name: "native :=" },
   // Lean's own programming interface (Lean.addDecl, open Lean in …).
   { pattern: /(^|[^A-Za-z0-9_'])Lean($|[^A-Za-z0-9_'])/, name: "Lean" },
   { pattern: new RegExp(`(^|[^A-Za-z0-9_'])${THEOREM}($|[^A-Za-z0-9_'])`), name: THEOREM },
@@ -308,12 +222,21 @@ export interface Escape {
  */
 export function escapesIn(body: string): Escape[] {
   const text = bodyLines(body).join("\n");
-  const found: Escape[] = [];
-  // The plain reading first, so its messages come first; then what only the other reading sees.
-  for (const reading of readings(text)) {
-    for (const e of escapesOf(reading.code, reading.bare)) if (!found.some((f) => f.name === e.name && f.line === e.line)) found.push(e);
+  const { code, bare, braceInString } = lex(text);
+  const found = escapesOf(code, bare);
+  // A `{` in a string may be the start of code inside an interpolated
+  // string, which this reading would take for text. Nothing in a proof
+  // needs one; `\{` is a brace and is fine.
+  if (braceInString !== null) {
+    const line = text.slice(0, braceInString).split("\n").length - 1;
+    found.push({ name: "{", line, message: "A “{” inside a string is not accepted in an exercise: Lean can read what follows it as code. Write \\{ for the character itself." });
   }
-  return found;
+  // The option spelling of native evaluation, which may run over two lines.
+  const native = /(^|[^A-Za-z0-9_'])native\s*:=/.exec(code);
+  if (native && !found.some((f) => f.name === "native :=")) {
+    found.push({ name: "native :=", line: code.slice(0, native.index + native[1].length).split("\n").length - 1, message: "“native :=” runs a program or changes Lean's settings rather than making a proof step, so it is not accepted in an exercise. The Playground will run it." });
+  }
+  return found.sort((x, y) => x.line - y.line);
 }
 
 function escapesOf(code: string, bare: string): Escape[] {
@@ -540,10 +463,8 @@ const SEARCHES_EVERYTHING = "try?";
 
 /** Whole-word uses of forbidden tactics in a body, comments removed. */
 export function forbiddenIn(body: string, forbidden: string[]): string[] {
-  // Both readings, as for escapesIn: a string cannot hide a forbidden tactic either.
-  const code = readings(body)
-    .map((r) => r.code)
-    .join("\n");
+  // A body with a `{` in a string is refused by escapesIn, so one reading is enough here.
+  const { code } = lex(body);
   const forbid = forbidden.length && !forbidden.includes(SEARCHES_EVERYTHING) ? [...forbidden, SEARCHES_EVERYTHING] : forbidden;
   // A name with no dot in it is also found after a dot: forbidding `zero_add`
   // forbids `Nat.zero_add` and `n.zero_add`, which are the same theorem.

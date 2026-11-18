@@ -118,10 +118,10 @@ Landed in the first PR, the foundation slice:
   tried against a false statement, through the app and through Lean with
   the pre-checks off. None was graded solved. Where Lean alone would
   accept an unsound result (a program that adds a theorem the kernel never
-  checked), the word list stops it. The checks that keep a body inside a
-  proof now read each string both plainly and as interpolated, so a string
-  cannot hide a program word, a forbidden tactic or a closing bracket from
-  them; `native :=` is refused as `+native` is.
+  checked), the word list stops it. A `{` inside a string is now refused:
+  in an interpolated string it opens code the checks would have read as
+  text. `native :=` is refused as `+native` is, and characters outside
+  Unicode's basic plane (𝓝, 𝔽) no longer shift the lexer's lines.
 - `npm run check:content` (`lii-2zf.2`): the structure check the app does,
   then every reference solution and every wrong option judged by the real
   Lean exactly as a learner's answer is, and every ```lean block that is
@@ -132,7 +132,7 @@ Landed in the first PR, the foundation slice:
   Reports the file, the exercise or line, and Lean's message; exits 1 on any
   problem. `--no-lean`, `--lean`, `--lesson <id>`, and `--gaps` for what the
   curriculum promises and does not yet have.
-- Tests: 212, including every reference solution checked by the real Lean,
+- Tests: 213, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
