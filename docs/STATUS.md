@@ -116,12 +116,15 @@ Landed in the first PR, the foundation slice:
   cancelling a superseded check, and a memory limit.
 - `npm run check:content` (`lii-2zf.2`): the structure check the app does,
   then every reference solution and every wrong option judged by the real
-  Lean exactly as a learner's answer is, every ```lean block that is whole
-  declarations compiled, and every library fact a lesson names looked up.
+  Lean exactly as a learner's answer is, and every ```lean block that is
+  whole declarations compiled after the lesson's `given` (a definition
+  shown must match the one given). A library fact quoted by name is looked
+  up by its name; its quoted statement is not checked, nor are fragments
+  (proof states, tactic lines, outlines) or `#eval` results in the prose.
   Reports the file, the exercise or line, and Lean's message; exits 1 on any
   problem. `--no-lean`, `--lean`, `--lesson <id>`, and `--gaps` for what the
   curriculum promises and does not yet have.
-- Tests: 197, including every reference solution checked by the real Lean,
+- Tests: 202, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

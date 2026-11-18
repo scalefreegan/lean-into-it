@@ -229,21 +229,44 @@ loader refuses. Then it starts a Lean of its own and, lesson by lesson:
   forbidden tactic if it is not accepted;
 - gives every other `options` entry of a fill exercise to Lean, and reports
   one that Lean accepts;
-- compiles the lesson's ` ```lean ` blocks that are whole declarations (the
-  first line starts with `def`, `theorem`, `example`, `#eval` and the
-  like). They are compiled in order in one file after the lesson's `given`,
-  so a block may use what an earlier block or the `given` defines, and may
-  show a definition that the `given` also has. A `theorem` shown as a
-  statement with no `:=` is checked as a statement;
+- compiles the lesson's ` ```lean ` blocks (` ```lean4 ` too) that are
+  whole declarations or commands: the first line of code, after any
+  comment, starts with `def`, `theorem`, `example`, `@[…]`, `#eval` and the
+  like. They are compiled in order in one file, laid out as a learner's own
+  file would be: the lesson's `given` at the top, then the blocks. So a
+  block may use what an earlier block or the `given` defines, a name used
+  twice is refused, and so is a name the library already has. A `theorem`,
+  `lemma` or `example` shown as a statement with no `:=` is checked as a
+  statement;
+- compares a definition that a block shows with the lesson's `given` when
+  both declare the same name: they must be the same apart from comments,
+  attributes and spacing, since the `given` is what the exercises use;
 - looks up the name in a one-line block of the form
-  `abs_lt : |a| < b ↔ -b < a ∧ a < b` (a name with a `_` or a `.` in it).
-  Only the name is checked: the statement is written with variables the
-  lesson leaves unsaid.
+  `abs_lt : |a| < b ↔ -b < a ∧ a < b`. A name with a `_` or a `.` in it is
+  taken for a library name, unless it looks like a hypothesis (`h_pos`,
+  `hx_pos`). Only the name is checked: the statement beside it is written
+  with variables the lesson leaves unsaid, and a wrong one is not caught.
 
 Any other ` ```lean ` block is a fragment and is not compiled: a proof
 state, a few tactic lines, a term, an outline with `…` in it. The summary
 line counts them. Each problem is printed as file, exercise or line, and
-reason, and the command exits 1 if there is any.
+reason, and the command exits 1 if there is any. If Lean runs out of time
+or crashes on one item, that is that item's problem and the run goes on.
+
+What it does not check, so the author must:
+
+- The result of an `#eval` written in the prose, and anything in a fragment.
+- A `sorry` in a block: Lean only warns, and warnings are not problems.
+- Definitions in one exercise's own `given`: blocks see the lesson's `given`
+  only.
+- The blocks of a lesson are compiled together under one 20-second limit.
+
+To show Lean that is meant to fail, or that the check misreads, use a fence
+with another name (` ```text `): the page draws every fence alike, and only
+` ```lean ` blocks are checked.
+
+`#eval` in a block is run, with this user's permissions, like anything else
+given to Lean. Read a lesson from elsewhere before checking it.
 
 | Option | |
 |---|---|

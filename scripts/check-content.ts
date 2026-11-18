@@ -15,14 +15,31 @@ import { checkWithLean, coverage } from "../web/server/contentcheck.ts";
 import { LeanServer, leanProblem } from "../web/server/lean/lsp.ts";
 import { contentDir, loadContent } from "../web/server/loader.ts";
 
+const USAGE = `npm run check:content [-- options]
+  --no-lean        structure only; nothing is checked against Lean
+  --lean           fail, do not skip, when Lean is not installed
+  --lesson <id>    the Lean pass for one lesson (may be repeated; also --lesson=<id>)
+  --gaps           also list what the curriculum promises and does not yet have`;
+
+const flags = new Set<string>();
+const only: string[] = [];
+const wrong: string[] = [];
 const args = process.argv.slice(2);
-const flags = new Set(args.filter((a) => a.startsWith("--")));
-const only = args.flatMap((a, i) => (a === "--lesson" && args[i + 1] ? [args[i + 1]!] : []));
-const known = ["--no-lean", "--lean", "--lesson", "--gaps"];
-const unknown = [...flags].filter((f) => !known.includes(f));
-if (unknown.length || (flags.has("--lean") && flags.has("--no-lean")) || (flags.has("--lesson") && !only.length)) {
-  console.error(unknown.length ? `Unknown option ${unknown.join(", ")}.` : flags.has("--lesson") ? "--lesson needs a lesson id." : "--lean and --no-lean cannot both be given.");
-  console.error(`Options: ${known.join(", ")}`);
+for (let i = 0; i < args.length; i++) {
+  const arg = args[i]!;
+  if (arg === "--help" || arg === "-h") {
+    console.log(USAGE);
+    process.exit(0);
+  } else if (arg === "--lesson" || arg.startsWith("--lesson=")) {
+    const id = arg === "--lesson" ? args[++i] : arg.slice("--lesson=".length);
+    if (!id || id.startsWith("-")) wrong.push("--lesson needs a lesson id.");
+    else only.push(id);
+  } else if (arg === "--no-lean" || arg === "--lean" || arg === "--gaps") flags.add(arg);
+  else wrong.push(`Unknown option ${arg}.`);
+}
+if (flags.has("--lean") && flags.has("--no-lean")) wrong.push("--lean and --no-lean cannot both be given.");
+if (wrong.length) {
+  console.error(`${wrong.join("\n")}\n${USAGE}`);
   process.exit(2);
 }
 
@@ -55,7 +72,8 @@ if (flags.has("--no-lean")) {
       only,
       onLesson: (lesson, problems, n) => {
         for (const p of problems) console.log(`✖ ${p.file}: ${p.message}`);
-        if (!problems.length) console.log(`✔ ${lesson.file}: ${n.solutions} solution${n.solutions === 1 ? "" : "s"}${n.snippets ? `, ${n.snippets} snippet${n.snippets === 1 ? "" : "s"}` : ""}`);
+        const some = (count: number, what: string) => (count ? `, ${count} ${what}${count === 1 ? "" : "s"}` : "");
+        if (!problems.length) console.log(`✔ ${lesson.file}: ${n.solutions} solution${n.solutions === 1 ? "" : "s"}${some(n.snippets, "snippet")}${some(n.signatures, "library name")}`);
       },
     });
     failed += pass.problems.length;
