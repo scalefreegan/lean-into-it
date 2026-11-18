@@ -6,7 +6,7 @@ under `content/`, tracked by git; attempts and what has been solved are in a
 local Postgres 17 database (`lean_into_it`). Proofs are checked by a real
 Lean 4 with Mathlib, kept warm by the dev server. Read `docs/PRD.md` first
 (what was decided), `docs/STATUS.md` (what exists, and the bead for
-everything that does not yet), and `docs/CONTENT.md` (the lesson file format)
+everything that does not yet), and `docs/CONTENT.md` (the lesson file format; `docs/CONTENT-REFERENCE.md` is generated from the registry and lists every widget, exercise kind and move)
 before touching content or the loader.
 
 ## Layout
@@ -17,6 +17,7 @@ web/shared/goals.ts      Lean's printed goals parsed into cards (pure)
 web/shared/proof.ts      exercise + body -> Lean source, diagnostics -> verdict (pure)
 web/shared/moves.ts      the proof board's moves; each writes one tactic line
 web/shared/explain.ts    Lean's error messages in plain words
+web/shared/reference.ts  docs/CONTENT-REFERENCE.md as text (scripts/gen-reference.ts writes it)
 web/shared/registry.ts   every widget and exercise kind, with its parameters (the loader checks lessons against it)
 web/shared/wire.ts       request and reply types shared by server and client
 web/server/lean/lsp.ts   the warm Lean: one `lake serve`, JSON-RPC over stdio
@@ -90,6 +91,7 @@ npm run dev                 # http://localhost:38800
 npm test                    # node --test: shared logic, loader, database, real Lean
 npm run check:content       # content/ only: structure, every solution and Lean snippet against the real Lean
                             #   -- --no-lean (structure only), --lesson <id>, --gaps, --lean (fail if Lean is missing)
+npm run gen:reference       # after editing web/shared/registry.ts or moves.ts; commit docs/CONTENT-REFERENCE.md (a test fails if stale)
 npm run typecheck && npm run lint
 npm run db:generate         # after editing scripts/db/schema.ts; commit the SQL
 ```

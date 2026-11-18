@@ -59,6 +59,11 @@ export interface ExerciseSpec {
   /** The words above an exercise of this kind: "Prove it". */
   label: string;
   params: ParamSpecs;
+  /** Whole exercises of this kind, for authors (docs/CONTENT-REFERENCE.md
+   *  prints them). Each must pass the checks and load (reference.test.ts),
+   *  and Lean must accept it, a board example line by line as the board
+   *  writes it (lean.test.ts). */
+  examples: Params[];
   check?: (params: Params) => string[];
 }
 
@@ -207,6 +212,23 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
       forbid: { type: "string[]", doc: "Tactic and theorem names that may not appear in an answer. Forbidding anything also forbids `try?`." },
       solution: { type: "text", required: true, doc: "A proof body, one tactic per line, that Lean accepts. `npm test` checks it against the real Lean." },
     },
+    examples: [
+      {
+        mode: "board",
+        says: "Suppose P is true, and suppose that if P then Q. Then Q is true.",
+        statement: "(P Q : Prop) (hP : P) (hPQ : P → Q) : Q",
+        moves: ["apply", "exact"],
+        solution: "apply hPQ\nexact hP",
+      },
+      {
+        mode: "typed",
+        says: "For every natural number n, double n = 2 * n.",
+        statement: "(n : ℕ) : double n = 2 * n",
+        given: "def double (n : ℕ) : ℕ := n + n",
+        forbid: ["simp", "grind"],
+        solution: "unfold double\nomega",
+      },
+    ],
     check: (p) => {
       const out = statementProblems(p);
       if ((p.mode ?? "board") === "board" && !(Array.isArray(p.moves) && p.moves.length)) out.push("a board exercise needs `moves`");
@@ -225,6 +247,22 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
       options: { type: "string[]", doc: "The choice form: two to five fills to choose from, the solution among them. `npm test` checks that Lean accepts the solution and refuses every other option." },
       forbid: { type: "string[]", doc: "Names that may not appear in what is typed into the gap (the proof around it may use them)." },
     },
+    examples: [
+      {
+        says: "For any real number x, |x + 1| ≤ |x| + 1.",
+        statement: "(x : ℝ) : |x + 1| ≤ |x| + 1",
+        proof: `calc |x + 1| ≤ |x| + |1| := ${GAP}\n  _ = |x| + 1 := by rw [abs_one]`,
+        forbid: ["grind", "simp", "gcongr"],
+        solution: "abs_add_le x 1",
+      },
+      {
+        says: "Suppose a ≤ b and b ≤ c. Then a ≤ c.",
+        statement: "(a b c : ℝ) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c",
+        proof: `calc a ≤ b := h1\n  _ ≤ c := ${GAP}`,
+        options: ["h1", "h2", "le_refl c"],
+        solution: "h2",
+      },
+    ],
     check: (p) => {
       const out = statementProblems(p);
       const proof = typeof p.proof === "string" ? p.proof : "";
@@ -257,16 +295,33 @@ function yamlScalar(value: unknown): string {
   return /^[A-Za-z][A-Za-z0-9 .()'-]*$/.test(value) && !/^(true|false|null|yes|no|on|off|y|n)$/i.test(value) && value === value.trim() ? value : JSON.stringify(value);
 }
 
+/** Text that can be written as a YAML block (`key: |`): more than one
+ *  line, and a first line that is not indented, which YAML would take for
+ *  the indentation of the whole block. */
+const asBlock = (value: string) => value.includes("\n") && !/^\s/.test(value);
+
 /** A widget block as it is written in a lesson file. The Gallery prints
  *  each example this way, to be copied; registry.test.ts checks that what
  *  it prints loads back as the same parameters. */
 export function widgetBlock(type: WidgetType, params: Params): string {
   const lines = [`type: ${type}`];
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value === "string" && value.includes("\n")) lines.push(`${key}: |`, ...value.replace(/\n+$/, "").split("\n").map((l) => (l ? `  ${l}` : "")));
+    if (typeof value === "string" && asBlock(value)) lines.push(`${key}: |`, ...value.replace(/\n+$/, "").split("\n").map((l) => (l ? `  ${l}` : "")));
     else lines.push(`${key}: ${yamlScalar(value)}`);
   }
   return ["```widget", ...lines, "```"].join("\n");
+}
+
+/** An exercise as it is written under `exercises:` in a lesson's frontmatter. */
+export function exerciseBlock(kind: ExerciseKind, id: string, title: string, params: Params): string {
+  const lines = [`  - id: ${yamlScalar(id)}`, `    kind: ${kind}`, `    title: ${yamlScalar(title)}`];
+  for (const [key, value] of Object.entries(params)) {
+    const text = EXERCISES[kind].params[key]?.type === "text" && key !== "statement";
+    if (typeof value === "string" && (asBlock(value) || (text && !/^\s/.test(value)))) {
+      lines.push(`    ${key}: |`, ...value.replace(/\n+$/, "").split("\n").map((l) => (l ? `      ${l}` : "")));
+    } else lines.push(`    ${key}: ${yamlScalar(value)}`);
+  }
+  return lines.join("\n");
 }
 
 export function isWidget(type: string): type is WidgetType {

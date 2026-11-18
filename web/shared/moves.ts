@@ -403,6 +403,20 @@ export function readLine(line: string): { move: Move; arg?: string } | null {
   return move.needs === "fact" || move.needs === "text" ? { move, arg: line.slice(word.length + 1) } : { move };
 }
 
+/** The shape of the line a move writes, for authors: a board exercise's
+ *  `solution` must be made of such lines. `h` stands for the fact clicked,
+ *  `n` for the object clicked; names the board chooses are said in words. */
+export function lineShape(move: Move): string {
+  if (move.id === "obtain") return "obtain ⟨…⟩ := h (the board names the parts)";
+  if (move.id === "rw") return "rw [h]";
+  if (move.id === "rw_back") return "rw [← h]";
+  if (move.id === "induction") return "induction' n with n ih";
+  if (move.needs === "name") return `${move.label} h (the board chooses the name)`;
+  if (move.needs === "fact") return `${move.label} h`;
+  if (move.needs === "text") return `${move.label} …what was typed`;
+  return move.label;
+}
+
 /** The Lean line a move writes. `arg` is the clicked card's name, or the typed text. */
 export function moveLine(move: Move, goal: Goal, arg?: string): string {
   if (move.id === "obtain") return obtainLine(goal, arg ?? "?");

@@ -11,6 +11,7 @@
     "lint": "npm --prefix web run lint",
     "typecheck": "cd web && npx tsc -b",
     "check:content": "node scripts/check-content.ts",
+    "gen:reference": "node scripts/gen-reference.ts",
     "lean:setup": "bash scripts/lean-setup.sh",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/db/setup.mjs --migrate-only",
