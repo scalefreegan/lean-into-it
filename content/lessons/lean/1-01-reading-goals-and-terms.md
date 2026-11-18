@@ -84,7 +84,16 @@ Every line above the last has the form **name : what it is**.
 - `hPQ : P → Q` is a **fact**: something assumed or already shown. The name is on the left, the statement on the right. Lean calls these *hypotheses*. The names starting with h are only a habit.
 - `⊢ P → R` is the **goal**. The symbol `⊢` is called a turnstile; read it as "to show".
 
-The board puts the objects in one row, the facts on teal cards and the goal on an amber card. It is the same information.
+The board puts the objects in one row, the facts on teal cards and the goal on an amber card. It is the same information. Here are those four lines again, as the board draws them:
+
+```widget
+type: proof-state
+state: |
+  P Q R : Prop
+  hPQ : P → Q
+  hQR : Q → R
+  ⊢ P → R
+```
 
 When there is more than one goal, Lean prints one such block for each, and each has its own facts above its own `⊢`. A label may come first, such as `case inl` after you split an or. Your next line always works on the first goal. When there are none left, the proof is done.
 

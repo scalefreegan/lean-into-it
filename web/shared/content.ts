@@ -2,6 +2,8 @@
 // sends and the UI renders. The on-disk format is described in
 // docs/CONTENT.md.
 
+import type { WidgetType } from "./registry.ts";
+
 export interface Track {
   id: string; // "logic", "math", "lean", "programs"
   title: string;
@@ -22,7 +24,8 @@ export interface Level {
 /** How a proof is entered: clicking moves on the proof board, or typing Lean. */
 export type ProofMode = "board" | "typed";
 
-/** A "Prove it" exercise. Lean decides whether it is solved. */
+/** A "Prove it" exercise (kind `prove` in web/shared/registry.ts, which
+ *  lists its fields for authors). Lean decides whether it is solved. */
 export interface Exercise {
   /** Unique within its lesson; progress is keyed on lesson id + this. */
   id: string;
@@ -46,7 +49,9 @@ export interface Exercise {
   concept: string;
 }
 
-export type Block = { type: "prose"; markdown: string } | { type: "exercise"; id: string };
+/** A lesson's body in order: prose, the place of an exercise, or a widget
+ *  with the parameters the loader has checked against the registry. */
+export type Block = { type: "prose"; markdown: string } | { type: "exercise"; id: string } | { type: "widget"; widget: WidgetType; params: Record<string, unknown> };
 
 export interface Lesson {
   id: string;

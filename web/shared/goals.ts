@@ -48,7 +48,15 @@ export function parseGoal(text: string): Goal {
     if (/^\s/.test(line) && current) {
       // A continuation of the previous hypothesis's type (or value).
       if (current.value !== undefined) current.value += `\n${line}`;
-      else current.type += `\n${line}`;
+      else current.type = current.type ? `${current.type}\n${line}` : line.trim();
+      continue;
+    }
+    // A long statement is broken straight after the colon: `h :` and then
+    // the statement on indented lines.
+    const bare = /^(\S.*?) :$/.exec(line);
+    if (bare) {
+      current = { names: bare[1].trim().split(/\s+/), type: "" };
+      goal.hypotheses.push(current);
       continue;
     }
     const colon = line.indexOf(" : ");
@@ -73,6 +81,20 @@ export function parseGoal(text: string): Goal {
 
 export function parseGoals(texts: string[]): Goal[] {
   return texts.map(parseGoal);
+}
+
+/** A proof state written out by hand (a `proof-state` widget), cut into its
+ *  goals: one block per goal, as Lean prints them, a blank line between. */
+export function stateBlocks(text: string): string[] {
+  return text
+    .replace(/\r/g, "")
+    .split(/\n[ \t]*\n/)
+    .map((block) => block.replace(/^\n+|\s+$/g, ""))
+    .filter((block) => block.trim());
+}
+
+export function parseState(text: string): Goal[] {
+  return parseGoals(stateBlocks(text));
 }
 
 /** Every hypothesis name in a goal, in order. */

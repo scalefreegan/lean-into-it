@@ -50,6 +50,16 @@ Landed in the first PR, the foundation slice:
   is reported as a refused move (Lean only remarks on it). Not yet: the
   graphs and number lines, which the lessons describe in words
   (`lii-dvy.11`). Levels 4 on are outlined.
+- The registry (`lii-53v.1`): `web/shared/registry.ts` is the one list of
+  widgets and exercise kinds, with the parameters each takes. The loader
+  checks every exercise and every ` ```widget ` block in a lesson against
+  it and refuses the lesson, naming the file, the block and the reason.
+  `#/gallery` draws every widget from its example parameters and lists
+  what each widget and exercise kind takes. Two widgets so far, both
+  built from what the proof board already had: `proof-state` (a state as
+  cards, used in "Reading a goal, and proofs as things") and `move-list`.
+  "Prove it" is the registered kind `prove`, with the board and the editor
+  as its two modes.
 - Board moves: `rfl`, `norm_num`, `intro`, `exact`, `apply`, `constructor`,
   `obtain` (writes the pattern and names for the fact's shape), `left`,
   `right`, `exfalso`, `contradiction`, `by_contra`, `use` (the witness is
@@ -80,7 +90,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 121, including every reference solution checked by the real Lean,
+- Tests: 154, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -96,7 +106,7 @@ until it is added.
 
 ## Remaining
 
-46 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
+45 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -123,19 +133,18 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-53v.1` | Widget and exercise registry, lesson widget blocks, and a Gallery page | 1 | |
-| `lii-53v.2` | Function and limit explorers | 2 | `lii-53v.1` |
-| `lii-53v.3` | Informal beside formal widget | 2 | `lii-53v.1` |
-| `lii-53v.4` | Program stepper | 3 | `lii-53v.1` |
-| `lii-53v.5` | Small widgets: truth table, number line, induction dominoes | 2 | `lii-53v.1` |
+| `lii-53v.2` | Function and limit explorers | 2 | |
+| `lii-53v.3` | Informal beside formal widget | 2 | |
+| `lii-53v.4` | Program stepper | 3 | |
+| `lii-53v.5` | Small widgets: truth table, number line, induction dominoes | 2 | |
 
 ### Exercises (epic `lii-6xv`)
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-6xv.1` | Exercise kind: Fill the gap | 1 | `lii-53v.1` |
-| `lii-6xv.2` | Exercise kind: Predict and read | 2 | `lii-53v.1` |
-| `lii-6xv.3` | Exercise kind: True or false | 2 | `lii-53v.1` |
+| `lii-6xv.1` | Exercise kind: Fill the gap | 1 | |
+| `lii-6xv.2` | Exercise kind: Predict and read | 2 | |
+| `lii-6xv.3` | Exercise kind: True or false | 2 | |
 
 ### Progress (epic `lii-zjf`)
 
@@ -181,7 +190,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-kqz.1` | Lab page | 2 | `lii-53v.1` |
+| `lii-kqz.1` | Lab page | 2 | |
 | `lii-kqz.2` | Famous Proofs gallery | 2 | `lii-kqz.1`, `lii-53v.3`, `lii-8wq.2` |
 
 ### Dock app (epic `lii-nnr`)
@@ -194,7 +203,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-2zf.1` | `docs/CONTENT.md` and generated `CONTENT-REFERENCE.md` | 1 | `lii-53v.1` |
+| `lii-2zf.1` | `docs/CONTENT.md` and generated `CONTENT-REFERENCE.md` | 1 | |
 | `lii-2zf.2` | `check:content` script | 1 | |
 | `lii-2zf.3` | `docs/DATA.md` | 3 | |
 | `lii-2zf.4` | README screenshots | 2 | |

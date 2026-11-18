@@ -17,6 +17,7 @@ web/shared/goals.ts      Lean's printed goals parsed into cards (pure)
 web/shared/proof.ts      exercise + body -> Lean source, diagnostics -> verdict (pure)
 web/shared/moves.ts      the proof board's moves; each writes one tactic line
 web/shared/explain.ts    Lean's error messages in plain words
+web/shared/registry.ts   every widget and exercise kind, with its parameters (the loader checks lessons against it)
 web/shared/wire.ts       request and reply types shared by server and client
 web/server/lean/lsp.ts   the warm Lean: one `lake serve`, JSON-RPC over stdio
 web/server/check.ts      /api/check, /api/playground, /api/lean
@@ -24,7 +25,9 @@ web/server/loader.ts     content/ -> Content, with readable refusals
 web/server/api.ts        wrap() and the route table
 scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
 web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor
-web/src/pages/           Home (the Path), Lesson, Playground
+web/src/widgets/         one component per widget; registry.ts maps registered names to them
+web/src/exercises/       one component per exercise kind, mapped the same way
+web/src/pages/           Home (the Path), Lesson, Playground, Gallery (#/gallery)
 ```
 
 ## Rules that keep it working
@@ -54,7 +57,9 @@ web/src/pages/           Home (the Path), Lesson, Playground
   on them.
 - Every exercise needs a reference `solution` that Lean accepts;
   `web/server/lean.test.ts` checks all of them against the real Lean.
-- Adding a board move starts in `web/shared/moves.ts`.
+- Adding a board move starts in `web/shared/moves.ts`. Adding a widget or an
+  exercise kind starts in `web/shared/registry.ts` (`docs/CONTENT.md` has
+  the steps).
 - Files under `web/shared/` and `scripts/db/*.ts` are run directly by Node
   (type stripping): explicit `.ts` import extensions, erasable syntax only.
 - The facts/goal/closed colours (teal, amber, green) mean the same thing

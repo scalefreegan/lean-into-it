@@ -1,7 +1,9 @@
 // content/ → Content. Reads curriculum.yaml and every lesson file, checks
 // each against the format in docs/CONTENT.md and refuses what is wrong with
-// a readable reason (Content.problems) instead of serving it. Re-read on
-// every request: the files are small, and an edit shows up at once.
+// a readable reason (Content.problems) instead of serving it. What an
+// exercise kind or a widget takes is not written here: it is read from the
+// registry (web/shared/registry.ts). Re-read on every request: the files
+// are small, and an edit shows up at once.
 //
 // This checks shape only. Whether an exercise's reference solution really
 // proves its statement is Lean's call (web/server/lean.test.ts).
@@ -12,7 +14,7 @@ import { parse as parseYaml } from "yaml";
 import { ROOT } from "../../scripts/env.mjs";
 import type { Block, Content, ContentProblem, Exercise, Lesson, Level, Track } from "../shared/content.ts";
 import { sortLessons } from "../shared/content.ts";
-import { isMove } from "../shared/moves.ts";
+import { checkParams, EXERCISE_KEYS, EXERCISES, isExerciseKind, isWidget, WIDGET_KEYS, WIDGETS } from "../shared/registry.ts";
 
 /** LEAN_INTO_IT_CONTENT_DIR lets tests point at a fixture; else <repo>/content. */
 export function contentDir(): string {
@@ -107,6 +109,8 @@ function lessonFiles(lessonsDir: string): string[] {
   return out.sort();
 }
 
+const GIVEN_FORBIDS = /\b(sorry|admit|axiom)\b/;
+
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 
 /** One lesson file. Reports through `problem` and returns null (or a lesson
@@ -145,6 +149,9 @@ export function parseLesson(
   // Definitions every exercise of the lesson is about; an exercise may add its own.
   if (front.given !== undefined && typeof front.given !== "string") problem(file, "`given` must be text: Lean code after `given: |`");
   const lessonGiven = typeof front.given === "string" ? front.given.replace(/\s+$/, "") : "";
+  // The same rule the registry applies to an exercise's own `given`: these
+  // definitions go in front of every theorem of the lesson.
+  if (GIVEN_FORBIDS.test(lessonGiven)) problem(file, "the lesson's `given` must not contain sorry, admit or an axiom");
 
   const exercises: Exercise[] = [];
   for (const e of Array.isArray(front.exercises) ? front.exercises : []) {
@@ -184,61 +191,118 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
     return null;
   }
   const kind = str(e.kind) || "prove";
-  if (kind !== "prove") {
-    problem(`${where}: kind "${kind}" is not known (only "prove" so far)`);
+  if (!isExerciseKind(kind)) {
+    problem(`${where}: kind "${kind}" is not known (web/shared/registry.ts lists ${Object.keys(EXERCISES).join(", ")})`);
     return null;
   }
-  const mode = str(e.mode) || "board";
-  if (mode !== "board" && mode !== "typed") {
-    problem(`${where}: mode must be board or typed`);
-    return null;
-  }
-  const statement = str(e.statement).replace(/\s+/g, " ");
-  const solution = typeof e.solution === "string" ? e.solution.replace(/\s+$/, "") : "";
-  const moves = strings(e.moves);
-  const own = typeof e.given === "string" ? e.given.replace(/\s+$/, "") : "";
-  const given = [lessonGiven, own].filter(Boolean).join("\n\n");
   let ok = true;
   const bad = (message: string) => {
     problem(`${where}: ${message}`);
     ok = false;
   };
   if (!str(e.title)) bad("needs a title");
-  if (!str(e.says)) bad("needs `says`, the claim in plain English");
-  if (!statement.includes(":")) bad("needs a Lean `statement` (binders, a colon, the claim)");
-  if (/:=|\bsorry\b/.test(statement)) bad("the statement must not contain := or sorry");
-  if (e.given !== undefined && typeof e.given !== "string") bad("`given` must be text: Lean code after `given: |`");
-  if (/\b(sorry|admit|axiom)\b/.test(given)) bad("`given` must not contain sorry, admit or an axiom");
-  if (!solution.trim()) bad("needs a reference `solution`");
-  for (const move of moves) if (!isMove(move)) bad(`move "${move}" is not in web/shared/moves.ts`);
-  if (mode === "board" && !moves.length) bad("a board exercise needs `moves`");
+  // What the kind takes, and what is wrong with what it was given, is the registry's to say.
+  for (const message of checkParams(EXERCISES[kind], e, EXERCISE_KEYS)) bad(message);
   const concept = str(e.concept) || concepts[0] || "";
   if (!concept) bad("needs a concept (or the lesson must list concepts)");
   if (!ok) return null;
-  return { id, kind: "prove", mode, title: str(e.title), says: str(e.says), statement, given, moves, forbid: strings(e.forbid), solution, concept };
+
+  const own = typeof e.given === "string" ? e.given.replace(/\s+$/, "") : "";
+  return {
+    id,
+    kind,
+    mode: e.mode === "typed" ? "typed" : "board",
+    title: str(e.title),
+    says: str(e.says),
+    statement: str(e.statement).replace(/\s+/g, " "),
+    given: [lessonGiven, own].filter(Boolean).join("\n\n"),
+    moves: strings(e.moves),
+    forbid: strings(e.forbid),
+    solution: typeof e.solution === "string" ? e.solution.replace(/\s+$/, "") : "",
+    concept,
+  };
 }
 
-const FENCE = /^```exercise[ \t]*\r?\n([\s\S]*?)\r?\n```[ \t]*$/gm;
+/** A line that opens or closes a code fence: three or more backticks. */
+const TICKS = /^(`{3,})/;
+/** The two fences the loader acts on, written exactly. */
+const BLOCK = /^```(exercise|widget)[ \t]*$/;
+/** A fence that means to be one of them and is not written that way:
+ *  indented, capitalised, spaced, longer, or with tildes. */
+const NEAR_BLOCK = /^\s*(`{3,}|~{3,})\s*(exercise|widget)\s*$/i;
 
-/** Prose with ```exercise fences (each just `id: <exercise id>`) placing the
- *  exercises. Any exercise not placed follows at the end, in declared order. */
+/**
+ * Prose with two kinds of fence in it. ```exercise (just `id: <exercise
+ * id>`) places an exercise; any exercise not placed follows at the end, in
+ * declared order. ```widget (`type: <widget>` and its parameters) embeds a
+ * widget, checked here against the registry so that the page never has to
+ * draw one it was not given what it needs.
+ *
+ * Read line by line, as the page's markdown reads it (web/src/markdown.tsx):
+ * a fence closes at a line of at least as many backticks and nothing else,
+ * so a longer fence can quote a block without it being acted on. A block
+ * fence that is nearly right, or never closed, would otherwise be shown to
+ * the learner as a box of YAML with nothing said: it is refused.
+ */
 function parseBlocks(body: string, exercises: Exercise[], problem: (message: string) => void): Block[] {
   const blocks: Block[] = [];
   const placed = new Set<string>();
-  const prose = (markdown: string) => {
-    if (markdown.trim()) blocks.push({ type: "prose", markdown: markdown.trim() });
+  const lines = body.split(/\r?\n/);
+  let buf: string[] = [];
+  const flush = () => {
+    const markdown = buf.join("\n").trim();
+    if (markdown) blocks.push({ type: "prose", markdown });
+    buf = [];
   };
-  let last = 0;
-  for (const m of body.matchAll(FENCE)) {
-    prose(body.slice(last, m.index));
-    last = m.index + m[0].length;
-    let id = "";
-    try {
-      const parsed: unknown = parseYaml(m[1]);
-      id = isRecord(parsed) ? str(parsed.id) : "";
-    } catch {
-      /* reported below */
+  let widgets = 0;
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const kind = BLOCK.exec(line)?.[1];
+    const near = NEAR_BLOCK.exec(line);
+    if (near && !kind) {
+      const want = near[2].toLowerCase();
+      problem(`the line “${line.trim()}” looks like the start of ${want === "exercise" ? "an exercise" : "a widget"} block, which is written \`\`\`${want} exactly, at the start of a line`);
+      buf.push(line);
+      i++;
+      continue;
     }
+    const ticks = TICKS.exec(line)?.[1].length;
+    if (!ticks) {
+      buf.push(line);
+      i++;
+      continue;
+    }
+    const closes = new RegExp(`^\`{${ticks},}[ \\t]*$`);
+    let end = i + 1;
+    while (end < lines.length && !closes.test(lines[end])) end++;
+    if (!kind) {
+      // An ordinary code block is prose, taken whole: nothing in it is a block.
+      buf.push(...lines.slice(i, end + 1));
+      i = end + 1;
+      continue;
+    }
+    if (kind === "widget") widgets++;
+    if (end >= lines.length) {
+      problem(`${kind === "widget" ? `widget block ${widgets}` : "an exercise block"} is opened with \`\`\`${kind} and never closed`);
+      break;
+    }
+    flush();
+    const text = lines.slice(i + 1, end).join("\n");
+    i = end + 1;
+    let parsed: unknown;
+    let unreadable = "";
+    try {
+      parsed = parseYaml(text);
+    } catch (e) {
+      unreadable = (e as Error).message.split("\n")[0];
+    }
+    if (kind === "widget") {
+      const block = parseWidget(parsed, unreadable, widgets, problem);
+      if (block) blocks.push(block);
+      continue;
+    }
+    const id = isRecord(parsed) ? str(parsed.id) : "";
     if (!exercises.some((e) => e.id === id)) problem(`an exercise block names "${id}", which is not in the frontmatter's exercises`);
     else if (placed.has(id)) problem(`exercise "${id}" is placed twice`);
     else {
@@ -246,7 +310,30 @@ function parseBlocks(body: string, exercises: Exercise[], problem: (message: str
       blocks.push({ type: "exercise", id });
     }
   }
-  prose(body.slice(last));
+  flush();
   for (const e of exercises) if (!placed.has(e.id)) blocks.push({ type: "exercise", id: e.id });
   return blocks;
+}
+
+/** One ```widget fence. `n` counts the lesson's widget blocks from 1, so a
+ *  refusal says which one. */
+function parseWidget(parsed: unknown, unreadable: string, n: number, problem: (message: string) => void): Block | null {
+  if (unreadable || !isRecord(parsed)) {
+    problem(`widget block ${n}: ${unreadable ? `is not valid YAML: ${unreadable}` : "must be a set of key: value lines, starting with type:"}`);
+    return null;
+  }
+  const type = str(parsed.type);
+  const where = `widget block ${n} (${type || "no type"})`;
+  if (!isWidget(type)) {
+    const given = parsed.type !== undefined && parsed.type !== null;
+    const why = type ? `there is no widget called "${type}"` : given ? `\`type\` must be a widget's name, not ${JSON.stringify(parsed.type)}` : "needs `type`, the widget's name";
+    problem(`${where}: ${why}. web/shared/registry.ts lists ${Object.keys(WIDGETS).join(", ")}`);
+    return null;
+  }
+  const wrong = checkParams(WIDGETS[type], parsed, WIDGET_KEYS);
+  for (const message of wrong) problem(`${where}: ${message}`);
+  if (wrong.length) return null;
+  const params: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parsed)) if (!(WIDGET_KEYS as readonly string[]).includes(key) && value !== null) params[key] = value;
+  return { type: "widget", widget: type, params };
 }
