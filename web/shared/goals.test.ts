@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { goalsText, isNatural, isObject, namesIn, parseGoal, parseGoals } from "./goals.ts";
+import { goalsText, isNatural, isObject, namesIn, parseGoal, parseGoals, unsolvedGoals } from "./goals.ts";
 
 test("a goal's hypotheses and target are read as Lean prints them", () => {
   const g = parseGoal("P Q : Prop\nhP : P\nhPQ : P → Q\n⊢ Q");
@@ -64,4 +64,14 @@ test("goals go to the Tutor as Lean prints them", () => {
   assert.equal(goalsText(parseGoals([text])), text);
   assert.equal(goalsText([]), "no goals: the proof is complete");
   assert.equal(goalsText(null), "");
+});
+
+test("the goals still open are read from Lean's unsolved-goals error, and only from it", () => {
+  const open = unsolvedGoals([
+    { severity: "error", message: "unsolved goals\ncase right\nP Q : Prop\nhP : P\nhQ : Q\n⊢ Q\n\ncase extra\n⊢ True" },
+    { severity: "error", message: "type mismatch\n  hP" },
+    { severity: "warning", message: "unsolved goals\n⊢ False" },
+  ]);
+  assert.deepEqual(open.map((g) => [g.caseName, g.target]), [["right", "Q"], ["extra", "True"]]);
+  assert.deepEqual(unsolvedGoals([]), []);
 });

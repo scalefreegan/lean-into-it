@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { unsolvedGoals } from "../shared/goals.ts";
 import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
@@ -202,6 +203,14 @@ test("a ring that did not finish is refused; a ring that finished the long way i
   const nested = await checkExercise(leanServer(), { ...identity, statement: "(x y : ℝ) (h : x = y) : x = y" }, "have h2 : x * 1 = y + 1 := by ring\nexact h");
   assert.equal(nested.error?.line, 0);
   assert.match(nested.error?.message ?? "", /ring. tactic failed/);
+  // A bullet proof with its second case never started: no goal at the end of
+  // the body, but Lean's "unsolved goals" error names the one still open.
+  const bullets = await checkExercise(leanServer(), { ...identity, statement: "(P Q : Prop) (hP : P) (hQ : Q) : P ∧ Q" }, "constructor\n· exact hP");
+  assert.equal(bullets.solved, false);
+  assert.deepEqual(bullets.goals, []);
+  const open = unsolvedGoals(bullets.diagnostics);
+  assert.deepEqual(open.map((g) => [g.caseName, g.target]), [["right", "Q"]]);
+  assert.ok(open[0].hypotheses.some((h) => h.names.includes("hQ")));
 });
 
 test("try? and the other one-line ways round a by-hand exercise are switched off", { skip }, async () => {

@@ -213,7 +213,13 @@ Landed in the first PR, the foundation slice:
   to 13 days on, one day after another. Retaking keeps the first credits.
   "Continue" passes over a lesson the placement credited until it is tried. By level, not by track: the
   levels follow the tracks closely enough. Migration `0003_placement`.
-- Tests: 287, including every reference solution checked by the real Lean,
+- Typed proofs show the cases still open (`lii-8wq.5`): where no goal is
+  left at the end of the body but Lean has not accepted it (a bullet proof
+  whose other case was never started), the panel reads them from Lean's
+  "unsolved goals" error and shows them under "Still open"; the Tutor is
+  told them too. `lii_exercise` reaches the learner only in the refusal
+  that explains it, so the `example` headers stay.
+- Tests: 288, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -233,7 +239,7 @@ until it is added.
 
 ## Remaining
 
-35 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+34 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -252,7 +258,6 @@ land first.
 | `lii-8wq.2` | Live proof map | 2 | `lii-1ou.3` |
 | `lii-8wq.3` | Lean editor: syntax colouring, completion and inline error marks | 2 | |
 | `lii-8wq.4` | Plain-word explanations for every move the curriculum introduces | 2 | |
-| `lii-8wq.5` | Typed proofs: show the goals still open when none is at the cursor | 2 | |
 | `lii-8wq.6` | obtain on a fact that is not an and, or, iff or exists | 3 | |
 
 ### Widgets (epic `lii-53v`)

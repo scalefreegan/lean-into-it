@@ -125,3 +125,12 @@ export function goalsText(goals: Goal[] | null): string {
     .map((g) => [...(g.caseName ? [`case ${g.caseName}`] : []), ...g.hypotheses.map((h) => `${h.names.join(" ")} : ${h.type}${h.value ? ` := ${h.value}` : ""}`), `⊢ ${g.target}`].join("\n"))
     .join("\n\n");
 }
+
+/** The goals Lean still has open when the proof ends, read from its
+ *  "unsolved goals" error (which prints them). Where no goal is open at the
+ *  end of the body yet a case is unfinished (a bullet proof whose other
+ *  case was never started), this is the only place they are shown. Empty
+ *  when there is no such error. */
+export function unsolvedGoals(diagnostics: { severity: string; message: string }[]): Goal[] {
+  return diagnostics.flatMap((d) => (d.severity === "error" && /^unsolved goals\s*\n/.test(d.message) ? parseState(d.message.replace(/^unsolved goals\s*\n/, "")) : []));
+}
