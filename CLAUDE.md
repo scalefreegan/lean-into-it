@@ -22,6 +22,7 @@ web/shared/wire.ts       request and reply types shared by server and client
 web/server/lean/lsp.ts   the warm Lean: one `lake serve`, JSON-RPC over stdio
 web/server/check.ts      /api/check, /api/playground, /api/lean (status), /api/lean/restart
 web/server/loader.ts     content/ -> Content, with readable refusals
+web/server/contentcheck.ts  what `npm run check:content` asks Lean (scripts/check-content.ts is the command)
 web/server/api.ts        wrap() and the route table
 scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
 web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor
@@ -87,12 +88,15 @@ npm run lean:setup          # once: Lean toolchain + Mathlib cache (about 10 GB 
 npm run db:setup            # once per machine (Postgres 17 running); idempotent
 npm run dev                 # http://localhost:38800
 npm test                    # node --test: shared logic, loader, database, real Lean
+npm run check:content       # content/ only: structure, every solution and Lean snippet against the real Lean
+                            #   -- --no-lean (structure only), --lesson <id>, --gaps, --lean (fail if Lean is missing)
 npm run typecheck && npm run lint
 npm run db:generate         # after editing scripts/db/schema.ts; commit the SQL
 ```
 Verify UI in the real app (Playwright MCP or Claude-in-Chrome) before claiming
 a feature works. Lean content must be exactly right: check every statement
-and solution against Lean, not from memory.
+and solution against Lean, not from memory. A PR that touches `content/`
+runs `npm run check:content` and says so.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:6cd5cc61 -->
 ## Beads Issue Tracker

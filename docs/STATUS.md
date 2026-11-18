@@ -114,7 +114,17 @@ Landed in the first PR, the foundation slice:
   down and the toolchain; `POST /api/lean/restart` restarts it. The app
   shows "Lean is starting" while Mathlib loads. Left for `lii-1ou.6`:
   cancelling a superseded check, and a memory limit.
-- Tests: 189, including every reference solution checked by the real Lean,
+- `npm run check:content` (`lii-2zf.2`): the structure check the app does,
+  then every reference solution and every wrong option judged by the real
+  Lean exactly as a learner's answer is, and every ```lean block that is
+  whole declarations compiled after the lesson's `given` (a definition
+  shown must match the one given). A library fact quoted by name is looked
+  up by its name; its quoted statement is not checked, nor are fragments
+  (proof states, tactic lines, outlines) or `#eval` results in the prose.
+  Reports the file, the exercise or line, and Lean's message; exits 1 on any
+  problem. `--no-lean`, `--lean`, `--lesson <id>`, and `--gaps` for what the
+  curriculum promises and does not yet have.
+- Tests: 202, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -130,7 +140,7 @@ until it is added.
 
 ## Remaining
 
-43 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
+42 beads in 11 areas. P1 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -185,7 +195,7 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-2zo.1` | Tutor drawer: explain and hint, with the hint ladder and assisted marking | 1 | |
-| `lii-2zo.2` | Tutor lesson authoring with a Lean compile gate and worktree commits | 2 | `lii-2zo.1`, `lii-2zf.1`, `lii-2zf.2` |
+| `lii-2zo.2` | Tutor lesson authoring with a Lean compile gate and worktree commits | 2 | `lii-2zo.1`, `lii-2zf.1` |
 | `lii-2zo.3` | Tutor as proof partner in the Playground | 2 | `lii-2zo.1` |
 | `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |
 | `lii-2zo.5` | Tutor read-only access to attempt history | 2 | `lii-2zo.1`, `lii-zjf.1` |
@@ -226,7 +236,6 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-2zf.1` | `docs/CONTENT.md` and generated `CONTENT-REFERENCE.md` | 1 | |
-| `lii-2zf.2` | `check:content` script | 1 | |
 | `lii-2zf.3` | `docs/DATA.md` | 3 | |
 | `lii-2zf.4` | README screenshots | 2 | |
 | `lii-2zf.5` | Generate `docs/hero.png` from the prompt (Aaron) | 2 | |

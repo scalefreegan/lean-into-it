@@ -95,6 +95,7 @@ npm run dev                 # http://localhost:38800
 
 ```sh
 npm test                    # node --test: database tests on an in-process PGlite, proof tests on the real Lean
+npm run check:content       # every lesson: structure, then solutions and Lean snippets against the real Lean (about a minute)
 npm run typecheck
 npm run lint
 ```

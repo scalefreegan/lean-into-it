@@ -216,5 +216,65 @@ belong to the block.
 - One new move at a time, each used straight away in an exercise.
 - Board exercises first; a typed exercise once the moves are familiar.
 - A lesson is ten minutes or less.
-- Check it: `npm test` (every solution against Lean) and open the lesson in
+- Check it: `npm run check:content -- --lesson <id>` and open the lesson in
   the app.
+
+## Checking content
+
+`npm run check:content` reads `content/` as the app does and prints what the
+loader refuses. Then it starts a Lean of its own and, lesson by lesson:
+
+- gives every exercise's `solution` to Lean the way the app gives it a
+  learner's answer, and reports Lean's message, a goal left over, or a
+  forbidden tactic if it is not accepted;
+- gives every other `options` entry of a fill exercise to Lean, and reports
+  one that Lean accepts;
+- compiles the lesson's ` ```lean ` blocks (` ```lean4 ` too) that are
+  whole declarations or commands: the first line of code, after any
+  comment, starts with `def`, `theorem`, `example`, `@[…]`, `#eval` and the
+  like. They are compiled in order in one file, laid out as a learner's own
+  file would be: the lesson's `given` at the top, then the blocks. So a
+  block may use what an earlier block or the `given` defines, a name used
+  twice is refused, and so is a name the library already has. A `theorem`,
+  `lemma` or `example` shown as a statement with no `:=` is checked as a
+  statement;
+- compares a definition that a block shows with the lesson's `given` when
+  both declare the same name: they must be the same apart from comments,
+  attributes and spacing, since the `given` is what the exercises use;
+- looks up the name in a one-line block of the form
+  `abs_lt : |a| < b ↔ -b < a ∧ a < b`. A name with a `_` or a `.` in it is
+  taken for a library name, unless it looks like a hypothesis (`h_pos`,
+  `hx_pos`). Only the name is checked: the statement beside it is written
+  with variables the lesson leaves unsaid, and a wrong one is not caught.
+
+Any other ` ```lean ` block is a fragment and is not compiled: a proof
+state, a few tactic lines, a term, an outline with `…` in it. The summary
+line counts them. Each problem is printed as file, exercise or line, and
+reason, and the command exits 1 if there is any. If Lean runs out of time
+or crashes on one item, that is that item's problem and the run goes on.
+
+What it does not check, so the author must:
+
+- The result of an `#eval` written in the prose, and anything in a fragment.
+- A `sorry` in a block: Lean only warns, and warnings are not problems.
+- Definitions in one exercise's own `given`: blocks see the lesson's `given`
+  only.
+- The blocks of a lesson are compiled together under one 20-second limit.
+
+To show Lean that is meant to fail, or that the check misreads, use a fence
+with another name (` ```text `): the page draws every fence alike, and only
+` ```lean ` blocks are checked.
+
+`#eval` in a block is run, with this user's permissions, like anything else
+given to Lean. Read a lesson from elsewhere before checking it.
+
+| Option | |
+|---|---|
+| `--no-lean` | Structure only. Fast; nothing is checked against Lean. |
+| `--lean` | Fail where Lean is not installed. Without it the Lean pass is skipped there, with a line saying nothing was checked. |
+| `--lesson <id>` | The Lean pass for that lesson only. May be repeated. |
+| `--gaps` | Also list concepts no exercise tests, moves a level introduces that no exercise uses, levels with no lesson, and topics still to write. Never a failure. |
+
+`npm test` checks the same solutions and more (that each board solution is
+what the board's clicks write); `check:content` is the quicker one to run
+while writing, and the one that reads the lesson's prose.
