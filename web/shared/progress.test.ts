@@ -210,6 +210,17 @@ test("a review session offers each due concept's least recently checked exercise
   assert.deepEqual(reviewSession(two, m, rows, on(2)), [{ lessonId: "l", exerciseId: "a", concept: "and" }]);
 });
 
+test("a review offers an exercise never checked before any already seen: a variant, not the same proof", () => {
+  const three = { ...content, lessons: [{ id: "l", exercises: [{ id: "a", concept: "and", mode: "board" }, { id: "b", concept: "and", mode: "board" }, { id: "c", concept: "or", mode: "board" }, { id: "d", concept: "and", mode: "typed" }] }] } as unknown as typeof content;
+  const rows = [...learn(1), at("a", "q", true, on(1, 8))];
+  const m = masteryFrom(three, rows);
+  assert.deepEqual(reviewSession(three, m, rows, on(2)), [{ lessonId: "l", exerciseId: "d", concept: "and" }]);
+  // Reviewed with d: the next review offers the least recently checked of those seen.
+  const after = [...rows, at("d", "x", true, on(2, 9))];
+  const due = masteryFrom(three, after).concepts.and.dueAt!;
+  assert.deepEqual(reviewSession(three, masteryFrom(three, after), after, new Date(due)), [{ lessonId: "l", exerciseId: "a", concept: "and" }]);
+});
+
 test("a concept with no exercise is never due, and a session holds at most REVIEW_SIZE", () => {
   const map = { concepts: {} as Record<string, ReturnType<typeof masteryFrom>["concepts"][string]>, tactics: {} };
   const lessons: { id: string; exercises: { id: string; concept: string; mode: string }[] }[] = [{ id: "l", exercises: [] }];
