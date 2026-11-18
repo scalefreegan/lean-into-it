@@ -132,7 +132,20 @@ test("a body that would step outside a proof is refused, with the line it is on"
   assert.deepEqual(names("exact f ')' )"), ["0:)"]);
   // Hidden in a comment it is only a comment; hidden in a string it is still refused.
   assert.deepEqual(names("exact hP -- run_tac"), []);
-  assert.deepEqual(names('exact s!"{run_tac x}"'), ["0:run_tac"]);
+  assert.deepEqual(names('exact s!"{run_tac x}"'), ["0:run_tac", "0:{"]);
+  // A `{` in a string may open code Lean reads (an interpolated string), so it is refused.
+  assert.deepEqual(names('have _h := s!"{ "--" }"; run_tac pure ()\nexact hP'), ["0:{"]);
+  assert.ok(names('have _h := s!"{ "--" }"; skip').includes("0:{"));
+  assert.ok(names('exact hP\nhave _ := "a {"').includes("1:{"));
+  assert.deepEqual(names('have _ := "a \\{ b"\nexact hP'), [], "an escaped brace is a character");
+  assert.deepEqual(names("exact { c with x := 1 }"), [], "braces outside strings are ordinary Lean");
+  assert.deepEqual(names("exact f '{' '}'"), [], "a brace as a character literal");
+  // Native evaluation written as an option, on one line or across two, after a dot or not.
+  assert.deepEqual(names("exact (by decide (config := { native := true }) : True)"), ["0:native :="]);
+  assert.deepEqual(names("decide (config := {native:=true})"), ["0:native :="]);
+  assert.deepEqual(names("decide (config := { native\n  := true })"), ["0:native :="]);
+  assert.deepEqual(names("exact (Foo.native := 1)"), ["0:native :="]);
+  assert.deepEqual(names("exact { c with alternative := true }"), []);
   // An array literal is not a command; a name that only contains one of the words is fine.
   assert.deepEqual(names("exact #[1, 2].size_pos"), []);
   assert.deepEqual(names("exact my_run_tac_lemma h"), []);
@@ -177,6 +190,22 @@ test("each way to run a program is refused by name", () => {
     assert.deepEqual(escapesIn(`exact hP\n${word} foo`).map((e) => `${e.line}:${e.name}`), [`1:${word}`], word);
   }
   assert.deepEqual(escapesIn("exact «run» h").map((e) => e.name), ["«»"]);
+});
+
+test("characters outside Unicode's basic plane keep every line and column where it is", () => {
+  const body = "exact 𝓝 -- a note\nexact h";
+  const { code, bare } = lex(body);
+  assert.equal(code, "exact 𝓝" + " ".repeat(10) + "\nexact h");
+  assert.equal(code.length, body.length);
+  assert.equal(bare.split("\n").length, 2);
+  assert.deepEqual(escapesIn("exact 𝔽 \"x\" -- run_tac\nrun_cmd x").map((e) => `${e.line}:${e.name}`), ["1:run_cmd"]);
+});
+
+test("a forbidden tactic cannot hide inside an interpolated string either", () => {
+  assert.deepEqual(forbiddenIn("tauto", ["tauto"]), ["tauto"]);
+  assert.deepEqual(forbiddenIn("exact hP -- tauto", ["tauto"]), [], "a real comment hides nothing to forbid");
+  // The body that would hide it is refused before the forbid list is read.
+  assert.ok(escapesIn('have _ := s!"{ "--" }"; tauto').some((e) => e.name === "{"));
 });
 
 test("a quote after a name, and an r after a name, do not start a literal", () => {
