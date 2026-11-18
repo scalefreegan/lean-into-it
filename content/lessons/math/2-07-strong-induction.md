@@ -80,7 +80,7 @@ There are two base cases now. In the last case the goal is about `k + 2`, and yo
 id: two-back
 ```
 
-The same shape works when the step needs both hypotheses at once. The numbers g(n) below are the Fibonacci numbers, and each is the sum of the two before it. To show none drops below 1, the step only needs one of the two, `ih2`, and a fact from the library: `Nat.le_add_right a b` says a ≤ a + b. The base cases are a rewrite each, because once `h0` turns `g 0` into 1 the goal `1 ≤ 1` closes by itself.
+The same shape works when the rule mentions both of the cases before it. The numbers g(n) below are the Fibonacci numbers: g(n + 2) is the sum of g(n + 1) and g(n). To show none drops below 1, the step only needs one of the two hypotheses, `ih2`, and a fact from the library: `Nat.le_add_right a b` says a ≤ a + b. The base cases are a rewrite each. Once `h0` turns `g 0` into 1, the goal is `1 ≤ 1`, and `rw` closes it by itself: after rewriting it tries `rfl`, which proves `1 ≤ 1` as well as `1 = 1`.
 
 ```exercise
 id: stays-positive
