@@ -243,7 +243,7 @@ until it is added.
 
 ## Remaining
 
-33 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+34 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -253,6 +253,7 @@ land first.
 | `lii-1ou.4` | Re-check a passing proof in a fresh kernel | 2 | |
 | `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
+| `lii-m2l` | Lean timing tests fail in the full suite when the machine is loaded | 3 | |
 
 ### Proof board (epic `lii-8wq`)
 
