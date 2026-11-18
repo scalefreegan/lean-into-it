@@ -135,3 +135,23 @@ export const levelOpens = pgTable(
   },
   (t) => [primaryKey({ columns: [t.learnerId, t.level] }), check("level_opens_how", sql`${t.how} in ('earned', 'anyway', 'placement')`)],
 );
+
+/**
+ * Concepts the placement check credited (lii-zjf.4): passed at a level the
+ * learner tested out of, so they count as mastered without the attempts,
+ * and come back for review on `due_at` (spread over the next one to two
+ * weeks). The mastery replay (web/shared/progress.ts masteryFrom) reads
+ * them with the attempts. One row per concept, the first credit.
+ */
+export const conceptCredits = pgTable(
+  "concept_credits",
+  {
+    learnerId: uuid("learner_id")
+      .notNull()
+      .references(() => learners.id, { onDelete: "cascade" }),
+    concept: text("concept").notNull(),
+    creditedAt: tz("credited_at").notNull().defaultNow(),
+    dueAt: tz("due_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.learnerId, t.concept] })],
+);

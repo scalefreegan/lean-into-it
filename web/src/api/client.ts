@@ -1,5 +1,5 @@
 import type { Content } from "../../shared/content.ts";
-import type { CheckReply, CheckRequest, ErrorReply, LeanStatus, OpenLevelRequest, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest } from "../../shared/wire.ts";
+import type { CheckReply, CheckRequest, ErrorReply, LeanStatus, OpenLevelRequest, PlacementRequest, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest } from "../../shared/wire.ts";
 
 // The one fetch. Every call to the server goes through here, so an error is
 // always an ApiError carrying the server's own sentence.
@@ -39,6 +39,7 @@ async function api<T>(path: string, body?: unknown, signal?: AbortSignal, method
 export const getContent = () => api<Content>("/api/content");
 export const getProgress = () => api<ProgressReply>("/api/progress");
 export const openLevel = (req: OpenLevelRequest) => api<ProgressReply>("/api/progress/open", req);
+export const placeAt = (req: PlacementRequest) => api<ProgressReply>("/api/progress/placement", req);
 export const getLean = () => api<LeanStatus>("/api/lean");
 export const restartLean = () => api<LeanStatus>("/api/lean/restart", {});
 export const check = (req: CheckRequest, signal?: AbortSignal) => api<CheckReply>("/api/check", req, signal);

@@ -7,7 +7,7 @@
 import { and, asc, desc, eq, gte, lt, max } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema.ts";
-import { attempts, chatMessages, hints, learners, levelOpens, solvedExercises } from "./schema.ts";
+import { attempts, chatMessages, conceptCredits, hints, learners, levelOpens, solvedExercises } from "./schema.ts";
 
 /** The server's pool-backed handle and the tests' PGlite one both fit. */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -213,4 +213,24 @@ export async function recordLevelOpen(db: Db, learnerId: string, level: number, 
 export async function levelOpensFor(db: Db, learnerId: string): Promise<LevelOpenRow[]> {
   const rows = await db.select({ level: levelOpens.level, how: levelOpens.how, openedAt: levelOpens.openedAt }).from(levelOpens).where(eq(levelOpens.learnerId, learnerId)).orderBy(asc(levelOpens.level));
   return rows.map((r) => ({ ...r, how: r.how as LevelOpenHow }));
+}
+
+export interface CreditRow {
+  concept: string;
+  creditedAt: Date;
+  dueAt: Date;
+}
+
+/** Credit concepts from a placement check, with when each comes back for
+ *  review. A concept credited before keeps its first credit. */
+export async function recordCredits(db: Db, learnerId: string, credits: { concept: string; dueAt: Date }[]): Promise<void> {
+  if (!credits.length) return;
+  await db
+    .insert(conceptCredits)
+    .values(credits.map((c) => ({ learnerId, concept: c.concept, dueAt: c.dueAt })))
+    .onConflictDoNothing();
+}
+
+export async function creditsFor(db: Db, learnerId: string): Promise<CreditRow[]> {
+  return db.select({ concept: conceptCredits.concept, creditedAt: conceptCredits.creditedAt, dueAt: conceptCredits.dueAt }).from(conceptCredits).where(eq(conceptCredits.learnerId, learnerId));
 }
