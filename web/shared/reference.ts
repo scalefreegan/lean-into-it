@@ -3,18 +3,18 @@
 // and the move table. `npm run gen:reference` writes the file; a test fails
 // when the file and this disagree, so the reference cannot go stale.
 
-import { MOVES } from "./moves.ts";
+import { lineShape, MOVES } from "./moves.ts";
 import { exerciseBlock, EXERCISES, WIDGETS, widgetBlock, type ExerciseKind, type ParamSpec, type ParamSpecs, type ParamType, type WidgetType } from "./registry.ts";
 
 const KINDS: Record<string, string> = {
   string: "one line of text",
-  text: "text, which may run over several lines (`key: |`)",
+  text: "text; when it runs over several lines, write `|` after the colon and indent the lines under it",
   number: "a number",
   boolean: "`true` or `false`",
   "string[]": "a list of text: `[a, b]`",
   "number[]": "a list of numbers: `[1, 2]`",
   "move[]": "a list of move ids (see Moves below): `[intro, exact]`",
-  state: "a proof state as Lean prints it (`key: |`): facts, then a line starting `⊢`",
+  state: "a proof state as Lean prints it, indented under `state: |`: facts, then a line starting `⊢`",
   "expr[]": 'a list of expressions in x: `["2x + 1", "x^2"]`',
   range: "two numbers, the smaller first: `[-5, 5]`",
   "point[]": 'a list of numbers on a line, each optionally labelled: `[0, "1/2", "sqrt(2): √2"]`',
@@ -42,6 +42,12 @@ function table(params: ParamSpecs): string {
   return ["| Parameter | Value | |", "|---|---|---|", ...rows.map(([name, s]) => `| \`${name}\`${s.required ? " (required)" : ""} | ${cell(kindOf(s.type))} | ${cell(s.doc + bounds(s))} |`)].join("\n") + "\n";
 }
 
+/** A move's line as code, with any remark about it in words after the code. */
+export function shown(shape: string): string {
+  const m = /^(.*?)( \(.*\))?$/.exec(shape)!;
+  return `\`${m[1]}\`${m[2] ?? ""}`;
+}
+
 /** The whole reference file. */
 export function reference(): string {
   const out: string[] = [
@@ -64,7 +70,7 @@ export function reference(): string {
   out.push(
     "## Exercise kinds",
     "",
-    "An exercise is an entry under `exercises:` in a lesson's frontmatter. Every exercise takes `id` (required; lowercase letters, digits and hyphens; never changed once live), `kind` (default `prove`), `title`, and `concept` (default: the lesson's first concept), and then the parameters of its kind.",
+    "An exercise is an entry under `exercises:` in a lesson's frontmatter. Every exercise takes `id` (required; lowercase letters, digits and hyphens; unique in its lesson; never changed once live), `kind` (default `prove`), `title` (required) and `concept` (default: the lesson's first concept; required when the lesson lists none), and then the parameters of its kind.",
     "",
   );
   for (const [name, e] of Object.entries(EXERCISES)) {
@@ -74,12 +80,12 @@ export function reference(): string {
   out.push(
     "## Moves",
     "",
-    "The ids a board exercise's `moves` and a `move-list` widget may name. Each click on the proof board writes one line of Lean.",
+    "The ids a board exercise's `moves` and a `move-list` widget may name. Each click on the proof board writes one line of Lean, and every line of a board exercise's `solution` must be a line one of its moves writes (`npm test` replays it against Lean's goals).",
     "",
-    "| Move | It needs | What it does |",
-    "|---|---|---|",
+    "| Move | It needs | The line it writes | What it does |",
+    "|---|---|---|---|",
   );
   const needs = { none: "nothing", fact: "a fact, clicked", name: "nothing (it picks a name)", text: "something typed", object: "one of the statement's objects, clicked" };
-  for (const m of Object.values(MOVES)) out.push(`| \`${m.id}\` | ${needs[m.needs]} | ${cell(m.does)} |`);
+  for (const m of Object.values(MOVES)) out.push(`| \`${m.id}\` | ${needs[m.needs]} | ${shown(lineShape(m))} | ${cell(m.does)} |`);
   return out.join("\n") + "\n";
 }

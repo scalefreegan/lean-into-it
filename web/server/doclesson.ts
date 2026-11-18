@@ -9,8 +9,8 @@ import path from "node:path";
 /** The complete lesson docs/CONTENT.md prints, in a content folder of its own. */
 export function documentedLesson(): { dir: string; file: string } {
   const doc = fs.readFileSync(path.resolve(import.meta.dirname, "../../docs/CONTENT.md"), "utf8");
-  const m = /^`````\n([\s\S]*?)\n`````$/m.exec(doc);
-  assert.ok(m, "docs/CONTENT.md has its complete lesson in a fence of five backticks");
+  const m = /^## A complete lesson\r?\n(?:(?!## )[\s\S])*?^`````[^\n]*\r?\n([\s\S]*?)\r?\n`````\s*$/m.exec(doc);
+  assert.ok(m, 'docs/CONTENT.md must have, under "## A complete lesson", the lesson file in a fence of five backticks');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lii-doc-"));
   fs.writeFileSync(path.join(dir, "curriculum.yaml"), "tracks:\n  - id: logic\n    title: Logic\n    summary: s\nlevels:\n  - id: 1\n    title: One\n    summary: s\n");
   fs.mkdirSync(path.join(dir, "lessons", "logic"), { recursive: true });

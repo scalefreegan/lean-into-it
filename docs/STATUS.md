@@ -124,7 +124,7 @@ Landed in the first PR, the foundation slice:
   Reports the file, the exercise or line, and Lean's message; exits 1 on any
   problem. `--no-lean`, `--lean`, `--lesson <id>`, and `--gaps` for what the
   curriculum promises and does not yet have.
-- Tests: 208, including every reference solution checked by the real Lean,
+- Tests: 211, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

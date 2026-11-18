@@ -3,9 +3,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { MOVES } from "../shared/moves.ts";
-import { reference, kindOf } from "../shared/reference.ts";
-import { checkParams, exerciseBlock, EXERCISE_KEYS, EXERCISES, WIDGETS, type ExerciseKind } from "../shared/registry.ts";
+import { parse as parseYaml } from "yaml";
+import { lineShape, moveLine, MOVES, readLine } from "../shared/moves.ts";
+import { kindOf, reference, shown } from "../shared/reference.ts";
+import { checkParams, exerciseBlock, EXERCISE_KEYS, EXERCISES, widgetBlock, WIDGETS, type ExerciseKind } from "../shared/registry.ts";
 import { documentedLesson } from "./doclesson.ts";
 import { loadContent } from "./loader.ts";
 
@@ -31,10 +32,15 @@ test("the reference has every widget, exercise kind, parameter and move, and no 
     assert.ok(e.examples.length > 0, `${name} has no example`);
     for (const spec of Object.values(e.params)) assert.notEqual(kindOf(spec.type), spec.type);
   }
-  for (const id of Object.keys(MOVES)) assert.ok(text.includes(`| \`${id}\` | `), `move ${id}`);
+  for (const m of Object.values(MOVES)) assert.ok(text.includes(`| \`${m.id}\` | `) && text.includes(` | ${shown(lineShape(m))} | ${m.does.replaceAll("|", "\\|")} |`), `move ${m.id}`);
+  // The exercise keys every kind shares are the ones the registry reserves.
+  for (const key of EXERCISE_KEYS) assert.ok(new RegExp(`Every exercise takes .*\`${key}\``).test(text), key);
   assert.equal(kindOf("enum:board|typed"), "one of `board`, `typed`");
   // A table cell never breaks its row.
-  for (const line of text.split("\n").filter((l) => l.startsWith("| `"))) assert.equal(line.replaceAll("\\|", "").split("|").length, 5, line);
+  const [params, moves] = text.split("\n## Moves\n");
+  for (const line of params!.split("\n").filter((l) => l.startsWith("| `"))) assert.equal(line.replaceAll("\\|", "").split("|").length, 5, line);
+  for (const line of moves!.split("\n").filter((l) => l.startsWith("| `"))) assert.equal(line.replaceAll("\\|", "").split("|").length, 6, line);
+  assert.equal(shown("intro h (the board chooses the name)"), "`intro h` (the board chooses the name)");
 });
 
 test("every exercise example passes its kind's checks and loads from the block the reference prints", () => {
@@ -79,5 +85,30 @@ test("the complete lesson in docs/CONTENT.md loads as written", () => {
     assert.deepEqual(lesson.blocks.map((b) => (b.type === "widget" ? b.widget : b.type === "exercise" ? b.id : "prose")), ["prose", "proof-state", "prose", "two-steps", "prose", "which-fact", "prose", "move-list"]);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the line the reference says a move writes is the line the board writes", () => {
+  const goal = { hypotheses: [{ names: ["h"], type: "P" }], target: "Q" } as unknown as Parameters<typeof moveLine>[1];
+  for (const move of Object.values(MOVES)) {
+    const shape = lineShape(move);
+    // What does not depend on the goal is written exactly as shown.
+    if (move.needs === "none") assert.equal(moveLine(move, goal), shape, move.id);
+    if (move.needs === "fact" && move.id !== "obtain") assert.equal(moveLine(move, goal, "h"), shape, move.id);
+    // And a line of that shape is read back as that move.
+    const line = shape.replace(/ \(.*\)$/, "").replace("…what was typed", "2").replace("⟨…⟩", "⟨a, b⟩");
+    assert.equal(readLine(line)?.move.id, move.id, `${move.id}: ${line}`);
+  }
+});
+
+test("a block printed for a lesson file reads back as the same values, whatever the text", () => {
+  const texts = ["one line", "two\nlines", "  indented first\nthen not", "calc a ≤ b := h1\n  _ ≤ c := <gap>", "ends in a colon:\n  - and a dash", "|x| ≤ 1", "007", "true"];
+  for (const text of texts) {
+    const widget = parseYaml(widgetBlock("proof-state", { state: text, caption: text.split("\n")[0] }).split("\n").slice(1, -1).join("\n")) as Record<string, string>;
+    assert.equal(widget.state.replace(/\n$/, ""), text, JSON.stringify(text));
+    const exercise = (parseYaml(exerciseBlock("fill", "007", text.split("\n")[0]!, { says: text.split("\n")[0], statement: ": True", proof: text, solution: "trivial" })) as Record<string, string>[])[0]!;
+    assert.equal(exercise.id, "007");
+    assert.equal(exercise.title, text.split("\n")[0]);
+    assert.equal(exercise.proof.replace(/\n$/, ""), text, JSON.stringify(text));
   }
 });

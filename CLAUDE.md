@@ -17,6 +17,7 @@ web/shared/goals.ts      Lean's printed goals parsed into cards (pure)
 web/shared/proof.ts      exercise + body -> Lean source, diagnostics -> verdict (pure)
 web/shared/moves.ts      the proof board's moves; each writes one tactic line
 web/shared/explain.ts    Lean's error messages in plain words
+web/shared/reference.ts  docs/CONTENT-REFERENCE.md as text (scripts/gen-reference.ts writes it)
 web/shared/registry.ts   every widget and exercise kind, with its parameters (the loader checks lessons against it)
 web/shared/wire.ts       request and reply types shared by server and client
 web/server/lean/lsp.ts   the warm Lean: one `lake serve`, JSON-RPC over stdio

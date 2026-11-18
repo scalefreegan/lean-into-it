@@ -4,12 +4,12 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals } from "../shared/goals.ts";
-import { assemble, axiomsOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position } from "../shared/proof.ts";
+import { assemble, axiomsOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { isSolved, recordAttempt } from "../../scripts/db/progress.ts";
 import { learnerId, rawDb } from "./db.ts";
-import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, type LeanServer } from "./lean/lsp.ts";
+import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, type LeanCheck, type LeanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { HttpError, methodNotAllowed, readJsonBody, sendJson } from "./sse.ts";
 
@@ -87,7 +87,17 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
   const end = toSource(endOfBody(body), given);
   const positions = [end, ...(cursor ? [toSource(cursor, given)] : []), ...(cursor && otherwise ? [toSource(otherwise, given)] : [])];
   const source = assemble(exercise.statement, body, given);
-  const result = await lean.check("exercise", source, positions);
+  let result: LeanCheck;
+  try {
+    result = await lean.check("exercise", source, positions);
+  } catch (e) {
+    // A switched-off tactic is often a search (`try?`, `exact?`) and can run
+    // out the time limit. The learner is told it is switched off, which is
+    // true whatever Lean would have said, and not that Lean took too long.
+    const forbidden = forbiddenIn(written, exercise.forbid);
+    if (!(e instanceof LeanTimeout) || !forbidden.length) throw e;
+    return { solved: false, goals: [], cursorGoals: null, error: null, diagnostics: [], forbidden, refusal: null };
+  }
   // A `ring` that did not finish says so in a note, not an error: whether it
   // failed is read from the goals on either side of it (proof.ts
   // `ringNotes`). The same source again costs Lean no elaboration.

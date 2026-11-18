@@ -15,7 +15,7 @@ A proof state drawn as the proof board draws it: what it is about, the facts in 
 
 | Parameter | Value | |
 |---|---|---|
-| `state` (required) | a proof state as Lean prints it (`key: \|`): facts, then a line starting `⊢` | The state as Lean prints it: one `name : statement` line per fact, then `⊢ goal`. A blank line starts another goal; `case name` may come first. |
+| `state` (required) | a proof state as Lean prints it, indented under `state: \|`: facts, then a line starting `⊢` | The state as Lean prints it: one `name : statement` line per fact, then `⊢ goal`. A blank line starts another goal; `case name` may come first. |
 | `caption` | one line of text | One line shown under the cards. |
 
 ````
@@ -209,7 +209,7 @@ b: 4
 
 ## Exercise kinds
 
-An exercise is an entry under `exercises:` in a lesson's frontmatter. Every exercise takes `id` (required; lowercase letters, digits and hyphens; never changed once live), `kind` (default `prove`), `title`, and `concept` (default: the lesson's first concept), and then the parameters of its kind.
+An exercise is an entry under `exercises:` in a lesson's frontmatter. Every exercise takes `id` (required; lowercase letters, digits and hyphens; unique in its lesson; never changed once live), `kind` (default `prove`), `title` (required) and `concept` (default: the lesson's first concept; required when the lesson lists none), and then the parameters of its kind.
 
 ### `prove` (shown as “Prove it”)
 
@@ -219,11 +219,11 @@ A statement to prove. Lean decides whether it is solved. In `board` mode the lea
 |---|---|---|
 | `mode` | one of `board`, `typed` | How the proof is entered. Default board. |
 | `says` (required) | one line of text | The claim in plain English, as a mathematician would say it. Shown above the exercise. |
-| `statement` (required) | text, which may run over several lines (`key: \|`) | The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons. |
-| `given` | text, which may run over several lines (`key: \|`) | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |
+| `statement` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons. |
+| `given` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |
 | `moves` | a list of move ids (see Moves below): `[intro, exact]` | Board mode, required there: the moves on offer. Every line of the solution must be one of them. |
 | `forbid` | a list of text: `[a, b]` | Tactic and theorem names that may not appear in an answer. Forbidding anything also forbids `try?`. |
-| `solution` (required) | text, which may run over several lines (`key: \|`) | A proof body, one tactic per line, that Lean accepts. `npm test` checks it against the real Lean. |
+| `solution` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | A proof body, one tactic per line, that Lean accepts. `npm test` checks it against the real Lean. |
 
 ```yaml
 exercises:
@@ -262,9 +262,9 @@ A proof that is written out except for one step, marked `<gap>`. The learner sup
 | Parameter | Value | |
 |---|---|---|
 | `says` (required) | one line of text | The claim in plain English. Shown above the exercise. |
-| `statement` (required) | text, which may run over several lines (`key: \|`) | The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons. |
-| `given` | text, which may run over several lines (`key: \|`) | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |
-| `proof` (required) | text, which may run over several lines (`key: \|`) | The proof body with `<gap>` exactly once, where the missing step goes: a whole line, or part of one. |
+| `statement` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons. |
+| `given` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |
+| `proof` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The proof body with `<gap>` exactly once, where the missing step goes: a whole line, or part of one. |
 | `solution` (required) | one line of text | What goes in the gap: one line. `npm test` checks the completed proof against the real Lean. |
 | `options` | a list of text: `[a, b]` | The choice form: two to five fills to choose from, the solution among them. `npm test` checks that Lean accepts the solution and refuses every other option. |
 | `forbid` | a list of text: `[a, b]` | Names that may not appear in what is typed into the gap (the proof around it may use them). |
@@ -299,32 +299,32 @@ exercises:
 
 ## Moves
 
-The ids a board exercise's `moves` and a `move-list` widget may name. Each click on the proof board writes one line of Lean.
+The ids a board exercise's `moves` and a `move-list` widget may name. Each click on the proof board writes one line of Lean, and every line of a board exercise's `solution` must be a line one of its moves writes (`npm test` replays it against Lean's goals).
 
-| Move | It needs | What it does |
-|---|---|---|
-| `rfl` | nothing | Finish an equation whose two sides are the same thing once worked out, like 2 + 2 = 4. |
-| `norm_num` | nothing | Calculate. Settles a claim about particular numbers, such as an equation or whether a number is prime, by working it out. |
-| `intro` | nothing (it picks a name) | To prove “if A then B”, assume A. To prove “not A”, assume A. To prove “for all x”, take an arbitrary x. What was assumed or taken joins your facts. |
-| `exact` | a fact, clicked | Finish the goal with a fact that says exactly what the goal says. |
-| `apply` | a fact, clicked | Use a fact of the form “if A then B” on the goal B. The goal becomes A: it is now enough to prove A. Also uses a “for all” fact on a particular case, and a “not A” fact on the goal False. |
-| `constructor` | nothing | Split a goal “A and B” (or “A if and only if B”) into its two parts, to be proved one after the other. |
-| `obtain` | a fact, clicked | Take a fact apart. “A and B” gives two facts. “A or B” gives two cases. “There exists an x such that…” gives the x and the fact about it. |
-| `left` | nothing | To prove “A or B”, choose to prove A. |
-| `right` | nothing | To prove “A or B”, choose to prove B. |
-| `exfalso` | nothing | Replace the goal by False. Useful when your facts contradict each other: from a contradiction anything follows. |
-| `contradiction` | nothing | Finish any goal when two of your facts flatly contradict each other, such as A and not A. |
-| `by_contra` | nothing (it picks a name) | Argue by contradiction: assume the goal is false, and aim for False. |
-| `use` | something typed | To prove “there exists an x such that…”, say which x. What remains is to show it works. |
-| `decide` | nothing | Settle a claim about particular numbers by checking it, the way you would check 7 < 10 or that 3 does not divide 10. It cannot handle a claim with a letter in it. |
-| `rw` | a fact, clicked | Rewrite with an equation. With a fact “a = b”, every a in the goal becomes b. If that leaves both sides identical, the goal is finished. |
-| `rw_back` | a fact, clicked | Rewrite with an equation, backwards. With a fact “a = b”, every b in the goal becomes a. |
-| `simp` | nothing | Simplify the goal using a large library of facts already proved, such as 0 + n = n. Often that finishes it. |
-| `omega` | nothing | Finish a goal about whole numbers that needs only adding, comparing and multiplying by particular numbers. It uses the facts on the board. |
-| `induction` | one of the statement's objects, clicked | Prove a claim about every natural number n in two steps: first for 0, then for n + 1, where you may use the claim for n. For a list: first for the empty list, then for a list with one more element in front. |
-| `ring` | nothing | Finish an equation that holds by the rules of algebra alone, whatever the letters stand for, such as (a + b)² = a² + 2ab + b². It does not use the facts on the board. |
-| `linarith` | nothing | Finish an equation or inequality that follows from the facts on the board by adding them up and multiplying them by particular numbers. It does not multiply two letters together. |
-| `nlinarith` | nothing | Like linarith, but it first multiplies pairs of facts together, which sometimes gets a goal with products or squares in it. |
-| `positivity` | nothing | Finish a goal of the form 0 < A, 0 ≤ A or A ≠ 0 when A is plainly so from the way it is built: a square, a sum of things that are not negative, a product of positive things. |
-| `field_simp` | nothing | Clear the fractions from an equation by multiplying through. It needs to know that each thing divided by is not zero: from a fact on the board, or because it is a number. |
-| `gcongr` | nothing | Prove an inequality whose two sides are built the same way, by comparing them part by part: A + C ≤ B + D from A ≤ B and C ≤ D. It looks for the smaller comparisons among the facts, and leaves as goals the ones it cannot find. |
+| Move | It needs | The line it writes | What it does |
+|---|---|---|---|
+| `rfl` | nothing | `rfl` | Finish an equation whose two sides are the same thing once worked out, like 2 + 2 = 4. |
+| `norm_num` | nothing | `norm_num` | Calculate. Settles a claim about particular numbers, such as an equation or whether a number is prime, by working it out. |
+| `intro` | nothing (it picks a name) | `intro h` (the board chooses the name) | To prove “if A then B”, assume A. To prove “not A”, assume A. To prove “for all x”, take an arbitrary x. What was assumed or taken joins your facts. |
+| `exact` | a fact, clicked | `exact h` | Finish the goal with a fact that says exactly what the goal says. |
+| `apply` | a fact, clicked | `apply h` | Use a fact of the form “if A then B” on the goal B. The goal becomes A: it is now enough to prove A. Also uses a “for all” fact on a particular case, and a “not A” fact on the goal False. |
+| `constructor` | nothing | `constructor` | Split a goal “A and B” (or “A if and only if B”) into its two parts, to be proved one after the other. |
+| `obtain` | a fact, clicked | `obtain ⟨…⟩ := h` (the board names the parts) | Take a fact apart. “A and B” gives two facts. “A or B” gives two cases. “There exists an x such that…” gives the x and the fact about it. |
+| `left` | nothing | `left` | To prove “A or B”, choose to prove A. |
+| `right` | nothing | `right` | To prove “A or B”, choose to prove B. |
+| `exfalso` | nothing | `exfalso` | Replace the goal by False. Useful when your facts contradict each other: from a contradiction anything follows. |
+| `contradiction` | nothing | `contradiction` | Finish any goal when two of your facts flatly contradict each other, such as A and not A. |
+| `by_contra` | nothing (it picks a name) | `by_contra h` (the board chooses the name) | Argue by contradiction: assume the goal is false, and aim for False. |
+| `use` | something typed | `use …what was typed` | To prove “there exists an x such that…”, say which x. What remains is to show it works. |
+| `decide` | nothing | `decide` | Settle a claim about particular numbers by checking it, the way you would check 7 < 10 or that 3 does not divide 10. It cannot handle a claim with a letter in it. |
+| `rw` | a fact, clicked | `rw [h]` | Rewrite with an equation. With a fact “a = b”, every a in the goal becomes b. If that leaves both sides identical, the goal is finished. |
+| `rw_back` | a fact, clicked | `rw [← h]` | Rewrite with an equation, backwards. With a fact “a = b”, every b in the goal becomes a. |
+| `simp` | nothing | `simp` | Simplify the goal using a large library of facts already proved, such as 0 + n = n. Often that finishes it. |
+| `omega` | nothing | `omega` | Finish a goal about whole numbers that needs only adding, comparing and multiplying by particular numbers. It uses the facts on the board. |
+| `induction` | one of the statement's objects, clicked | `induction' n with n ih` | Prove a claim about every natural number n in two steps: first for 0, then for n + 1, where you may use the claim for n. For a list: first for the empty list, then for a list with one more element in front. |
+| `ring` | nothing | `ring` | Finish an equation that holds by the rules of algebra alone, whatever the letters stand for, such as (a + b)² = a² + 2ab + b². It does not use the facts on the board. |
+| `linarith` | nothing | `linarith` | Finish an equation or inequality that follows from the facts on the board by adding them up and multiplying them by particular numbers. It does not multiply two letters together. |
+| `nlinarith` | nothing | `nlinarith` | Like linarith, but it first multiplies pairs of facts together, which sometimes gets a goal with products or squares in it. |
+| `positivity` | nothing | `positivity` | Finish a goal of the form 0 < A, 0 ≤ A or A ≠ 0 when A is plainly so from the way it is built: a square, a sum of things that are not negative, a product of positive things. |
+| `field_simp` | nothing | `field_simp` | Clear the fractions from an equation by multiplying through. It needs to know that each thing divided by is not zero: from a fact on the board, or because it is a number. |
+| `gcongr` | nothing | `gcongr` | Prove an inequality whose two sides are built the same way, by comparing them part by part: A + C ≤ B + D from A ≤ B and C ≤ D. It looks for the smaller comparisons among the facts, and leaves as goals the ones it cannot find. |

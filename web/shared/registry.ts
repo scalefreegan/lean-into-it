@@ -60,8 +60,9 @@ export interface ExerciseSpec {
   label: string;
   params: ParamSpecs;
   /** Whole exercises of this kind, for authors (docs/CONTENT-REFERENCE.md
-   *  prints them). Each must pass the checks, load, and be accepted by Lean
-   *  (registry.test.ts, reference.test.ts, lean.test.ts). */
+   *  prints them). Each must pass the checks and load (reference.test.ts),
+   *  and Lean must accept it, a board example line by line as the board
+   *  writes it (lean.test.ts). */
   examples: Params[];
   check?: (params: Params) => string[];
 }
@@ -294,13 +295,18 @@ function yamlScalar(value: unknown): string {
   return /^[A-Za-z][A-Za-z0-9 .()'-]*$/.test(value) && !/^(true|false|null|yes|no|on|off|y|n)$/i.test(value) && value === value.trim() ? value : JSON.stringify(value);
 }
 
+/** Text that can be written as a YAML block (`key: |`): more than one
+ *  line, and a first line that is not indented, which YAML would take for
+ *  the indentation of the whole block. */
+const asBlock = (value: string) => value.includes("\n") && !/^\s/.test(value);
+
 /** A widget block as it is written in a lesson file. The Gallery prints
  *  each example this way, to be copied; registry.test.ts checks that what
  *  it prints loads back as the same parameters. */
 export function widgetBlock(type: WidgetType, params: Params): string {
   const lines = [`type: ${type}`];
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value === "string" && value.includes("\n")) lines.push(`${key}: |`, ...value.replace(/\n+$/, "").split("\n").map((l) => (l ? `  ${l}` : "")));
+    if (typeof value === "string" && asBlock(value)) lines.push(`${key}: |`, ...value.replace(/\n+$/, "").split("\n").map((l) => (l ? `  ${l}` : "")));
     else lines.push(`${key}: ${yamlScalar(value)}`);
   }
   return ["```widget", ...lines, "```"].join("\n");
@@ -308,9 +314,10 @@ export function widgetBlock(type: WidgetType, params: Params): string {
 
 /** An exercise as it is written under `exercises:` in a lesson's frontmatter. */
 export function exerciseBlock(kind: ExerciseKind, id: string, title: string, params: Params): string {
-  const lines = [`  - id: ${id}`, `    kind: ${kind}`, `    title: ${yamlScalar(title)}`];
+  const lines = [`  - id: ${yamlScalar(id)}`, `    kind: ${kind}`, `    title: ${yamlScalar(title)}`];
   for (const [key, value] of Object.entries(params)) {
-    if (typeof value === "string" && (value.includes("\n") || EXERCISES[kind].params[key]?.type === "text" && key !== "statement")) {
+    const text = EXERCISES[kind].params[key]?.type === "text" && key !== "statement";
+    if (typeof value === "string" && (asBlock(value) || (text && !/^\s/.test(value)))) {
       lines.push(`    ${key}: |`, ...value.replace(/\n+$/, "").split("\n").map((l) => (l ? `      ${l}` : "")));
     } else lines.push(`    ${key}: ${yamlScalar(value)}`);
   }

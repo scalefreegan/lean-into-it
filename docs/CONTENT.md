@@ -20,7 +20,9 @@ content/
 ```
 
 A lesson file must sit in the folder of the track it names. File names are
-free; `<level>-<order>-<slug>.md` keeps a folder in path order.
+free; `<level>-<order>-<slug>.md` keeps a folder in path order. Only the
+`.md` files directly in `lessons/<track>/` are read: a folder inside one is
+ignored, with no message.
 
 ## curriculum.yaml
 
@@ -39,7 +41,13 @@ levels:
       - "And: proving both parts, using either part"
 ```
 
-A topic containing a colon needs quotes, as above.
+A track needs an `id` and a `title`; a level needs a whole-number `id`, used
+once, and a `title`. `summary` is optional for both. Any `status` other than
+`outline` means the level is written. A level's `moves` are shown on the
+Path as written and are not checked against the board's moves, so they may
+name tactics the board has no button for (`calc`, `have`). A topic
+containing a colon needs quotes, as above: without them YAML reads it as
+something else and the topic is dropped, with no message.
 
 ## A lesson
 
@@ -68,6 +76,23 @@ exercises:
 ---
 ```
 
+### Lesson fields
+
+| Field | Meaning |
+|---|---|
+| `id` | Required. Lowercase letters, digits and hyphens; no other lesson may have it. Quote one that is all digits (`id: "2024"`): YAML reads a bare one as a number, which is refused. |
+| `title` | Required. |
+| `track`, `level` | Required. A track id and a level id from `curriculum.yaml`. |
+| `order` | A number: the position within the track and level. Default 0, and anything that is not a number (a quoted `"8"`) counts as 0. |
+| `concepts` | A list of concept names. The first is the default `concept` of the lesson's exercises. |
+| `summary` | Shown on the Path. |
+| `given` | Optional text (`given: \|`): Lean definitions that go in front of every exercise of the lesson, before the exercise's own `given`. No `sorry`, `admit` or `axiom`. |
+| `exercises` | The list of exercises, below. |
+
+The frontmatter must start on the file's first line. A key not in this
+table is ignored, with no message, so a misspelt `sumary` or `order` goes
+unnoticed here; inside an exercise a key the kind does not take is refused.
+
 ### Exercise fields
 
 | Field | Meaning |
@@ -75,12 +100,12 @@ exercises:
 | `id` | Lowercase letters, digits and hyphens. Unique within the lesson. |
 | `kind` | `prove` (the default) or `fill` (below). Every exercise has `id`, `kind`, `title` and `concept`; the other fields in this table are the parameters of `prove` in the registry. A field the kind does not take is refused, so a misspelt `forbid` cannot pass unnoticed. |
 | `mode` | `board` or `typed`. Default `board`. |
-| `title` | A short heading. |
-| `says` | The claim in plain English, as a mathematician would say it, on one line. Shown above the exercise. |
-| `statement` | The Lean statement after the keyword: binders, a colon, the claim. The server wraps it as `theorem lii_exercise <statement> := by`, with the learner's lines in brackets under it. It must not contain `:=` or `sorry`. Quote it: it contains colons. |
-| `moves` | Board mode only, required there: the moves on offer. Every line of the `solution` must be a line one of them writes (`rw [h]`, `induction' n with n ih`, `obtain ⟨r, hr⟩ := h`); `npm test` replays it. |
+| `title` | Required. A short heading. |
+| `says` | Required. The claim in plain English, as a mathematician would say it, on one line. Shown above the exercise. |
+| `statement` | Required. The Lean statement after the keyword: binders, a colon, the claim. The server wraps it as `theorem lii_exercise <statement> := by`, with the learner's lines in brackets under it. It must not contain `:=` or `sorry`. Quote it: it contains colons. |
+| `moves` | Required in board mode, and unused (though accepted) in typed mode: the moves on offer. Every line of the `solution` must be a line one of them writes (`rw [h]`, `induction' n with n ih`, `obtain ⟨r, hr⟩ := h`); `npm test` replays it. |
 | `forbid` | Tactic names that may not appear in an answer. For exercises where one automatic tactic would skip the point. An exercise that forbids anything also forbids `try?`, which would run the forbidden tactics itself. |
-| `given` | Optional. Lean definitions the statement is about (the functions of a verified-programs lesson, or a theorem proved earlier), placed between the import and the theorem. A lesson can also have a `given` in its frontmatter: it goes in front of every exercise's own. No `sorry`, no `axiom`. Mark a function `@[simp]` if `simp` should unfold it. The lesson page shows it folded under "The definitions this is about". |
+| `given` | Optional. Lean definitions the statement is about (the functions of a verified-programs lesson, or a theorem proved earlier), placed between the import and the theorem. A lesson can also have a `given` in its frontmatter: it goes in front of every exercise's own. The words `sorry`, `admit` and `axiom` may not appear in it anywhere, a comment included. Mark a function `@[simp]` if `simp` should unfold it. The lesson page shows it folded under "The definitions this is about". |
 | `solution` | A proof body, one tactic per line, that Lean accepts. Required. `npm test` checks every solution against the real Lean. |
 | `concept` | The concept the exercise tests. Defaults to the lesson's first concept. |
 
@@ -109,7 +134,12 @@ theorem lii_exercise <statement> := by
 The exercise is solved when Lean reports no error and no `sorry` for that
 theorem, the proof names nothing in `forbid`, the learner's lines stay
 inside their brackets, and the axiom report arrives listing only Lean's
-three standard axioms. So a `statement` must make sense after
+three standard axioms. Lines that could run a program or change how Lean
+checks are refused before Lean sees them: `set_option`, a `#` command,
+`run_tac` and its relatives, `unsafe`, `+native`, anything in the `Lean`
+namespace, a name in `«»`, and the theorem's own name `lii_exercise`
+(`escapesIn` in `web/shared/proof.ts` has the list). That holds for a
+reference `solution` too: one that needs `set_option … in` cannot pass. So a `statement` must make sense after
 `theorem lii_exercise`, and a `given` must compile after `import Mathlib`
 with nothing else open.
 
@@ -120,7 +150,7 @@ with nothing else open.
 
 | Field | Meaning |
 |---|---|
-| `proof` | The proof body with `<gap>` exactly once, where the missing step goes: a whole line, or part of one (`rw [<gap>] at h`). No `sorry`. |
+| `proof` | The proof body with `<gap>` exactly once, where the missing step goes: a whole line, or part of one (`rw [<gap>] at h`). Not inside a comment or a string. No `sorry` or `admit`, and none of the lines refused in an answer (above). |
 | `solution` | What goes in the gap: one line. `npm test` checks the completed proof against the real Lean. |
 | `options` | Optional. Two to five fills to choose from, the solution among them. With it the learner chooses and does not type. `npm test` checks that Lean refuses every option but the solution. |
 
@@ -162,7 +192,9 @@ id: use-it
 ```
 ````
 
-Exercises not placed in the body follow at the end, in declared order.
+Exercises not placed in the body follow at the end, in declared order. A
+fence that names an exercise the lesson does not have, or places one a
+second time, is refused.
 
 ### Widgets
 
@@ -218,12 +250,16 @@ copy the state from the app or the Playground.
 
 1. Add the entry to `WIDGETS` or `EXERCISES` in `web/shared/registry.ts`,
    and its name to `WidgetType` or `ExerciseKind`: what it is, each
-   parameter with its kind and a one-line `doc`, and for a widget at least
-   one set of example parameters.
+   parameter with its kind and a one-line `doc`, and at least one example:
+   a set of parameters for a widget, a whole exercise for a kind.
 2. TypeScript now refuses to build until the component exists in
    `web/src/widgets/registry.ts` or `web/src/exercises/registry.ts`.
-3. `npm test` checks that the examples pass the entry's own checks, and
-   `#/gallery` draws them.
+3. Run `npm run gen:reference` and commit `docs/CONTENT-REFERENCE.md`. The
+   same after changing a parameter, an example or a move: `npm test` fails
+   while the file is stale.
+4. `npm test` checks that the examples pass the entry's own checks, that an
+   exercise example loads and Lean accepts it, and `#/gallery` draws the
+   widget examples.
 
 That is all a widget needs. An exercise kind needs more. Its parameters and
 its component go through the registry, but the `Exercise` type

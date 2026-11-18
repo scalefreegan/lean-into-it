@@ -15,7 +15,7 @@ import { assemble, axiomsOf, toBody } from "../shared/proof.ts";
 import { checkExercise, handleCheck, handleLean, handlePlayground, leanError } from "./check.ts";
 import { checkSolution, checkWithLean } from "./contentcheck.ts";
 import { setDb, type Db } from "./db.ts";
-import { LeanTimeout, LeanUnavailable, leanProblem, leanServer } from "./lean/lsp.ts";
+import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, type LeanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { documentedLesson } from "./doclesson.ts";
 import type { HttpError } from "./sse.ts";
@@ -88,22 +88,36 @@ test("every board solution is what the board's own clicks write, against the goa
   // with moveLine from Lean's goals. Replaying each solution through moveLine
   // catches a name or a pattern the board would get wrong.
   let lines = 0;
-  for (const l of content.lessons) {
-    for (const e of l.exercises.filter((x) => x.mode === "board")) {
-      const solution = e.solution.split("\n").filter((s) => s.trim());
-      for (let i = 0; i < solution.length; i++) {
-        const want = solution[i];
-        const read = readLine(want);
-        assert.ok(read && e.moves.includes(read.move.id), `${l.id}/${e.id}: "${want}" is not a move this exercise offers`);
-        const { move, arg } = read;
-        const state = await checkExercise(leanServer(), e, solution.slice(0, i).join("\n"));
-        assert.equal(misfit(move, state.goals[0]), null, `${l.id}/${e.id} line ${i + 1}: the board would refuse "${want}"`);
-        assert.equal(moveLine(move, state.goals[0], arg), want, `${l.id}/${e.id} line ${i + 1}`);
-        lines++;
-      }
-    }
-  }
+  for (const l of content.lessons) for (const e of l.exercises.filter((x) => x.mode === "board")) lines += await replay(`${l.id}/${e.id}`, e);
   assert.ok(lines >= 80, `replayed ${lines} lines`);
+});
+
+/** Replay a board exercise's solution as clicks: each line must be offered,
+ *  fit the goal Lean reports there, and be the line the board would write. */
+async function replay(label: string, e: Exercise): Promise<number> {
+  const solution = e.solution.split("\n").filter((s) => s.trim());
+  for (let i = 0; i < solution.length; i++) {
+    const want = solution[i];
+    const read = readLine(want);
+    assert.ok(read && e.moves.includes(read.move.id), `${label}: "${want}" is not a move this exercise offers`);
+    const { move, arg } = read;
+    const state = await checkExercise(leanServer(), e, solution.slice(0, i).join("\n"));
+    assert.equal(misfit(move, state.goals[0]), null, `${label} line ${i + 1}: the board would refuse "${want}"`);
+    assert.equal(moveLine(move, state.goals[0], arg), want, `${label} line ${i + 1}`);
+  }
+  return solution.length;
+}
+
+test("a switched-off tactic that runs out Lean's time is still named as switched off", async () => {
+  const slow = { check: () => Promise.reject(new LeanTimeout("Lean took longer than 20 seconds on this and gave up.")) } as unknown as LeanServer;
+  const guarded = { ...exercise("use-it"), forbid: ["tauto"] };
+  const reply = await checkExercise(slow, guarded, "try?");
+  assert.deepEqual([reply.solved, reply.forbidden, reply.error, reply.goals], [false, ["try?"], null, []]);
+  // Anything else that runs out of time is reported as that,
+  await assert.rejects(checkExercise(slow, guarded, "exact hPQ hP"), LeanTimeout);
+  // and so is every other failure of Lean, switched-off tactic or not.
+  const down = { check: () => Promise.reject(new LeanUnavailable("Lean is stopped.")) } as unknown as LeanServer;
+  await assert.rejects(checkExercise(down, guarded, "try?"), /Lean is stopped/);
 });
 
 test("refusals a learner can reach on the board get a plain sentence, from Lean's real message", { skip }, async () => {
@@ -489,6 +503,7 @@ test("the exercise examples in the reference are real: Lean accepts each solutio
     for (const [i, example] of spec.examples.entries()) {
       const e = { ...exercise("use-it"), given: "", moves: [], forbid: [], proof: "", options: [], ...example, kind, id: `${kind}-${i}` } as Exercise;
       assert.deepEqual((await checkSolution(leanServer(), e)).problems, [], `${kind} example ${i + 1}`);
+      if (kind === "prove" && example.mode === "board") assert.ok((await replay(`${kind} example ${i + 1}`, e)) > 0);
       checked++;
     }
   }
@@ -501,6 +516,7 @@ test("the complete lesson in docs/CONTENT.md is real: Lean accepts its solutions
     const pass = await checkWithLean(leanServer(), loadContent(dir), { dir });
     assert.deepEqual(pass.problems, []);
     assert.deepEqual([pass.counts.lessons, pass.counts.solutions, pass.counts.options], [1, 2, 1]);
+    for (const e of loadContent(dir).lessons[0]!.exercises.filter((x) => x.mode === "board")) assert.ok((await replay(`CONTENT.md/${e.id}`, e)) > 0);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
