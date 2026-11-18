@@ -133,6 +133,15 @@ test("a body that would step outside a proof is refused, with the line it is on"
   // Hidden in a comment it is only a comment; hidden in a string it is still refused.
   assert.deepEqual(names("exact hP -- run_tac"), []);
   assert.deepEqual(names('exact s!"{run_tac x}"'), ["0:run_tac"]);
+  // A string read one way can hide a word that the other way lays bare: both readings are searched.
+  // `s!"{ "--" }"` is one interpolated string to Lean, so what follows is live code, not a comment.
+  assert.deepEqual(names('have _h := s!"{ "--" }"; run_tac pure ()\nexact hP'), ["0:run_tac"]);
+  assert.deepEqual(names('have _h := s!"{ "/-" }"; set_option x true in skip'), ["0:set_option"]);
+  // The same tactic written with its option: native evaluation by the config field, not the +flag.
+  assert.deepEqual(names("exact (by decide (config := { native := true }) : True)").slice(0, 1), ["0:native :="]);
+  assert.deepEqual(names("decide (config := {native:=true})").slice(0, 1), ["0:native :="]);
+  // An ordinary record update with a field that merely ends in `native` is left alone.
+  assert.deepEqual(names("exact { c with alternative := true }"), []);
   // An array literal is not a command; a name that only contains one of the words is fine.
   assert.deepEqual(names("exact #[1, 2].size_pos"), []);
   assert.deepEqual(names("exact my_run_tac_lemma h"), []);
@@ -177,6 +186,12 @@ test("each way to run a program is refused by name", () => {
     assert.deepEqual(escapesIn(`exact hP\n${word} foo`).map((e) => `${e.line}:${e.name}`), [`1:${word}`], word);
   }
   assert.deepEqual(escapesIn("exact «run» h").map((e) => e.name), ["«»"]);
+});
+
+test("a forbidden tactic cannot hide inside an interpolated string either", () => {
+  assert.deepEqual(forbiddenIn("tauto", ["tauto"]), ["tauto"]);
+  assert.deepEqual(forbiddenIn("exact hP -- tauto", ["tauto"]), [], "a real comment hides nothing to forbid");
+  assert.deepEqual(forbiddenIn('have _ := s!"{ "--" }"; tauto', ["tauto"]), ["tauto"]);
 });
 
 test("a quote after a name, and an r after a name, do not start a literal", () => {
