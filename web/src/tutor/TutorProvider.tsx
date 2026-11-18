@@ -6,7 +6,7 @@ import { PLAYGROUND_KEY, TutorCtx, workKey, type Work } from "./store.ts";
 
 // Holds what the Tutor knows of the page (store.ts).
 
-const PAGE: Record<string, TutorContext["page"]> = { home: "path", lesson: "lesson", review: "review", moves: "moves", playground: "playground" };
+const PAGE: Record<string, TutorContext["page"]> = { home: "path", lesson: "lesson", review: "review", placement: "review", moves: "moves", playground: "playground" };
 
 export function TutorProvider({ children }: { children: ReactNode }) {
   const route = useRoute();

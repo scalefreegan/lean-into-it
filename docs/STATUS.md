@@ -193,7 +193,21 @@ Landed in the first PR, the foundation slice:
   locked levels, and Review never serves an exercise in one. Migration `0002_level_opens` (with room for placement,
   `lii-zjf.4`). Not enforced on the server: a check of an exercise in a
   locked level is graded like any other, and opens its level.
-- Tests: 275, including every reference solution checked by the real Lean,
+- Placement check (`lii-zjf.4`, `#/placement`, `web/shared/placement.ts`):
+  offered on the Path at first run (nothing tried, no placement), and
+  linked there always, so it can be skipped and taken again. Up to 6
+  questions per level, one concept each, by its quickest exercise (a fill
+  before a board proof before a typed one, one not solved before first),
+  one at a time. Lean judges each answer and it is recorded like any
+  other; "I don't know this yet", or a solve with the Tutor's line, is a
+  miss. A level is settled as soon as 75% is reached or out of reach. The
+  first level not passed opens (`level_opens`, `placement`) with those
+  below it, and every concept the passed levels test is credited
+  (`concept_credits`): mastered, in review box 2, due 7 to 13 days on, one
+  day after another. Retaking keeps the first credits. "Continue" now passes
+  over lessons whose concepts are all mastered. By level, not by track: the
+  levels follow the tracks closely enough. Migration `0003_placement`.
+- Tests: 284, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -213,7 +227,7 @@ until it is added.
 
 ## Remaining
 
-38 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+37 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -255,7 +269,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-zjf.4` | Placement check | 2 | `lii-zjf.1` |
 | `lii-zjf.7` | Record time taken per exercise attempt | 3 | |
 | `lii-zjf.8` | Review variants: more than one exercise per concept | 2 | |
 | `lii-zjf.5` | Database backup script | 3 | `lii-2zf.3` |

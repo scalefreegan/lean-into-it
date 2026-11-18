@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Lesson, Level } from "../../shared/content.ts";
 import { levelOpen, lessonMastered, lessonMastery, type LevelStatus } from "../../shared/progress.ts";
 import { href } from "../router.ts";
@@ -11,10 +11,23 @@ import { LevelLock } from "./LevelLock.tsx";
 // mastered (web/shared/progress.ts levelStatuses); a locked one says what it
 // needs, and can be opened anyway.
 
+const OFFER_KEY = "lean-into-it:placement-offer-hidden";
+
 export function Home() {
-  const { content, solved, levels, reloadProgress } = useApp();
+  const { content, solved, levels, mastery, placed, reloadProgress } = useApp();
+  // First run: nothing tried and no placement yet. "Not now" hides it here; the link under the header stays.
+  const [offerHidden, setOfferHidden] = useState(() => {
+    try {
+      return localStorage.getItem(OFFER_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const firstRun = !placed && Object.keys(mastery.concepts).length === 0;
   useEffect(() => void reloadProgress(), [reloadProgress]);
-  const next = content.lessons.find((l) => levelOpen(levels, l.level) && !lessonProgress(l, solved).complete) ?? null;
+  // The first lesson not done in an open level, passing over any whose
+  // concepts are all mastered already (a placement credited them).
+  const next = content.lessons.find((l) => levelOpen(levels, l.level) && !lessonProgress(l, solved).complete && !lessonMastered(l, mastery)) ?? null;
   const total = content.lessons.reduce((n, l) => n + l.exercises.length, 0);
   const done = content.lessons.reduce((n, l) => n + lessonProgress(l, solved).done, 0);
 
@@ -35,8 +48,40 @@ export function Home() {
               </a>
             </>
           )}
+          <span className="mx-2 text-line-strong">·</span>
+          <a className="text-accent underline-offset-2 hover:underline" href={href("placement")} data-placement-link>
+            {placed ? "Take the placement check again" : "Placement check"}
+          </a>
         </p>
       </header>
+
+      {firstRun && !offerHidden && (
+        <section data-placement-offer className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent bg-accent-soft p-5">
+          <p className="max-w-2xl text-fg">
+            <span className="font-semibold">Know some of this already?</span> A short placement check, a few proofs from each level, lets you skip the levels you know. Lean checks every answer.
+          </p>
+          <span className="flex gap-3">
+            <a className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink hover:bg-accent-hover" href={href("placement")}>
+              Take the placement check
+            </a>
+            <button
+              type="button"
+              data-placement-dismiss
+              className="rounded-lg px-3 py-2 text-sm font-semibold text-fg-2 hover:bg-raised"
+              onClick={() => {
+                setOfferHidden(true);
+                try {
+                  localStorage.setItem(OFFER_KEY, "1");
+                } catch {
+                  // Not kept: it is offered again next time.
+                }
+              }}
+            >
+              Not now
+            </button>
+          </span>
+        </section>
+      )}
 
       {content.problems.length > 0 && (
         <Notice tone="warn">

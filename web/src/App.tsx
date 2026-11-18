@@ -5,6 +5,7 @@ import { Home } from "./pages/Home.tsx";
 import { Lesson } from "./pages/Lesson.tsx";
 import { Moves } from "./pages/Moves.tsx";
 import { Review } from "./pages/Review.tsx";
+import { Placement } from "./pages/Placement.tsx";
 import { Playground } from "./pages/Playground.tsx";
 import { href, useRoute } from "./router.ts";
 import { AppProvider, useApp } from "./state.tsx";
@@ -72,6 +73,8 @@ function Shell() {
             <Lesson id={route.arg} />
           ) : route.name === "review" ? (
             <Review />
+          ) : route.name === "placement" ? (
+            <Placement />
           ) : route.name === "moves" ? (
             <Moves />
           ) : route.name === "playground" ? (

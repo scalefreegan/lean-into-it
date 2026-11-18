@@ -98,6 +98,13 @@ export interface ProgressReply {
   review: ReviewItem[];
   /** Every level in content.levels order: locked, open or done, and what opens it. */
   levels: LevelStatus[];
+  /** The placement check has been taken (it may be taken again). */
+  placed: boolean;
+}
+
+/** POST /api/progress/placement: the first level not passed (web/shared/placement.ts). The reply is the progress after. */
+export interface PlacementRequest {
+  level: number;
 }
 
 /** POST /api/progress/open: the learner opens a locked level themselves. The reply is the progress after. */

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MOVES, lineShape } from "./moves.ts";
 import { loadContent } from "../server/loader.ts";
-import { isDue, reviewSession, REVIEW_INTERVAL_DAYS, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, blankMastery, levelOpen, levelStatuses, UNLOCK_FRACTION, type AttemptLike, type MasteryMap } from "./progress.ts";
+import { isDue, reviewSession, REVIEW_INTERVAL_DAYS, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, blankMastery, PLACEMENT_BOX, levelOpen, levelStatuses, UNLOCK_FRACTION, type AttemptLike, type MasteryMap } from "./progress.ts";
 
 const content = {
   levels: [
@@ -350,4 +350,23 @@ test("an open level is done when every exercise in it is solved", () => {
   assert.deepEqual(states(knowing(), [], [], solved).slice(0, 3), ["open", "locked", "locked"], "solved in a locked level is not done");
   assert.deepEqual(states(knowing(), [{ level: 2, how: "anyway" }], [], solved).slice(0, 3), ["open", "done", "open"], "a level of no exercises is never done");
   assert.equal(levelOpen(levelStatuses(ladder, knowing(), [], [], {}), 9), true, "a level not listed is not locked");
+});
+
+test("a placement credit masters a concept in box 2, due on its own day, without an answer", () => {
+  const now = new Date(2026, 0, 10, 12);
+  const due = new Date(2026, 0, 19, 9);
+  const map = masteryFrom(content, [], [{ concept: "and", creditedAt: now, dueAt: due }]);
+  assert.deepEqual([map.concepts.and.mastered, map.concepts.and.box, map.concepts.and.attempts], [true, PLACEMENT_BOX, 0]);
+  assert.equal(map.concepts.and.dueAt, startOfDay(due).toISOString());
+  // An answer before it is due changes the score only; on the day, it is the review.
+  const miss = { lessonId: "l", exerciseId: "b", body: "x", solved: false, createdAt: new Date(2026, 0, 12) };
+  const after = masteryFrom(content, [miss], [{ concept: "and", creditedAt: now, dueAt: due }]).concepts.and;
+  assert.deepEqual([after.mastered, after.box, after.dueAt], [true, PLACEMENT_BOX, startOfDay(due).toISOString()]);
+  const review = { ...miss, body: "y", solved: true, createdAt: new Date(2026, 0, 19, 10) };
+  assert.equal(masteryFrom(content, [miss, review], [{ concept: "and", creditedAt: now, dueAt: due }]).concepts.and.box, PLACEMENT_BOX + 1);
+  // A concept already in PLACEMENT_BOX or past it keeps its own schedule; a credit for no concept is nothing.
+  const twice = masteryFrom(content, [], [{ concept: "and", creditedAt: now, dueAt: due }, { concept: "and", creditedAt: new Date(2026, 0, 11), dueAt: new Date(2026, 0, 30) }]);
+  assert.equal(twice.concepts.and.dueAt, startOfDay(due).toISOString());
+  const far = { concepts: {}, tactics: {} };
+  assert.deepEqual(masteryFrom(content, [], [{ concept: "__proto__", creditedAt: now, dueAt: due }]), far);
 });

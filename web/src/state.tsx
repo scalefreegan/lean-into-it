@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import type { Content, Lesson } from "../shared/content.ts";
 import type { LeanStatus, ProgressReply, SolvedExercise } from "../shared/wire.ts";
 import { solvedOf } from "../shared/progress.ts";
-import { getContent, getLean, getProgress, LEAN_TROUBLE, openLevel as askOpenLevel, restartLean as askRestart } from "./api/client.ts";
+import { getContent, getLean, getProgress, LEAN_TROUBLE, openLevel as askOpenLevel, placeAt, restartLean as askRestart } from "./api/client.ts";
 
 // What every page needs: the curriculum, what has been solved, and whether
 // Lean can run. Loaded once; `markSolved` updates the solved map at once
@@ -22,6 +22,10 @@ interface AppData {
   levels: ProgressReply["levels"];
   /** Open a locked level; rejects with the server's reason. */
   openLevel: (level: number) => Promise<void>;
+  /** The placement check has been taken. */
+  placed: boolean;
+  /** Record a placement: `level` is the first level not passed. Rejects with the server's reason. */
+  place: (level: number) => Promise<void>;
   lean: LeanStatus;
   markSolved: (lessonId: string, exerciseId: string, solution: string) => void;
   reloadLean: () => void;
@@ -55,6 +59,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   const [mastery, setMastery] = useState<ProgressReply["mastery"] | null>(null);
   const [review, setReview] = useState<ProgressReply["review"]>([]);
   const [levels, setLevels] = useState<ProgressReply["levels"]>([]);
+  const [placed, setPlaced] = useState(false);
   const [lean, setLean] = useState<LeanStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -68,6 +73,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
         setMastery(p.mastery);
         setReview(p.review);
         setLevels(p.levels);
+        setPlaced(p.placed);
         setLean(l);
       })
       .catch((e: Error) => live && setError(e.message));
@@ -96,6 +102,7 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
           setMastery(p.mastery);
           setReview(p.review);
           setLevels(p.levels);
+          setPlaced(p.placed);
         }
         return p;
       },
@@ -103,16 +110,19 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
     );
   }, []);
 
-  const openLevel = useCallback(async (level: number) => {
-    const p = await askOpenLevel({ level });
-    // Applied whatever else is in flight, and it makes any reply asked for
-    // before it stale: such a reply may have read the levels before this
-    // one was recorded.
+  // Applied whatever else is in flight, and it makes any reply asked for
+  // before it stale: such a reply may have read the levels before this
+  // change was recorded.
+  const apply = useCallback((p: ProgressReply) => {
     ++progressAsked;
     setMastery(p.mastery);
     setReview(p.review);
     setLevels(p.levels);
+    setPlaced(p.placed);
   }, []);
+  const place = useCallback(async (level: number) => apply(await placeAt({ level })), [apply]);
+
+  const openLevel = useCallback(async (level: number) => apply(await askOpenLevel({ level })), [apply]);
 
   // A day can turn, and work be done in another tab, while this one waits:
   // look again whenever the app comes back into view.
@@ -146,8 +156,8 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   }, [state, installed, reloadLean]);
 
   const value = useMemo(
-    () => (content && solved && mastery && lean ? { content, solved, mastery, review, reloadProgress, levels, openLevel, lean, markSolved, reloadLean, restartLean } : null),
-    [content, solved, mastery, review, reloadProgress, levels, openLevel, lean, markSolved, reloadLean, restartLean],
+    () => (content && solved && mastery && lean ? { content, solved, mastery, review, reloadProgress, levels, openLevel, placed, place, lean, markSolved, reloadLean, restartLean } : null),
+    [content, solved, mastery, review, reloadProgress, levels, openLevel, placed, place, lean, markSolved, reloadLean, restartLean],
   );
   if (!value) return <>{fallback({ error })}</>;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

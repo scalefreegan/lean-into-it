@@ -21,6 +21,9 @@
 //     stopped is not on record, and its last line may be a move that worked.
 // An assisted check (the Tutor's last hint rung gave the line) is seen but
 // proves nothing: it counts as an attempt and adds no answer.
+// A placement credit (lii-zjf.4, web/shared/placement.ts) is no answer
+// either: at the time it was given, a concept below PLACEMENT_BOX is put
+// in that box, mastered, due on the credit's own day.
 //
 // Spaced review is the same replay. A concept or move that becomes mastered
 // enters box 1, due the next calendar day. The first answer on or after the
@@ -46,6 +49,16 @@ export const MIN_ATTEMPTS = 4;
 export const REVIEW_INTERVAL_DAYS = [1, 3, 7, 14, 30, 60, 120];
 /** At most this many exercises in one review session. */
 export const REVIEW_SIZE = 8;
+/** The review box a placement credit puts a concept in: past the first
+ *  short gaps, since the learner showed they knew it. */
+export const PLACEMENT_BOX = 2;
+
+/** A concept the placement check credited (scripts/db/progress.ts creditsFor). */
+export interface CreditLike {
+  concept: string;
+  creditedAt: Date | string;
+  dueAt: Date | string;
+}
 
 /** One recorded check, as the server reads it from the attempts table. */
 export interface AttemptLike {
@@ -170,12 +183,20 @@ function answer(map: Record<string, Mastery>, id: string, right: boolean | null,
   };
 }
 
+function credit(map: Record<string, Mastery>, c: CreditLike): void {
+  if (!c.concept || c.concept === "__proto__") return;
+  const prev = masteryFor(map, c.concept) ?? blankMastery();
+  if (prev.box >= PLACEMENT_BOX) return;
+  map[c.concept] = { ...prev, mastery: Math.max(prev.mastery, 1), mastered: true, box: PLACEMENT_BOX, dueAt: startOfDay(new Date(c.dueAt)).toISOString() };
+}
+
 /**
  * Concept and move mastery from the attempt rows, in any order (they are
- * sorted here by time). Rows for an exercise the content no longer has are
- * skipped: there is no concept to put them under.
+ * sorted here by time), and the placement credits, each taken at its time
+ * among them. Rows for an exercise the content no longer has are skipped:
+ * there is no concept to put them under.
  */
-export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: AttemptLike[]): MasteryMap {
+export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: AttemptLike[], credits: CreditLike[] = []): MasteryMap {
   const tactics = tacticsOf(content).map((t) => ({ t, re: matcher(t) }));
   const used = (lean: string) => {
     const { bare } = lex(lean);
@@ -187,7 +208,12 @@ export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: 
   const byTactic: Record<string, Mastery> = {};
   const previous = new Map<string, string>();
   const time = (r: AttemptLike) => new Date(r.createdAt).getTime();
+  const pending = [...credits].sort((a, b) => new Date(a.creditedAt).getTime() - new Date(b.creditedAt).getTime());
+  const creditUpTo = (t: number) => {
+    while (pending.length && new Date(pending[0].creditedAt).getTime() <= t) credit(concepts, pending.shift()!);
+  };
   for (const row of [...rows].sort((a, b) => time(a) - time(b))) {
+    creditUpTo(time(row));
     const key = `${row.lessonId}\u0000${row.exerciseId}`;
     const exercise = exercises.get(key);
     if (exercise === undefined) continue;
@@ -201,6 +227,7 @@ export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: 
     const moves = row.solved ? used(row.body) : exercise.mode === "board" ? used(lastLine(row.body)) : [];
     for (const t of moves) answer(byTactic, t, right, at);
   }
+  creditUpTo(Infinity);
   return { concepts, tactics: byTactic };
 }
 
