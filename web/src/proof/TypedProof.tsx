@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
-import { explain, suggestion } from "../../shared/explain.ts";
+import { explain, LEFT_FALSE, leftFalse as isLeftFalse, suggestion } from "../../shared/explain.ts";
 import { stillOpenGoals } from "../../shared/goals.ts";
 import type { Position } from "../../shared/proof.ts";
 import type { CheckReply } from "../../shared/wire.ts";
@@ -76,7 +76,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   const stillOpen = stillOpenGoals(reply, goals);
   // When all that is left is False, say what that means (explain.ts).
   const unsolved = reply?.diagnostics.find((d) => d.severity === "error" && /^unsolved goals/.test(d.message));
-  const leftFalse = unsolved && /^What is left to show is False/.test(explain(unsolved.message) ?? "") ? explain(unsolved.message) : null;
+  const leftFalse = unsolved && isLeftFalse(unsolved.message) ? LEFT_FALSE : null;
   const empty = !body.trim();
   useTutorWork(lessonId, exercise.id, { body, goals: stillOpen.length ? stillOpen : goals, error: reply?.error ? `${reply.error.line !== null ? `line ${reply.error.line + 1}: ` : ""}${reply.error.message}` : (reply?.refusal ?? null) });
 

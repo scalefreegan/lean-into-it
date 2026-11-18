@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { suggestion, NOT_SPLITTABLE, UNCHANGED, explain } from "./explain.ts";
+import { suggestion, NOT_SPLITTABLE, UNCHANGED, explain, LEFT_FALSE, leftFalse } from "./explain.ts";
 
 // The messages are Lean 4.36's own, copied from a real run.
 
@@ -148,4 +148,23 @@ test("exact? finding nothing, and a goal worked out to False, from Lean's own me
   // Two goals left, one of them False: the general sentence.
   assert.equal(explain("unsolved goals\ncase a\n⊢ P\n\ncase b\n⊢ False"), "Every line is fine so far, but there is still something left to show.");
   assert.equal(explain("unsolved goals\n⊢ x < y"), "Every line is fine so far, but there is still something left to show.");
+});
+
+test("a fact given something it cannot take, from Lean's own messages", () => {
+  // Lean 4.36: `example (P Q : Prop) (h : P) (hQ : Q) : P := by exact h hQ`.
+  assert.equal(
+    explain("Function expected at\n  h\nbut this term has type\n  P\n\nNote: Expected a function because this term is being applied to the argument\n  hQ"),
+    "h says “P”, which is not an “if… then” or a “for all”, so nothing can be given to it. Only a fact of that form takes a fact or a thing after its name.",
+  );
+  // `example (P Q : Prop) (h : P → Q) (hQ : Q) : Q := by exact h hQ`.
+  assert.equal(
+    explain("Application type mismatch: The argument\n  hQ\nhas type\n  Q\nbut is expected to have type\n  P\nin the application\n  h hQ"),
+    "In h hQ, hQ says “Q”, but what goes in that place has to say “P”.",
+  );
+  // The False sentence names the taught move and the exfalso way in; only one goal False counts.
+  assert.match(LEFT_FALSE, /apply a fact of the form “not A”/);
+  assert.match(LEFT_FALSE, /exfalso/);
+  assert.equal(leftFalse("unsolved goals\nh : P → False\n⊢ Q"), false);
+  assert.equal(leftFalse("unsolved goals\n⊢ False ∧ P"), false);
+  assert.equal(leftFalse("unsolved goals\ncase h\n⊢ False\n"), true);
 });
