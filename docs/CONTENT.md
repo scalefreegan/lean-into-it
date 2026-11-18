@@ -5,8 +5,10 @@ it today. A file that breaks a rule here is not served; the Path page lists
 it with the reason. What a widget or an exercise kind takes is declared in
 one place, `web/shared/registry.ts`, and the loader checks lessons against
 it; the Gallery page of the running app (`#/gallery`) draws every widget
-and lists every parameter. This file describes the format around them. More
-widgets, more exercise kinds and a generated reference are tracked in
+and lists every parameter, and [CONTENT-REFERENCE.md](CONTENT-REFERENCE.md)
+is generated from the registry: every widget, exercise kind and move, each
+parameter, and examples that are checked. This file describes the format
+around them. More widgets and exercise kinds are tracked in
 `docs/STATUS.md`.
 
 ## Layout
@@ -84,6 +86,32 @@ exercises:
 
 Name hypotheses in the statement the way Lean users do: `hP` for a proof of
 `P`, `hPQ` for a proof of `P → Q`. The board shows those names on the cards.
+
+### What Lean is given
+
+The browser sends only the learner's lines. The server builds the file Lean
+checks (`assemble` in `web/shared/proof.ts`) from the exercise's own
+`statement` and `given`:
+
+```lean
+import Mathlib
+
+<the lesson's given, then the exercise's given, when there are any>
+
+theorem lii_exercise <statement> := by
+  (
+    <the learner's lines>
+  )
+
+#print axioms lii_exercise
+```
+
+The exercise is solved when Lean reports no error and no `sorry` for that
+theorem, the proof names nothing in `forbid`, the learner's lines stay
+inside their brackets, and the axiom report arrives listing only Lean's
+three standard axioms. So a `statement` must make sense after
+`theorem lii_exercise`, and a `given` must compile after `import Mathlib`
+with nothing else open.
 
 ### Fill the gap
 
@@ -209,6 +237,77 @@ would need a route of its own.
 A widget parameter may not be called `type`, and an exercise kind's
 parameter may not be called `id`, `kind`, `title` or `concept`: those
 belong to the block.
+
+## A complete lesson
+
+A whole file, as it would sit at `content/lessons/logic/1-08-chains-of-reasons.md`:
+
+`````
+---
+id: logic-1-chains-of-reasons
+title: Chains of reasons
+track: logic
+level: 1
+order: 8
+concepts: [implication]
+summary: Two if-thens in a row make a third.
+exercises:
+  - id: two-steps
+    title: Two steps
+    mode: board
+    says: Suppose P is true, that if P then Q, and that if Q then R. Then R is true.
+    statement: "(P Q R : Prop) (hP : P) (hPQ : P → Q) (hQR : Q → R) : R"
+    moves: [apply, exact]
+    solution: |
+      apply hQR
+      apply hPQ
+      exact hP
+  - id: which-fact
+    kind: fill
+    title: Which fact finishes it
+    says: Suppose P is true, and that if P then Q. Then Q is true.
+    statement: "(P Q : Prop) (hP : P) (hPQ : P → Q) : Q"
+    proof: |
+      apply hPQ
+      exact <gap>
+    options: [hP, hPQ]
+    solution: hP
+---
+
+If P gives Q, and Q gives R, then P gives R: follow one reason with the next.
+
+```widget
+type: proof-state
+state: |
+  P Q R : Prop
+  hP : P
+  hPQ : P → Q
+  hQR : Q → R
+  ⊢ R
+caption: Where the first exercise starts.
+```
+
+> Work backwards from the goal: R would follow from Q, and Q from P.
+
+```exercise
+id: two-steps
+```
+
+The same idea with one step left for you:
+
+```exercise
+id: which-fact
+```
+
+## What you used
+
+```widget
+type: move-list
+moves: [apply, exact]
+```
+`````
+
+`npm test` loads this very example and gives its solutions to Lean.
 
 ## Writing a lesson
 

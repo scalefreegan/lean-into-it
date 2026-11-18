@@ -1,0 +1,330 @@
+# Lean Into It: widget, exercise and move reference
+
+Generated from `web/shared/registry.ts` and `web/shared/moves.ts` by `npm run gen:reference`. Do not edit by hand: `npm test` fails when this file and the registry disagree.
+The file format these plug into is described in [CONTENT.md](CONTENT.md). The Gallery page of the running app (`#/gallery`) draws every widget example below.
+
+A parameter the entry does not list, a missing required one, or a value of the wrong kind is refused when the lesson loads, and the Path page says which and why.
+
+## Widgets
+
+A widget is a fenced block in a lesson's body: ` ```widget `, then `type:` and the parameters as YAML.
+
+### `proof-state`
+
+A proof state drawn as the proof board draws it: what it is about, the facts in hand on teal cards, the goal on an amber card. For showing a state in the prose where no proof is being asked for.
+
+| Parameter | Value | |
+|---|---|---|
+| `state` (required) | a proof state as Lean prints it (`key: \|`): facts, then a line starting `⊢` | The state as Lean prints it: one `name : statement` line per fact, then `⊢ goal`. A blank line starts another goal; `case name` may come first. |
+| `caption` | one line of text | One line shown under the cards. |
+
+````
+```widget
+type: proof-state
+state: |
+  P Q R : Prop
+  hPQ : P → Q
+  hQR : Q → R
+  ⊢ P → R
+```
+````
+
+````
+```widget
+type: proof-state
+state: |
+  case left
+  P Q : Prop
+  hP : P
+  hQ : Q
+  ⊢ P
+
+  case right
+  P Q : Prop
+  hP : P
+  hQ : Q
+  ⊢ Q
+caption: "After constructor on the goal P ∧ Q: two goals, the first one in full."
+```
+````
+
+### `move-list`
+
+Some of the proof board's moves, each with the sentence that says what it does. For a lesson's summary, or for introducing a move before the exercise that uses it.
+
+| Parameter | Value | |
+|---|---|---|
+| `moves` (required) | a list of move ids (see Moves below): `[intro, exact]` | The moves to list, by id, in the order to show them. |
+
+````
+```widget
+type: move-list
+moves: [intro, apply, exact]
+```
+````
+
+````
+```widget
+type: move-list
+moves: [ring, linarith, positivity]
+```
+````
+
+### `plot`
+
+The graph of one or more functions of x. A point can be moved along the curves to read off values; the view can be dragged, zoomed and reset.
+
+| Parameter | Value | |
+|---|---|---|
+| `functions` (required) | a list of expressions in x: `["2x + 1", "x^2"]` | The functions to draw, at most 4: `["2x + 1", "x^2"]`. Arithmetic, powers, abs or \|…\|, sqrt, sin, cos, tan, exp, log, pi, e. |
+| `x` | two numbers, the smaller first: `[-5, 5]` | The stretch of the x-axis shown at first. Default [-5, 5]. |
+| `y` | two numbers, the smaller first: `[-5, 5]` | The stretch of the y-axis shown at first. Default: fitted to the curves. |
+| `domain` | two numbers, the smaller first: `[-5, 5]` | Draw the curves only for x between these two numbers, as for a function looked at on an interval. |
+| `trace` | a number | Where the movable point starts on the x-axis. Default: the middle of the view. |
+| `caption` | one line of text | One line shown under the graph. |
+
+````
+```widget
+type: plot
+functions: ["2x + 1"]
+x: [-3, 3]
+```
+````
+
+````
+```widget
+type: plot
+functions: ["x^2", "|x|"]
+x: [-3, 3]
+trace: -1
+caption: Two functions that come down on the left of 0 and go up on the right.
+```
+````
+
+````
+```widget
+type: plot
+functions: ["2x + 1", "3"]
+x: [-1, 2]
+y: [-1, 5]
+domain: [0, 1]
+caption: "Between x = 0 and x = 1 the line stays under height 3."
+```
+````
+
+````
+```widget
+type: plot
+functions: ["1/x"]
+x: [-4, 4]
+y: [-4, 4]
+```
+````
+
+### `number-line`
+
+A number line with points, intervals and distances marked on it. With `probe`, a point x that can be moved along the line, with a readout of where it is.
+
+| Parameter | Value | |
+|---|---|---|
+| `range` | two numbers, the smaller first: `[-5, 5]` | The stretch of the line shown. Default [-5, 5]. |
+| `points` | a list of numbers on a line, each optionally labelled: `[0, "1/2", "sqrt(2): √2"]` | Points to mark: a number, or text giving a number and the label to write above it, as in `[0, 1, "1/2", "sqrt(2): √2"]`. |
+| `intervals` | a list of intervals: `["(2, 4)", "[0, inf)"]` | Stretches to shade, in interval notation: `["(2, 4)", "[0, 1]", "(-inf, 3]"]`. A round bracket leaves the end out, a square one includes it. |
+| `distance` | two numbers, the smaller first: `[-5, 5]` | Two numbers a and b: draws the distance between them and labels it \|a − b\|. |
+| `via` | a number | With `distance`: a third point b. Also draws the distances from a to b and from b to c, the detour of the triangle inequality. |
+| `near` | a list of numbers: `[1, 2]` | A centre c and a radius r, as `[3, 1]`: shades the points within r of c, the window \|x − c\| < r. |
+| `probe` | a number | Where a movable point x starts. The readout says where x is, which intervals it is in, and how far it is from the centre of `near`. |
+| `caption` | one line of text | One line shown under the line. |
+
+````
+```widget
+type: number-line
+range: [-3, 4]
+points: [0, 1, "1/2", "sqrt(2): √2", "pi: π", "-7/3"]
+```
+````
+
+````
+```widget
+type: number-line
+range: [0, 6]
+distance: [2, 5]
+points: ["2: a", "5: b"]
+caption: "The distance from 2 to 5 is 3, whichever way you subtract."
+```
+````
+
+````
+```widget
+type: number-line
+range: [0, 8]
+distance: [1, 3]
+via: 6
+points: ["1: a", "3: c", "6: b"]
+caption: "From a to c directly, and by way of b."
+```
+````
+
+````
+```widget
+type: number-line
+range: [0, 6]
+near: [3, 1]
+probe: 3.4
+caption: The points within 1 of 3.
+```
+````
+
+````
+```widget
+type: number-line
+range: [-5, 5]
+intervals: ["(-inf, -1]", "(2, 4)"]
+probe: 0
+```
+````
+
+### `square-of-sum`
+
+A square of side a + b cut into a square of side a, a square of side b and two a-by-b rectangles, with sliders for a and b: the picture behind (a + b)² = a² + 2ab + b².
+
+| Parameter | Value | |
+|---|---|---|
+| `a` | a number | The first length at the start. Default 3. Must be 0.5 to 10. |
+| `b` | a number | The second length at the start. Default 2. Must be 0.5 to 10. |
+
+````
+```widget
+type: square-of-sum
+```
+````
+
+````
+```widget
+type: square-of-sum
+a: 1
+b: 4
+```
+````
+
+## Exercise kinds
+
+An exercise is an entry under `exercises:` in a lesson's frontmatter. Every exercise takes `id` (required; lowercase letters, digits and hyphens; never changed once live), `kind` (default `prove`), `title`, and `concept` (default: the lesson's first concept), and then the parameters of its kind.
+
+### `prove` (shown as “Prove it”)
+
+A statement to prove. Lean decides whether it is solved. In `board` mode the learner clicks moves on the proof board and each click writes one line of Lean; in `typed` mode they write the Lean in an editor with the goals beside it.
+
+| Parameter | Value | |
+|---|---|---|
+| `mode` | one of `board`, `typed` | How the proof is entered. Default board. |
+| `says` (required) | one line of text | The claim in plain English, as a mathematician would say it. Shown above the exercise. |
+| `statement` (required) | text, which may run over several lines (`key: \|`) | The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons. |
+| `given` | text, which may run over several lines (`key: \|`) | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |
+| `moves` | a list of move ids (see Moves below): `[intro, exact]` | Board mode, required there: the moves on offer. Every line of the solution must be one of them. |
+| `forbid` | a list of text: `[a, b]` | Tactic and theorem names that may not appear in an answer. Forbidding anything also forbids `try?`. |
+| `solution` (required) | text, which may run over several lines (`key: \|`) | A proof body, one tactic per line, that Lean accepts. `npm test` checks it against the real Lean. |
+
+```yaml
+exercises:
+  - id: prove-example-1
+    kind: prove
+    title: An example
+    mode: board
+    says: "Suppose P is true, and suppose that if P then Q. Then Q is true."
+    statement: "(P Q : Prop) (hP : P) (hPQ : P → Q) : Q"
+    moves: [apply, exact]
+    solution: |
+      apply hPQ
+      exact hP
+```
+
+```yaml
+exercises:
+  - id: prove-example-2
+    kind: prove
+    title: An example
+    mode: typed
+    says: "For every natural number n, double n = 2 * n."
+    statement: "(n : ℕ) : double n = 2 * n"
+    given: |
+      def double (n : ℕ) : ℕ := n + n
+    forbid: [simp, grind]
+    solution: |
+      unfold double
+      omega
+```
+
+### `fill` (shown as “Fill the gap”)
+
+A proof that is written out except for one step, marked `<gap>`. The learner supplies the step: by typing one line, or, when `options` are given, by choosing one of them. Lean checks the completed proof either way; a choice is not compared with a stored answer.
+
+| Parameter | Value | |
+|---|---|---|
+| `says` (required) | one line of text | The claim in plain English. Shown above the exercise. |
+| `statement` (required) | text, which may run over several lines (`key: \|`) | The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons. |
+| `given` | text, which may run over several lines (`key: \|`) | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |
+| `proof` (required) | text, which may run over several lines (`key: \|`) | The proof body with `<gap>` exactly once, where the missing step goes: a whole line, or part of one. |
+| `solution` (required) | one line of text | What goes in the gap: one line. `npm test` checks the completed proof against the real Lean. |
+| `options` | a list of text: `[a, b]` | The choice form: two to five fills to choose from, the solution among them. `npm test` checks that Lean accepts the solution and refuses every other option. |
+| `forbid` | a list of text: `[a, b]` | Names that may not appear in what is typed into the gap (the proof around it may use them). |
+
+```yaml
+exercises:
+  - id: fill-example-1
+    kind: fill
+    title: An example
+    says: "For any real number x, |x + 1| ≤ |x| + 1."
+    statement: "(x : ℝ) : |x + 1| ≤ |x| + 1"
+    proof: |
+      calc |x + 1| ≤ |x| + |1| := <gap>
+        _ = |x| + 1 := by rw [abs_one]
+    forbid: [grind, simp, gcongr]
+    solution: "abs_add_le x 1"
+```
+
+```yaml
+exercises:
+  - id: fill-example-2
+    kind: fill
+    title: An example
+    says: "Suppose a ≤ b and b ≤ c. Then a ≤ c."
+    statement: "(a b c : ℝ) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c"
+    proof: |
+      calc a ≤ b := h1
+        _ ≤ c := <gap>
+    options: [h1, h2, "le_refl c"]
+    solution: h2
+```
+
+## Moves
+
+The ids a board exercise's `moves` and a `move-list` widget may name. Each click on the proof board writes one line of Lean.
+
+| Move | It needs | What it does |
+|---|---|---|
+| `rfl` | nothing | Finish an equation whose two sides are the same thing once worked out, like 2 + 2 = 4. |
+| `norm_num` | nothing | Calculate. Settles a claim about particular numbers, such as an equation or whether a number is prime, by working it out. |
+| `intro` | nothing (it picks a name) | To prove “if A then B”, assume A. To prove “not A”, assume A. To prove “for all x”, take an arbitrary x. What was assumed or taken joins your facts. |
+| `exact` | a fact, clicked | Finish the goal with a fact that says exactly what the goal says. |
+| `apply` | a fact, clicked | Use a fact of the form “if A then B” on the goal B. The goal becomes A: it is now enough to prove A. Also uses a “for all” fact on a particular case, and a “not A” fact on the goal False. |
+| `constructor` | nothing | Split a goal “A and B” (or “A if and only if B”) into its two parts, to be proved one after the other. |
+| `obtain` | a fact, clicked | Take a fact apart. “A and B” gives two facts. “A or B” gives two cases. “There exists an x such that…” gives the x and the fact about it. |
+| `left` | nothing | To prove “A or B”, choose to prove A. |
+| `right` | nothing | To prove “A or B”, choose to prove B. |
+| `exfalso` | nothing | Replace the goal by False. Useful when your facts contradict each other: from a contradiction anything follows. |
+| `contradiction` | nothing | Finish any goal when two of your facts flatly contradict each other, such as A and not A. |
+| `by_contra` | nothing (it picks a name) | Argue by contradiction: assume the goal is false, and aim for False. |
+| `use` | something typed | To prove “there exists an x such that…”, say which x. What remains is to show it works. |
+| `decide` | nothing | Settle a claim about particular numbers by checking it, the way you would check 7 < 10 or that 3 does not divide 10. It cannot handle a claim with a letter in it. |
+| `rw` | a fact, clicked | Rewrite with an equation. With a fact “a = b”, every a in the goal becomes b. If that leaves both sides identical, the goal is finished. |
+| `rw_back` | a fact, clicked | Rewrite with an equation, backwards. With a fact “a = b”, every b in the goal becomes a. |
+| `simp` | nothing | Simplify the goal using a large library of facts already proved, such as 0 + n = n. Often that finishes it. |
+| `omega` | nothing | Finish a goal about whole numbers that needs only adding, comparing and multiplying by particular numbers. It uses the facts on the board. |
+| `induction` | one of the statement's objects, clicked | Prove a claim about every natural number n in two steps: first for 0, then for n + 1, where you may use the claim for n. For a list: first for the empty list, then for a list with one more element in front. |
+| `ring` | nothing | Finish an equation that holds by the rules of algebra alone, whatever the letters stand for, such as (a + b)² = a² + 2ab + b². It does not use the facts on the board. |
+| `linarith` | nothing | Finish an equation or inequality that follows from the facts on the board by adding them up and multiplying them by particular numbers. It does not multiply two letters together. |
+| `nlinarith` | nothing | Like linarith, but it first multiplies pairs of facts together, which sometimes gets a goal with products or squares in it. |
+| `positivity` | nothing | Finish a goal of the form 0 < A, 0 ≤ A or A ≠ 0 when A is plainly so from the way it is built: a square, a sum of things that are not negative, a product of positive things. |
+| `field_simp` | nothing | Clear the fractions from an equation by multiplying through. It needs to know that each thing divided by is not zero: from a fact on the board, or because it is a number. |
+| `gcongr` | nothing | Prove an inequality whose two sides are built the same way, by comparing them part by part: A + C ≤ B + D from A ≤ B and C ≤ D. It looks for the smaller comparisons among the facts, and leaves as goals the ones it cannot find. |
