@@ -219,7 +219,11 @@ Landed in the first PR, the foundation slice:
   "unsolved goals" error and shows them under "Still open"; the Tutor is
   told them too. `lii_exercise` reaches the learner only in the refusal
   that explains it, so the `example` headers stay.
-- Tests: 289, including every reference solution checked by the real Lean,
+- Every move the written levels list has its common refusal in plain words
+  (`lii-8wq.4`). The last two gaps: `exact?` finding nothing, and a proof
+  left with ⊢ False (after `exfalso`, `by_contra`, or `norm_num` on a false
+  claim), which a typed proof's "Not finished" notice now explains.
+- Tests: 290, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -239,7 +243,7 @@ until it is added.
 
 ## Remaining
 
-34 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+33 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -257,7 +261,6 @@ land first.
 | `lii-8wq.1` | Ladder fading: the move palette fades into typed Lean | 2 | |
 | `lii-8wq.2` | Live proof map | 2 | `lii-1ou.3` |
 | `lii-8wq.3` | Lean editor: syntax colouring, completion and inline error marks | 2 | |
-| `lii-8wq.4` | Plain-word explanations for every move the curriculum introduces | 2 | |
 | `lii-8wq.6` | obtain on a fact that is not an and, or, iff or exists | 3 | |
 
 ### Widgets (epic `lii-53v`)

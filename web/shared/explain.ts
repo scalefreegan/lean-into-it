@@ -154,6 +154,12 @@ export function explain(message: string): string | null {
   if (/^No goals to be solved/i.test(first)) {
     return "The proof was already finished before this line. Delete it.";
   }
+  if (/^`exact\?` could not close the goal/.test(first)) {
+    return "exact? searched Lean's library and the facts on the board, and found no single step that finishes this goal as it stands. Take a step yourself first (intro, constructor, a rewrite) and search again, or the goal may not follow from what is on the board.";
+  }
+  if (/^unsolved goals/.test(first) && /(^|\n)⊢ False\s*$/.test(message) && !/\n\s*\n/.test(message.trim())) {
+    return "What is left to show is False, which cannot be proved outright. Either the facts on the board contradict each other, and the contradiction has to be found (contradiction, or exact with a fact and its opposite), or the claim is not true: norm_num works a false claim about particular numbers out to False.";
+  }
   if (/^unsolved goals/.test(first)) {
     return "Every line is fine so far, but there is still something left to show.";
   }

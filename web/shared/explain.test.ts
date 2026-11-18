@@ -138,3 +138,14 @@ test("a fact Lean prints unfolded over several lines is not quoted back", () => 
   const said = explain("Tactic `rcases` failed: `h : Quot.lift (fun a₁ ↦ Quotient.lift ((fun x1 x2 ↦ x1 < x2) a₁) ⋯ 1) ⋯\n  (Quotient.map₂ (fun x1 x2 ↦ x1 ⊔ x2) ⋯ (↑3 + -x.cauchy) (-(↑3 + -x.cauchy)))` is not an inductive datatype");
   assert.equal(said, "h is not a fact with parts to take apart. obtain works on an “and”, an “or”, an “if and only if” or a “there exists”.");
 });
+
+test("exact? finding nothing, and a goal worked out to False, from Lean's own messages", () => {
+  // Lean 4.36 + Mathlib, `example (P Q : Prop) (h : P) : Q := by exact?`.
+  assert.match(explain("`exact?` could not close the goal. Try `apply?` to see partial suggestions.") ?? "", /found no single step/);
+  // `example : (2:ℕ) + 2 = 5 := by norm_num` leaves the goal False; so does exfalso or by_contra.
+  assert.match(explain("unsolved goals\n⊢ False") ?? "", /^What is left to show is False/);
+  assert.match(explain("unsolved goals\nP : Prop\nh : P\nhn : ¬P\n⊢ False") ?? "", /contradict each other/);
+  // Two goals left, one of them False: the general sentence.
+  assert.equal(explain("unsolved goals\ncase a\n⊢ P\n\ncase b\n⊢ False"), "Every line is fine so far, but there is still something left to show.");
+  assert.equal(explain("unsolved goals\n⊢ x < y"), "Every line is fine so far, but there is still something left to show.");
+});
