@@ -237,12 +237,13 @@ export interface ReviewItem {
  * assisted (the Tutor gave the line) on an earlier day, so it is tried again
  * unaided; then for each concept that is due (earliest due first), the
  * exercise testing it that was checked least recently, at most REVIEW_SIZE
- * in all, each exercise once. Only concepts are scheduled for review, not moves:
+ * in all, each exercise once, never one in a level `isOpen` says is locked
+ * (a review must not open a level by the back door). Only concepts are scheduled for review, not moves:
  * an exercise can be solved without the move it was offered for, and a
  * review the learner cannot clear is no use. A concept the content no
  * longer has an exercise for is never due.
  */
-export function reviewSession(content: Pick<Content, "lessons">, map: MasteryMap, rows: AttemptLike[], now: Date): ReviewItem[] {
+export function reviewSession(content: Pick<Content, "lessons">, map: MasteryMap, rows: AttemptLike[], now: Date, isOpen: (level: number) => boolean = () => true): ReviewItem[] {
   const last = new Map<string, number>();
   for (const r of rows) {
     const key = `${r.lessonId}\u0000${r.exerciseId}`;
@@ -274,7 +275,7 @@ export function reviewSession(content: Pick<Content, "lessons">, map: MasteryMap
   for (const [concept] of due) {
     if (session.length >= REVIEW_SIZE) break;
     if (covered.has(concept)) continue;
-    const options = content.lessons.flatMap((l) => l.exercises.filter((e) => e.concept === concept).map((e) => ({ lessonId: l.id, exerciseId: e.id, seen: last.get(`${l.id}\u0000${e.id}`) ?? 0 })));
+    const options = content.lessons.filter((l) => isOpen(l.level)).flatMap((l) => l.exercises.filter((e) => e.concept === concept).map((e) => ({ lessonId: l.id, exerciseId: e.id, seen: last.get(`${l.id}\u0000${e.id}`) ?? 0 })));
     const open = options.filter((o) => !taken.has(`${o.lessonId}\u0000${o.exerciseId}`)).sort((a, b) => a.seen - b.seen);
     if (!open.length) continue;
     session.push({ lessonId: open[0].lessonId, exerciseId: open[0].exerciseId, concept });

@@ -6,7 +6,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { OpenLevelRequest, ProgressReply } from "../shared/wire.ts";
-import { levelStatuses, masteryFrom, reviewSession } from "../shared/progress.ts";
+import { levelOpen, levelStatuses, masteryFrom, reviewSession } from "../shared/progress.ts";
 import { attemptsFor, levelOpensFor, recordLevelOpen, solvedFor } from "../../scripts/db/progress.ts";
 import { learnerId, rawDb } from "./db.ts";
 import { loadContent } from "./loader.ts";
@@ -34,7 +34,7 @@ export async function progressReply(): Promise<ProgressReply> {
     const had = new Set(opened.map((o) => o.level));
     for (const s of levels) if (s.why === "earned" && !had.has(s.level)) await recordLevelOpen(db, learner, s.level, "earned");
   }
-  return { solved, mastery, review: reviewSession(content, mastery, rows, new Date()), levels };
+  return { solved, mastery, review: reviewSession(content, mastery, rows, new Date(), (level) => levelOpen(levels, level)), levels };
 }
 
 /** POST /open: the learner opens a level themselves ("Open anyway" on the Path). */

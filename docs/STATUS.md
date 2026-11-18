@@ -190,10 +190,10 @@ Landed in the first PR, the foundation slice:
   record is open, so work done before levels could lock stays reachable.
   The Path shows each level locked (lessons listed, not linked, with what
   it needs), open, or done (every exercise solved); "Continue" skips
-  locked levels. Migration `0002_level_opens` (with room for placement,
+  locked levels, and Review never serves an exercise in one. Migration `0002_level_opens` (with room for placement,
   `lii-zjf.4`). Not enforced on the server: a check of an exercise in a
   locked level is graded like any other, and opens its level.
-- Tests: 273, including every reference solution checked by the real Lean,
+- Tests: 275, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

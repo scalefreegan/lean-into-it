@@ -104,13 +104,14 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   }, []);
 
   const openLevel = useCallback(async (level: number) => {
-    const n = ++progressAsked;
     const p = await askOpenLevel({ level });
-    if (n === progressAsked) {
-      setMastery(p.mastery);
-      setReview(p.review);
-      setLevels(p.levels);
-    }
+    // Applied whatever else is in flight, and it makes any reply asked for
+    // before it stale: such a reply may have read the levels before this
+    // one was recorded.
+    ++progressAsked;
+    setMastery(p.mastery);
+    setReview(p.review);
+    setLevels(p.levels);
   }, []);
 
   // A day can turn, and work be done in another tab, while this one waits:
