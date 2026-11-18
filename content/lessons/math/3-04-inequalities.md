@@ -71,6 +71,13 @@ exercises:
 
 An equation says two things are the same. An inequality says which way they differ, and on the number line that is a matter of position: a < b means a is to the left of b, and a ≤ b means a is to the left of b or at the same point.
 
+```widget
+type: number-line
+range: [-4, 4]
+points: ["-2: a", "3: b"]
+caption: a < b, a is to the left of b.
+```
+
 ## The rules
 
 Inequalities can be worked with almost as equations can.
@@ -87,6 +94,13 @@ id: add-them
 
 **Multiplying is where care is needed.** Multiply both sides of 2 < 3 by −1 and you get −2 and −3, and −2 is the *larger*. On the number line, multiplying by −1 is a reflection through 0, and a reflection swaps left and right.
 
+```widget
+type: number-line
+range: [-4, 4]
+points: [2, 3, -2, -3]
+caption: 2 is to the left of 3. Reflected through 0, −2 is to the right of −3.
+```
+
 ```exercise
 id: flip
 ```
@@ -96,6 +110,13 @@ So: multiplying both sides by a positive number keeps the direction, and multipl
 ## There is always one between
 
 Here is something true of the real numbers and false of the natural numbers: between any two there is another. Say which one: the point halfway is the natural choice. You can type an expression for `use`, with letters in it.
+
+```widget
+type: number-line
+range: [0, 6]
+points: ["1: a", "5: b", "3: (a + b)/2"]
+caption: Halfway between a and b there is always another point.
+```
 
 ```exercise
 id: between

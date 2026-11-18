@@ -85,7 +85,14 @@ exercises:
       positivity
 ---
 
-A **function** is a rule that takes a number in and gives a number back, the same one every time for the same input. "Double it and add 1" is a function. Its **graph** is the picture of the rule: above each point x on a horizontal number line, mark a point at height f(x). For "double it and add 1" the marks form a straight line climbing to the right.
+A **function** is a rule that takes a number in and gives a number back, the same one every time for the same input. "Double it and add 1" is a function. Its **graph** is the picture of the rule: above each point x on a horizontal number line, mark a point at height f(x). For "double it and add 1" the marks form a straight line climbing to the right. Move the point along it: each x has exactly one height.
+
+```widget
+type: plot
+functions: ["2x + 1"]
+x: [-3, 3]
+trace: 1
+```
 
 ## Functions in Lean
 
@@ -121,6 +128,13 @@ id: increasing
 
 Not every function is increasing. The graph of x² is a bowl: it comes down on the left of 0 and goes up on the right. To show that squaring is not increasing you need one pair of inputs, in order, whose outputs are in the wrong order. Look on the left side of the bowl.
 
+```widget
+type: plot
+functions: ["x^2"]
+x: [-3, 3]
+trace: -1
+```
+
 ```exercise
 id: not-increasing
 ```
@@ -136,6 +150,15 @@ That proof used no arithmetic and would work for functions on anything that has 
 ## Bounded
 
 The graph of 2x + 1 climbs for ever, so no horizontal line stays above it. But look only at the part between x = 0 and x = 1, and it stays under height 3.
+
+```widget
+type: plot
+functions: ["2x + 1", "3"]
+x: [-1, 2]
+y: [-1, 5]
+domain: [0, 1]
+caption: The function on the interval from 0 to 1, and the height 3 above it.
+```
 
 > A function is **bounded above** on a set of inputs if there is one number M with f(x) ≤ M for every x in the set.
 
