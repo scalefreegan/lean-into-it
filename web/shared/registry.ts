@@ -7,7 +7,7 @@ import { isMove } from "./moves.ts";
 // describes it for authors (human and agent), the Gallery page (#/gallery)
 // lists it, and the UI implements it. Adding a widget or an exercise kind
 // starts here: the two name types below are what make the UI's component
-// tables (web/src/widgets/registry.tsx, web/src/exercises/registry.tsx)
+// tables (web/src/widgets/registry.ts, web/src/exercises/registry.ts)
 // fail to compile until the new entry has a component.
 
 /** How a parameter value is checked. `x[]` means a list of x. */
@@ -113,6 +113,26 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
   },
 };
 
+/** A value as YAML that reads back as itself, on one line. Text is written
+ *  bare only where YAML cannot take it for anything else. */
+function yamlScalar(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(yamlScalar).join(", ")}]`;
+  if (typeof value !== "string") return String(value);
+  return /^[A-Za-z][A-Za-z0-9 .()'-]*$/.test(value) && !/^(true|false|null|yes|no|on|off|y|n)$/i.test(value) && value === value.trim() ? value : JSON.stringify(value);
+}
+
+/** A widget block as it is written in a lesson file. The Gallery prints
+ *  each example this way, to be copied; registry.test.ts checks that what
+ *  it prints loads back as the same parameters. */
+export function widgetBlock(type: WidgetType, params: Params): string {
+  const lines = [`type: ${type}`];
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === "string" && value.includes("\n")) lines.push(`${key}: |`, ...value.replace(/\n+$/, "").split("\n").map((l) => (l ? `  ${l}` : "")));
+    else lines.push(`${key}: ${yamlScalar(value)}`);
+  }
+  return ["```widget", ...lines, "```"].join("\n");
+}
+
 export function isWidget(type: string): type is WidgetType {
   return Object.hasOwn(WIDGETS, type);
 }
@@ -177,8 +197,15 @@ function checkGoalText(block: string): string | null {
   for (const [i, line] of lines.slice(0, turnstile).entries()) {
     if (i === 0 && line.startsWith("case ")) continue;
     if (i > 0 && /^\s/.test(line)) continue;
-    if (!/\S : \S/.test(line)) return `has the line “${line.trim()}”, which is not \`name : statement\``;
+    // `h :` alone is how Lean starts a statement too long for one line; it
+    // goes on, indented, on the lines below.
+    const goesOn = /\S :$/.test(line) && /^\s+\S/.test(lines[i + 1] ?? "");
+    if (!/\S : \S/.test(line) && !goesOn) return `has the line “${line.trim()}”, which is not \`name : statement\``;
   }
+  // Lean indents a goal that runs over a line. Anything else after ⊢ is a
+  // second goal with no blank line before it, or something that is not a state.
+  const after = lines.slice(turnstile + 1).find((line) => !/^\s/.test(line));
+  if (after !== undefined) return `has the line “${after.trim()}” after the goal. A blank line starts another goal, and a goal that runs on is indented`;
   return null;
 }
 
@@ -208,7 +235,8 @@ export function checkParams(spec: { params: ParamSpecs; check?: (params: Params)
   }
   for (const [key, p] of Object.entries(spec.params)) {
     const value = params[key];
-    if (value === undefined || value === null) {
+    // A required list with nothing in it is as good as missing.
+    if (value === undefined || value === null || (p.required && Array.isArray(value) && !value.length)) {
       if (p.required) out.push(`needs \`${key}\`: ${p.doc}`);
       continue;
     }

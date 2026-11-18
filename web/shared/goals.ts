@@ -48,7 +48,15 @@ export function parseGoal(text: string): Goal {
     if (/^\s/.test(line) && current) {
       // A continuation of the previous hypothesis's type (or value).
       if (current.value !== undefined) current.value += `\n${line}`;
-      else current.type += `\n${line}`;
+      else current.type = current.type ? `${current.type}\n${line}` : line.trim();
+      continue;
+    }
+    // A long statement is broken straight after the colon: `h :` and then
+    // the statement on indented lines.
+    const bare = /^(\S.*?) :$/.exec(line);
+    if (bare) {
+      current = { names: bare[1].trim().split(/\s+/), type: "" };
+      goal.hypotheses.push(current);
       continue;
     }
     const colon = line.indexOf(" : ");

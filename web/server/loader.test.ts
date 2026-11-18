@@ -103,6 +103,28 @@ test("a widget block becomes a block with its checked parameters, in its place",
   ]);
 });
 
+test("a longer fence quotes a block without it being acted on; line endings and the end of the file do not matter", () => {
+  const quoted = LESSON.replace("Closing prose.", "How a widget is written:\n\n````\n```widget\ntype: hologram\n```\n````\n\n```lean\nexample : True := trivial\n```\n\nClosing prose.");
+  const content = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": quoted }));
+  assert.deepEqual(content.problems, []);
+  assert.deepEqual(content.lessons[0].blocks.map((b) => b.type), ["prose", "exercise", "prose", "exercise"]);
+  const prose = content.lessons[0].blocks[2];
+  assert.ok(prose.type === "prose" && prose.markdown.includes("````\n```widget\ntype: hologram\n```\n````") && prose.markdown.includes("```lean\nexample : True := trivial\n```"));
+
+  // A widget as the very last thing, with no newline after it, in a CRLF file.
+  const last = LESSON.replace("Closing prose.\n", "```widget\ntype: move-list\nmoves: [intro]\n```").replace(/\n/g, "\r\n");
+  const crlf = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": last }));
+  assert.deepEqual(crlf.problems, []);
+  assert.deepEqual(crlf.lessons[0].blocks.at(-2), { type: "widget", widget: "move-list", params: { moves: ["intro"] } });
+});
+
+test("a lesson's own definitions go in front of each exercise's", () => {
+  const withGiven = LESSON.replace("summary: s\n", "summary: s\ngiven: |\n  def two : Nat := 2\n").replace("    forbid: [tauto]\n", "    forbid: [tauto]\n    given: |\n      def three : Nat := 3\n");
+  const content = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": withGiven }));
+  assert.deepEqual(content.problems, []);
+  assert.deepEqual(content.lessons[0].exercises.map((e) => e.given), ["def two : Nat := 2", "def two : Nat := 2\n\ndef three : Nat := 3"]);
+});
+
 const broken: [string, (lesson: string) => string, RegExp][] = [
   ["an unknown track", (l) => l.replace("track: logic", "track: music"), /track "music" is not in curriculum/],
   ["an unknown level", (l) => l.replace("level: 1", "level: 9"), /level 9 is not in curriculum/],
@@ -118,6 +140,19 @@ const broken: [string, (lesson: string) => string, RegExp][] = [
   ["a widget parameter that does not exist", (l) => l.replace("Closing prose.", "```widget\ntype: move-list\nmoves: [intro]\ncolour: red\n```"), /widget block 1 \(move-list\): has no parameter `colour`/],
   ["a proof state with no goal", (l) => l.replace("Closing prose.", "```widget\ntype: proof-state\nstate: |\n  hP : P\n```"), /widget block 1 \(proof-state\): `state` has no line starting with ⊢/],
   ["a second widget that is wrong", (l) => l.replace("Closing prose.", "```widget\ntype: move-list\nmoves: [intro]\n```\n\n```widget\ntype: move-list\n```"), /widget block 2 \(move-list\): needs `moves`/],
+  ["a widget type that is not a name", (l) => l.replace("Closing prose.", "```widget\ntype: 5\n```"), /widget block 1 \(no type\): `type` must be a widget's name, not 5/],
+  ["a required list with nothing in it", (l) => l.replace("Closing prose.", "```widget\ntype: move-list\nmoves: []\n```"), /widget block 1 \(move-list\): needs `moves`/],
+  ["two goals run together in a proof state", (l) => l.replace("Closing prose.", "```widget\ntype: proof-state\nstate: |\n  P : Prop\n  ⊢ P\n  hQ : Q\n  ⊢ Q\n```"), /`state` has the line “hQ : Q” after the goal/],
+  ["an empty widget block", (l) => l.replace("Closing prose.", "```widget\n```"), /widget block 1: must be a set of key: value lines/],
+  ["a widget block that is never closed", (l) => l.replace("Closing prose.", "```widget\ntype: move-list\nmoves: [intro]\n"), /widget block 1 is opened with ```widget and never closed/],
+  ["a capitalised widget fence", (l) => l.replace("Closing prose.", "```Widget\ntype: move-list\nmoves: [intro]\n```"), /“```Widget” looks like the start of a widget block/],
+  ["a spaced widget fence", (l) => l.replace("Closing prose.", "``` widget\ntype: move-list\nmoves: [intro]\n```"), /looks like the start of a widget block/],
+  ["an indented widget fence", (l) => l.replace("Closing prose.", "  ```widget\n  type: move-list\n  moves: [intro]\n  ```"), /looks like the start of a widget block/],
+  ["a widget fence of tildes", (l) => l.replace("Closing prose.", "~~~widget\ntype: move-list\nmoves: [intro]\n~~~"), /looks like the start of a widget block/],
+  ["an exercise fence written wrong", (l) => l.replace("```exercise\nid: second", "```Exercise\nid: second"), /looks like the start of an exercise block/],
+  ["an axiom in the lesson's own definitions", (l) => l.replace("summary: s\n", "summary: s\ngiven: |\n  axiom cheat : False\n"), /the lesson's `given` must not contain sorry, admit or an axiom/],
+  ["a sorry in the lesson's own definitions", (l) => l.replace("summary: s\n", "summary: s\ngiven: |\n  def f : Nat := sorry\n"), /the lesson's `given` must not contain/],
+  ["an admit in an exercise's own definitions", (l) => l.replace("    forbid: [tauto]\n", "    forbid: [tauto]\n    given: |\n      theorem t : False := by admit\n"), /exercise "second": `given` must not contain sorry, admit or an axiom/],
   ["a widget block that is not YAML", (l) => l.replace("Closing prose.", "```widget\ntype: [unclosed\n```"), /widget block 1: is not valid YAML/],
   ["a statement that smuggles in a proof", (l) => l.replace('"(P : Prop) (hP : P) : P"', '"(P : Prop) : P := sorry"'), /must not contain := or sorry/],
   ["a duplicate exercise id", (l) => l.replace("id: second\n    title", "id: first\n    title"), /used twice|not in the frontmatter/],

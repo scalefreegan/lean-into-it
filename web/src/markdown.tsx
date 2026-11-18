@@ -32,6 +32,10 @@ export function Markdown({ source }: { source: string }) {
   const isBullet = (l: string) => /^\s*[-*]\s+/.test(l);
   const isNumber = (l: string) => /^\s*\d+[.)]\s+/.test(l);
   const isFence = (l: string) => /^```/.test(l);
+  // A code block ends at a line of at least as many backticks as opened it
+  // and nothing else, so a longer fence can quote a shorter one (the loader
+  // reads fences the same way: web/server/loader.ts parseBlocks).
+  const closes = (l: string, opener: string) => new RegExp(`^\`{${/^`+/.exec(opener)![0].length},}[ \\t]*$`).test(l);
   while (i < lines.length) {
     const line = lines[i];
     const key = `b${k++}`;
@@ -40,7 +44,7 @@ export function Markdown({ source }: { source: string }) {
     } else if (isFence(line)) {
       const buf: string[] = [];
       i++;
-      while (i < lines.length && !isFence(lines[i])) buf.push(lines[i++]);
+      while (i < lines.length && !closes(lines[i], line)) buf.push(lines[i++]);
       i++;
       out.push(<pre key={key}>{buf.join("\n")}</pre>);
     } else if (/^###\s+/.test(line)) {

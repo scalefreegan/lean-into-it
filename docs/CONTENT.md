@@ -71,10 +71,10 @@ exercises:
 | Field | Meaning |
 |---|---|
 | `id` | Lowercase letters, digits and hyphens. Unique within the lesson. |
-| `kind` | `prove` (the default, and the only kind so far). The fields below from `mode` to `solution` are the parameters of `prove` in the registry; a field the kind does not take is refused, so a misspelt `forbid` cannot pass unnoticed. |
+| `kind` | `prove` (the default, and the only kind so far). Every exercise has `id`, `kind`, `title` and `concept`; the other fields below are the parameters of `prove` in the registry. A field the kind does not take is refused, so a misspelt `forbid` cannot pass unnoticed. |
 | `mode` | `board` or `typed`. Default `board`. |
 | `title` | A short heading. |
-| `says` | The claim in plain English, as a mathematician would say it. Shown above the exercise. |
+| `says` | The claim in plain English, as a mathematician would say it, on one line. Shown above the exercise. |
 | `statement` | The Lean statement after the keyword: binders, a colon, the claim. The server wraps it as `theorem lii_exercise <statement> := by`, with the learner's lines in brackets under it. It must not contain `:=` or `sorry`. Quote it: it contains colons. |
 | `moves` | Board mode only, required there: the moves on offer. Every line of the `solution` must be a line one of them writes (`rw [h]`, `induction' n with n ih`, `obtain ⟨r, hr⟩ := h`); `npm test` replays it. |
 | `forbid` | Tactic names that may not appear in an answer. For exercises where one automatic tactic would skip the point. An exercise that forbids anything also forbids `try?`, which would run the forbidden tactics itself. |
@@ -125,7 +125,17 @@ caption: Where the proof starts.
 
 A block with no `type`, an unknown widget, a missing or misspelt parameter,
 or a value of the wrong kind is refused, and the Path page says which block
-(`widget block 2 (move-list): …`) and why.
+(`widget block 2 (move-list): …`) and why. So is a block that is never
+closed, and a fence that is nearly ` ```widget ` or ` ```exercise ` but not
+exactly (indented, capitalised, with a space, or with tildes): it would
+otherwise be shown to the learner as a box of YAML.
+
+A code block ends at a line of at least as many backticks as opened it. To
+show a widget block in the prose without embedding it, put it inside a
+fence of four backticks.
+
+A `proof-state` is drawn as written. Nothing checks it against Lean, so
+copy the state from the app or the Playground.
 
 ### Adding a widget or an exercise kind
 
@@ -137,6 +147,13 @@ or a value of the wrong kind is refused, and the Path page says which block
    `web/src/widgets/registry.ts` or `web/src/exercises/registry.ts`.
 3. `npm test` checks that the examples pass the entry's own checks, and
    `#/gallery` draws them.
+
+That is all a widget needs. An exercise kind needs more, because only its
+parameters and its component go through the registry so far. The `Exercise`
+type (`web/shared/content.ts`), the object the loader builds
+(`parseExercise`) and the checking route (`web/server/check.ts`) are still
+shaped for `prove`: a statement, a proof body, Lean's verdict. The first
+kind that is not a proof (`lii-6xv.1`) has to widen those three.
 
 A widget parameter may not be called `type`, and an exercise kind's
 parameter may not be called `id`, `kind`, `title` or `concept`: those

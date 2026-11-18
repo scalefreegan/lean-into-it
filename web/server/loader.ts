@@ -109,6 +109,8 @@ function lessonFiles(lessonsDir: string): string[] {
   return out.sort();
 }
 
+const GIVEN_FORBIDS = /\b(sorry|admit|axiom)\b/;
+
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/;
 
 /** One lesson file. Reports through `problem` and returns null (or a lesson
@@ -147,6 +149,9 @@ export function parseLesson(
   // Definitions every exercise of the lesson is about; an exercise may add its own.
   if (front.given !== undefined && typeof front.given !== "string") problem(file, "`given` must be text: Lean code after `given: |`");
   const lessonGiven = typeof front.given === "string" ? front.given.replace(/\s+$/, "") : "";
+  // The same rule the registry applies to an exercise's own `given`: these
+  // definitions go in front of every theorem of the lesson.
+  if (GIVEN_FORBIDS.test(lessonGiven)) problem(file, "the lesson's `given` must not contain sorry, admit or an axiom");
 
   const exercises: Exercise[] = [];
   for (const e of Array.isArray(front.exercises) ? front.exercises : []) {
@@ -218,7 +223,13 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
   };
 }
 
-const FENCE = /^```(exercise|widget)[ \t]*\r?\n([\s\S]*?)\r?\n```[ \t]*$/gm;
+/** A line that opens or closes a code fence: three or more backticks. */
+const TICKS = /^(`{3,})/;
+/** The two fences the loader acts on, written exactly. */
+const BLOCK = /^```(exercise|widget)[ \t]*$/;
+/** A fence that means to be one of them and is not written that way:
+ *  indented, capitalised, spaced, longer, or with tildes. */
+const NEAR_BLOCK = /^\s*(`{3,}|~{3,})\s*(exercise|widget)\s*$/i;
 
 /**
  * Prose with two kinds of fence in it. ```exercise (just `id: <exercise
@@ -226,27 +237,68 @@ const FENCE = /^```(exercise|widget)[ \t]*\r?\n([\s\S]*?)\r?\n```[ \t]*$/gm;
  * declared order. ```widget (`type: <widget>` and its parameters) embeds a
  * widget, checked here against the registry so that the page never has to
  * draw one it was not given what it needs.
+ *
+ * Read line by line, as the page's markdown reads it (web/src/markdown.tsx):
+ * a fence closes at a line of at least as many backticks and nothing else,
+ * so a longer fence can quote a block without it being acted on. A block
+ * fence that is nearly right, or never closed, would otherwise be shown to
+ * the learner as a box of YAML with nothing said: it is refused.
  */
 function parseBlocks(body: string, exercises: Exercise[], problem: (message: string) => void): Block[] {
   const blocks: Block[] = [];
   const placed = new Set<string>();
-  const prose = (markdown: string) => {
-    if (markdown.trim()) blocks.push({ type: "prose", markdown: markdown.trim() });
+  const lines = body.split(/\r?\n/);
+  let buf: string[] = [];
+  const flush = () => {
+    const markdown = buf.join("\n").trim();
+    if (markdown) blocks.push({ type: "prose", markdown });
+    buf = [];
   };
-  let last = 0;
   let widgets = 0;
-  for (const m of body.matchAll(FENCE)) {
-    prose(body.slice(last, m.index));
-    last = m.index + m[0].length;
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const kind = BLOCK.exec(line)?.[1];
+    const near = NEAR_BLOCK.exec(line);
+    if (near && !kind) {
+      const want = near[2].toLowerCase();
+      problem(`the line “${line.trim()}” looks like the start of ${want === "exercise" ? "an exercise" : "a widget"} block, which is written \`\`\`${want} exactly, at the start of a line`);
+      buf.push(line);
+      i++;
+      continue;
+    }
+    const ticks = TICKS.exec(line)?.[1].length;
+    if (!ticks) {
+      buf.push(line);
+      i++;
+      continue;
+    }
+    const closes = new RegExp(`^\`{${ticks},}[ \\t]*$`);
+    let end = i + 1;
+    while (end < lines.length && !closes.test(lines[end])) end++;
+    if (!kind) {
+      // An ordinary code block is prose, taken whole: nothing in it is a block.
+      buf.push(...lines.slice(i, end + 1));
+      i = end + 1;
+      continue;
+    }
+    if (kind === "widget") widgets++;
+    if (end >= lines.length) {
+      problem(`${kind === "widget" ? `widget block ${widgets}` : "an exercise block"} is opened with \`\`\`${kind} and never closed`);
+      break;
+    }
+    flush();
+    const text = lines.slice(i + 1, end).join("\n");
+    i = end + 1;
     let parsed: unknown;
     let unreadable = "";
     try {
-      parsed = parseYaml(m[2]);
+      parsed = parseYaml(text);
     } catch (e) {
       unreadable = (e as Error).message.split("\n")[0];
     }
-    if (m[1] === "widget") {
-      const block = parseWidget(parsed, unreadable, ++widgets, problem);
+    if (kind === "widget") {
+      const block = parseWidget(parsed, unreadable, widgets, problem);
       if (block) blocks.push(block);
       continue;
     }
@@ -258,7 +310,7 @@ function parseBlocks(body: string, exercises: Exercise[], problem: (message: str
       blocks.push({ type: "exercise", id });
     }
   }
-  prose(body.slice(last));
+  flush();
   for (const e of exercises) if (!placed.has(e.id)) blocks.push({ type: "exercise", id: e.id });
   return blocks;
 }
@@ -273,7 +325,9 @@ function parseWidget(parsed: unknown, unreadable: string, n: number, problem: (m
   const type = str(parsed.type);
   const where = `widget block ${n} (${type || "no type"})`;
   if (!isWidget(type)) {
-    problem(`${where}: ${type ? `there is no widget called "${type}"` : "needs `type`, the widget's name"}. web/shared/registry.ts lists ${Object.keys(WIDGETS).join(", ")}`);
+    const given = parsed.type !== undefined && parsed.type !== null;
+    const why = type ? `there is no widget called "${type}"` : given ? `\`type\` must be a widget's name, not ${JSON.stringify(parsed.type)}` : "needs `type`, the widget's name";
+    problem(`${where}: ${why}. web/shared/registry.ts lists ${Object.keys(WIDGETS).join(", ")}`);
     return null;
   }
   const wrong = checkParams(WIDGETS[type], parsed, WIDGET_KEYS);

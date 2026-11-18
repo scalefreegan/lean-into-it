@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseState } from "./goals.ts";
-import { checkParam, checkParams, EXERCISE_KEYS, EXERCISES, isExerciseKind, isWidget, WIDGET_KEYS, WIDGETS } from "./registry.ts";
+import { parse as parseYaml } from "yaml";
+import { checkParam, checkParams, EXERCISE_KEYS, EXERCISES, isExerciseKind, isWidget, WIDGET_KEYS, widgetBlock, WIDGETS, type WidgetType } from "./registry.ts";
 
 test("no parameter name collides with the block's own keys", () => {
   // A widget block's `type:` names the widget, so a parameter called `type`
@@ -69,6 +70,47 @@ test("a proof state is read the way Lean prints one, and a state with no goal is
   assert.ok(checkParam("state", 7));
 });
 
+test("a proof state exactly as Lean 4.36 prints a long one", () => {
+  // Lean breaks a long hypothesis straight after its colon and indents the rest.
+  const long = "f : Nat → Nat\nh :\n  ∀ (n : Nat),\n    f (n + 1) + f (n + 2) =\n      f n + f (n + 3)\n⊢ f 1 + f 2 =\n    f 0 + f 3";
+  assert.equal(checkParam("state", long), null);
+  const [goal] = parseState(long);
+  assert.deepEqual(goal.hypotheses.map((h) => h.names), [["f"], ["h"]]);
+  assert.equal(goal.hypotheses[1].type, "∀ (n : Nat),\n    f (n + 1) + f (n + 2) =\n      f n + f (n + 3)");
+  assert.equal(goal.target, "f 1 + f 2 =\n    f 0 + f 3");
+  assert.equal(checkParam("state", "x : ℕ := 5\na✝ : x < 3\n⊢ False"), null);
+  // `h :` with nothing under it is not a fact.
+  assert.match(checkParam("state", "h :\n⊢ P") ?? "", /“h :”, which is not/);
+  // After the goal only its own indented continuation may come.
+  assert.match(checkParam("state", "P : Prop\n⊢ P\nQ : Prop\nhQ : Q\n⊢ Q") ?? "", /“Q : Prop” after the goal/);
+  assert.match(checkParam("state", "⊢ P\nhP : P") ?? "", /“hP : P” after the goal/);
+  assert.match(checkParam("state", "⊢ P\nand that is all") ?? "", /after the goal/);
+});
+
+test("the block the Gallery prints for each example loads back as that example", () => {
+  for (const [type, w] of Object.entries(WIDGETS)) {
+    for (const example of w.examples) {
+      const printed = widgetBlock(type as WidgetType, example);
+      const lines = printed.split("\n");
+      assert.equal(lines[0], "```widget");
+      assert.equal(lines.at(-1), "```");
+      const { type: readType, ...params } = parseYaml(lines.slice(1, -1).join("\n")) as Record<string, unknown>;
+      assert.equal(readType, type);
+      // YAML's `|` ends a block of text with a newline; the checks and the widgets ignore it.
+      const tidy = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "string" ? v.replace(/\n+$/, "") : v]));
+      assert.deepEqual(tidy(params), tidy(example), printed);
+      assert.deepEqual(checkParams(w, params), [], printed);
+    }
+  }
+  // Text YAML would read as something else is quoted.
+  const tricky = widgetBlock("proof-state", { state: "⊢ P", caption: "P ∧ Q: two goals # not a comment" });
+  assert.deepEqual(parseYaml(tricky.split("\n").slice(1, -1).join("\n")), { type: "proof-state", state: "⊢ P", caption: "P ∧ Q: two goals # not a comment" });
+  for (const text of ["yes", "null", "3", " padded ", "- item", "[a]", "it's: here"]) {
+    const block = widgetBlock("proof-state", { state: "⊢ P", caption: text });
+    assert.equal((parseYaml(block.split("\n").slice(1, -1).join("\n")) as Record<string, unknown>).caption, text, block);
+  }
+});
+
 test("a whole set of parameters: unknown, missing, out of bounds, and the checks across them", () => {
   const spec = { params: { n: { type: "number" as const, required: true, min: 1, max: 9, integer: true, doc: "How many." }, label: { type: "string" as const, doc: "A label." } } };
   assert.deepEqual(checkParams(spec, { n: 3 }), []);
@@ -95,5 +137,6 @@ test("a whole set of parameters: unknown, missing, out of bounds, and the checks
   assert.match(checkParams(prove, { ...good, solution: undefined }).join(), /needs `solution`/);
 
   assert.match(checkParams(WIDGETS["proof-state"], {}).join(), /needs `state`/);
+  assert.match(checkParams(WIDGETS["move-list"], { moves: [] }).join(), /needs `moves`/, "a required list with nothing in it");
   assert.match(checkParams(WIDGETS["move-list"], { moves: ["intro"], title: "x" }).join(), /has no parameter `title`/);
 });

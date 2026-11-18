@@ -1,4 +1,4 @@
-import { EXERCISE_KEYS, EXERCISES, isWidget, WIDGETS, type ParamSpecs, type WidgetType } from "../../shared/registry.ts";
+import { EXERCISE_KEYS, EXERCISES, isWidget, widgetBlock, WIDGETS, type ParamSpecs, type WidgetType } from "../../shared/registry.ts";
 import { href } from "../router.ts";
 import { Notice } from "../ui.tsx";
 import { RenderWidget } from "../widgets/RenderWidget.tsx";
@@ -7,16 +7,6 @@ import { RenderWidget } from "../widgets/RenderWidget.tsx";
 // (web/shared/registry.ts): each widget drawn with its example parameters,
 // and each exercise kind with the fields it takes. A reference for whoever
 // writes lessons; open #/gallery, or #/gallery/<widget> for one widget.
-
-/** A widget block as it would be written in a lesson file. */
-function asBlock(type: string, params: Record<string, unknown>): string {
-  const lines = [`type: ${type}`];
-  for (const [key, value] of Object.entries(params)) {
-    if (typeof value === "string" && value.includes("\n")) lines.push(`${key}: |`, ...value.replace(/\n+$/, "").split("\n").map((l) => (l ? `  ${l}` : "")));
-    else lines.push(`${key}: ${Array.isArray(value) ? `[${value.join(", ")}]` : String(value)}`);
-  }
-  return ["```widget", ...lines, "```"].join("\n");
-}
 
 /** A registry sentence, with its `code` spans set as code. */
 function Doc({ text }: { text: string }) {
@@ -90,7 +80,7 @@ export function Gallery({ only }: { only?: string }) {
             </div>
             {WIDGETS[type].examples.map((params, i) => (
               <div key={i} className="grid items-start gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                <pre className="lean overflow-x-auto rounded-xl border border-line bg-raised px-4 py-3 text-sm leading-6 text-fg-2">{asBlock(type, params)}</pre>
+                <pre className="lean overflow-x-auto rounded-xl border border-line bg-raised px-4 py-3 text-sm leading-6 text-fg-2">{widgetBlock(type, params)}</pre>
                 <RenderWidget type={type} params={params} />
               </div>
             ))}

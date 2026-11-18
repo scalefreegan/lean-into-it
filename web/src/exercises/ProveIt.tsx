@@ -1,3 +1,4 @@
+import { ErrorBoundary } from "../ErrorBoundary.tsx";
 import { ProofBoard } from "../proof/ProofBoard.tsx";
 import { TypedProof } from "../proof/TypedProof.tsx";
 import type { ExerciseProps } from "./types.ts";
@@ -8,7 +9,8 @@ export function ProveIt(props: ExerciseProps) {
   const { exercise } = props;
   return (
     <>
-      <div>
+      {/* The lesson page spaces its parts by 0.75rem; the claim sits closer to the title above it. */}
+      <div className="-mt-2">
         <p className="font-display text-lg italic text-fg-2">{exercise.says}</p>
         {exercise.given && (
           <details className="mt-2" data-given>
@@ -17,7 +19,7 @@ export function ProveIt(props: ExerciseProps) {
           </details>
         )}
       </div>
-      {exercise.mode === "board" ? <ProofBoard {...props} /> : <TypedProof {...props} />}
+      <ErrorBoundary label={`exercise ${exercise.id}`}>{exercise.mode === "board" ? <ProofBoard {...props} /> : <TypedProof {...props} />}</ErrorBoundary>
     </>
   );
 }
