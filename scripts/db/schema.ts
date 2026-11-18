@@ -70,8 +70,8 @@ export const solvedExercises = pgTable(
 /**
  * The Tutor chat, one transcript per learner. `note` lines are the app's own
  * (a turn that failed, a rung-3 line Lean refused). A hint carries the
- * exercise it was for and its rung. Trimmed to the newest CHAT_KEEP rows
- * (scripts/db/progress.ts).
+ * exercise it was for and its rung, for display; the record that counts is
+ * `hints`. Trimmed to the newest CHAT_KEEP rows (scripts/db/progress.ts).
  */
 export const chatMessages = pgTable(
   "chat_messages",
@@ -92,4 +92,25 @@ export const chatMessages = pgTable(
     check("chat_messages_rung", sql`${t.rung} is null or ${t.rung} between 1 and 3`),
     index("chat_messages_learner_idx").on(t.learnerId, t.id),
   ],
+);
+
+/**
+ * Every hint rung the Tutor gave, kept apart from the chat so clearing or
+ * trimming the chat cannot take back an assisted mark. The ladder is per
+ * local day (scripts/db/progress.ts hintRung): a line seen today makes
+ * every check of that exercise today assisted.
+ */
+export const hints = pgTable(
+  "hints",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    learnerId: uuid("learner_id")
+      .notNull()
+      .references(() => learners.id, { onDelete: "cascade" }),
+    lessonId: text("lesson_id").notNull(),
+    exerciseId: text("exercise_id").notNull(),
+    rung: smallint("rung").notNull(),
+    createdAt: tz("created_at").notNull().defaultNow(),
+  },
+  (t) => [check("hints_rung", sql`${t.rung} between 1 and 3`), index("hints_learner_exercise").on(t.learnerId, t.lessonId, t.exerciseId, t.createdAt)],
 );

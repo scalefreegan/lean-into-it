@@ -53,6 +53,8 @@ declare module "*/scripts/claude.mjs" {
   export const DEFAULT_MODEL: string;
   export const READ_TOOLS: string[];
   export const DENIED: string[];
+  export const SECRET_PATHS: string[];
+  export function armReaper(): void;
   export function failureHint(text: string): string | null;
   export function secretDenials(root?: string): string[];
   export function buildArgs(o: { systemPrompt?: string; model?: string; maxTurns?: number; mcpConfigPath?: string; repoRoot?: string }): string[];

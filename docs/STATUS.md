@@ -169,15 +169,18 @@ Landed in the first PR, the foundation slice:
   after Fret Not's), read-only: Read, Glob and Grep, nothing else, no MCP
   servers, no settings files; one turn at a time. On an exercise, the hint
   ladder: a nudge, the name of the move, the line, each its own request
-  and only in order. Lean checks rung 3's line first (it must raise no
-  error, change the goals or finish, and on the board be a line an offered
-  move writes); one retry, and a line Lean refuses is never shown. The rung
-  is stored on the chat row; the next check of that exercise carries it
-  (`attempts.rung`), and rung 3 makes it `assisted`. A solve starts the
-  ladder again. The chat is kept in Postgres (`chat_messages`, the newest
-  400 rows). Migration `0001_tutor`. Not yet: streaming (the reply arrives
-  whole), a choice of model.
-- Tests: 263, including every reference solution checked by the real Lean,
+  and only in order, per local day. Lean checks rung 3's line first, after
+  the part of the proof it accepts (it must raise no error, change the
+  goals or finish, and on the board be a line an offered move writes); one
+  retry, and a line Lean refuses is never shown. Hints given are recorded
+  in `hints`, apart from the chat, so clearing the chat takes nothing back;
+  every check of the exercise that day carries the day's rung
+  (`attempts.rung`), and rung 3 makes them `assisted`. The chat is kept in
+  Postgres (`chat_messages`, the newest 400 rows). Migration `0001_tutor`.
+  Not enforced: an ordinary question is asked not to hand over the line,
+  but only the prompt holds the Tutor to that. Not yet: streaming (the
+  reply arrives whole), a choice of model.
+- Tests: 266, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

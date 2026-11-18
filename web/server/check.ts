@@ -148,9 +148,9 @@ async function keep(lessonId: string, exerciseId: string, body: string, reply: C
   const db = rawDb();
   const learner = await learnerId();
   if (record !== "rejected" && record !== "submitted" && record !== "live") return;
-  // The Tutor's hints on this exercise since it was last solved: rung 3 gave
-  // the line, and makes the check assisted (seen, not credited).
-  const rung = (await hintRung(db, learner, lessonId, exerciseId)) || null;
+  // The Tutor's hints on this exercise today: rung 3 gave the line, and
+  // makes the check assisted (seen, not credited).
+  const rung = (await hintRung(db, learner, lessonId, exerciseId, startOfDay(new Date()))) || null;
   if (reply.solved) {
     if (record !== "submitted" && (await solvedSince(db, learner, lessonId, exerciseId, startOfDay(new Date())))) return;
     await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: true, rung });

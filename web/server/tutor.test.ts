@@ -3,7 +3,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
 import { test } from "node:test";
-import { appendChat, chatFor, ensureLearner, hintRung, recordAttempt } from "../../scripts/db/progress.ts";
+import { appendChat, chatFor, ensureLearner, hintRung } from "../../scripts/db/progress.ts";
+import { startOfDay } from "../shared/progress.ts";
 import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { TutorHistoryReply, TutorReply } from "../shared/wire.ts";
 import { setDb } from "./db.ts";
@@ -101,7 +102,7 @@ async function withDb(t: { after: (fn: () => Promise<void>) => void }, a: Agent)
     setDb(null);
     await fresh.close();
   });
-  return { db: fresh.db, learner: await ensureLearner(fresh.db) };
+  return { db: fresh.db, query: fresh.query, learner: await ensureLearner(fresh.db) };
 }
 
 const onExercise = { page: "lesson", lessonId: lesson.id, exerciseId: exercise.id, body: "" } as const;
@@ -127,21 +128,24 @@ test("a question gets the agent's reply, and both are kept in the chat", async (
 });
 
 test("rungs are climbed in order, each its own request, and the rung is stored on the hint", async (t) => {
-  const { db, learner } = await withDb(t, async ({ prompt }) => (/HINT at rung 1/.test(prompt) ? "Look at what hPQ needs." : "The move is exact."));
+  const { db, learner, query } = await withDb(t, async ({ prompt }) => (/HINT at rung 1/.test(prompt) ? "Look at what hPQ needs." : "The move is exact."));
   assert.equal((await call("POST", "/", { hint: 2, context: onExercise })).status, 409);
   assert.equal((await call("POST", "/", { hint: 4, context: onExercise })).status, 400);
   assert.equal((await call("POST", "/", { hint: 1, context: { page: "path" } })).status, 400, "a hint is for an exercise");
   const one = await call<TutorReply>("POST", "/", { hint: 1, context: onExercise });
   assert.equal(one.reply.messages[1].rung, 1);
-  assert.equal(await hintRung(db, learner, lesson.id, exercise.id), 1);
+  assert.equal(await hintRung(db, learner, lesson.id, exercise.id, startOfDay(new Date())), 1);
   assert.equal((await call("POST", "/", { hint: 3, context: onExercise })).status, 409);
   const two = await call<TutorReply>("POST", "/", { hint: 2, context: onExercise });
   assert.equal(two.reply.messages[1].text, "The move is exact.");
-  assert.equal(await hintRung(db, learner, lesson.id, exercise.id), 2);
-  // A solve starts the ladder again.
-  await new Promise((r) => setTimeout(r, 5));
-  await recordAttempt(db, learner, { lessonId: lesson.id, exerciseId: exercise.id, body: exercise.solution, solved: true });
-  assert.equal(await hintRung(db, learner, lesson.id, exercise.id), 0);
+  assert.equal(await hintRung(db, learner, lesson.id, exercise.id, startOfDay(new Date())), 2);
+  // Clearing the chat does not take a hint back: the record is not the transcript.
+  assert.equal((await call("DELETE", "/history")).status, 200);
+  assert.equal(await hintRung(db, learner, lesson.id, exercise.id, startOfDay(new Date())), 2);
+  assert.equal((await call<{ rung: number }>("GET", `/ladder?lesson=${lesson.id}&exercise=${exercise.id}`)).reply.rung, 2);
+  // The ladder is per day: the next day it starts again.
+  await query("update hints set created_at = created_at - interval '2 days'");
+  assert.equal(await hintRung(db, learner, lesson.id, exercise.id, startOfDay(new Date())), 0);
 });
 
 test("a failed turn is a note in the chat, in the agent's own words when it gave some", async (t) => {
@@ -152,6 +156,18 @@ test("a failed turn is a note in the chat, in the agent's own words when it gave
   assert.equal(status, 200);
   assert.equal(reply.messages.at(-1)!.role, "note");
   assert.match(reply.messages.at(-1)!.text, /sign-in has expired/);
+});
+
+test("a hint stopped before its reply arrives is not given", async (t) => {
+  const { db, learner } = await withDb(t, async ({ signal }) => new Promise<string>((resolve) => signal.addEventListener("abort", () => resolve("late reply"))));
+  const req = Object.assign(Readable.from([Buffer.from(JSON.stringify({ hint: 1, context: onExercise }))]), { method: "POST", headers: {}, url: "/" }) as unknown as IncomingMessage;
+  const res = Object.assign(new EventEmitter(), { destroyed: false, writeHead() { return this; }, end() {} }) as unknown as ServerResponse;
+  const turn = handleTutor(req, res);
+  await new Promise((r) => setTimeout(r, 50));
+  (res as unknown as EventEmitter).emit("close");
+  await turn;
+  assert.equal(await hintRung(db, learner, lesson.id, exercise.id, startOfDay(new Date())), 0);
+  assert.equal((await chatFor(db, learner)).at(-1)!.role, "note");
 });
 
 test("one turn at a time", async (t) => {

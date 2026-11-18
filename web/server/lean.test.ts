@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { after, before, test } from "node:test";
-import { appendChat, attemptCount, attemptsFor, ensureLearner, solvedFor } from "../../scripts/db/progress.ts";
+import { attemptCount, attemptsFor, ensureLearner, recordHint, solvedFor } from "../../scripts/db/progress.ts";
 import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
@@ -19,7 +19,7 @@ import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, type LeanServer 
 import { loadContent } from "./loader.ts";
 import { documentedLesson } from "./doclesson.ts";
 import type { HttpError } from "./sse.ts";
-import { handleTutor, lineProblem, setAgent } from "./tutor.ts";
+import { acceptedPart, handleTutor, lineProblem, setAgent } from "./tutor.ts";
 import type { TutorReply } from "../shared/wire.ts";
 
 // The tests that need a real Lean: they start `lake serve` in lean/ and
@@ -420,8 +420,8 @@ test("/api/tutor rung 3: a line Lean refuses is retried once, then not shown; a 
     return JSON.parse(text) as TutorReply;
   };
   t.after(() => setAgent(null));
-  await appendChat(db, learner, { role: "assistant", text: "nudge", lessonId: lesson.id, exerciseId: ex.id, rung: 1 });
-  await appendChat(db, learner, { role: "assistant", text: "name", lessonId: lesson.id, exerciseId: ex.id, rung: 2 });
+  await recordHint(db, learner, lesson.id, ex.id, 1);
+  await recordHint(db, learner, lesson.id, ex.id, 2);
 
   const asked: string[] = [];
   setAgent(async ({ prompt }) => {
@@ -447,6 +447,17 @@ test("/api/tutor rung 3: a line Lean refuses is retried once, then not shown; a 
   const last = (await attemptsFor(db, learner)).at(-1)!;
   assert.equal(last.assisted, true, "rung 3 makes the check assisted");
   assert.equal(last.solved, true);
+  // Check pressed again on the same proof the same day: still assisted.
+  await post({ lessonId: lesson.id, exerciseId: ex.id, body: ex.solution, record: "submitted" });
+  assert.deepEqual((await attemptsFor(db, learner)).slice(-2).map((r) => r.assisted), [true, true]);
+});
+
+test("rung 3 on a proof with an error: the line is checked after the part Lean accepts", { skip }, async () => {
+  const typed = exercise("typed");
+  assert.equal(await acceptedPart(typed, "intro hPQ\nexact hPQ\napply h"), "intro hPQ");
+  assert.equal(await acceptedPart(typed, "intro hPQ\nintro hP"), "intro hPQ\nintro hP");
+  assert.equal(await acceptedPart(typed, ""), "");
+  assert.equal(await lineProblem(typed, await acceptedPart(typed, "intro hPQ\nexact hPQ"), "intro hP"), null);
 });
 
 const fills = content.lessons.flatMap((l) => l.exercises.filter((e) => e.kind === "fill").map((e) => ({ lesson: l, e })));

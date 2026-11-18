@@ -55,11 +55,13 @@ export const DENIED = [
   "TaskCreate", "TaskOutput", "TaskStop",
 ];
 
-/** What no turn may read: the env files (DATABASE_URL) and Lean's build
- *  tree (gigabytes of Mathlib, no use to a tutor), anywhere under root. */
+/** What no turn may read, under root: the env files (DATABASE_URL), the
+ *  local tool state (.claude/, the beads database, browser captures) and
+ *  Lean's build tree (gigabytes of Mathlib, no use to a tutor). */
+export const SECRET_PATHS = [".env*", "**/.env*", ".claude/**", ".beads/**", ".playwright-mcp/**", "lean/.lake/**", "**/node_modules/**"];
 export function secretDenials(root = REPO_ROOT) {
   const base = path.resolve(root).replace(/^\/+/, "");
-  return READ_TOOLS.flatMap((tool) => [`${tool}(//${base}/.env*)`, `${tool}(//${base}/**/.env*)`, `${tool}(//${base}/lean/.lake/**)`, `${tool}(//${base}/**/node_modules/**)`]);
+  return READ_TOOLS.flatMap((tool) => SECRET_PATHS.map((p) => `${tool}(//${base}/${p})`));
 }
 
 /**
@@ -97,7 +99,7 @@ export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, 
 export function childEnv(env = process.env) {
   const out = {};
   for (const [k, v] of Object.entries(env)) {
-    if (k === "ANTHROPIC_API_KEY" || k === "CLAUDECODE" || k.startsWith("CLAUDE_CODE_")) continue;
+    if (k === "ANTHROPIC_API_KEY" || k === "ANTHROPIC_AUTH_TOKEN" || k === "ANTHROPIC_BASE_URL" || k === "CLAUDECODE" || k.startsWith("CLAUDE_CODE_")) continue;
     out[k] = v;
   }
   return out;
@@ -147,15 +149,24 @@ export function classifyExit({ code, stdout, stderr }) {
 // re-evaluates server modules on edit.
 const reaper = (globalThis.__leanIntoItReaper ??= { liveKills: new Set(), armed: false });
 
-function armReaper() {
+export function armReaper() {
   if (reaper.armed) return;
   reaper.armed = true;
   for (const sig of ["SIGTERM", "SIGINT", "SIGHUP"]) {
-    process.on(sig, () => {
+    const onSignal = () => {
       for (const kill of reaper.liveKills) {
         try { kill(); } catch { /* already gone */ }
       }
-    });
+      // A listener replaces Node's default exit on the signal. When nothing
+      // else handles it (Vite only listens for SIGTERM), stop listening and
+      // raise it again, so Ctrl-C and closing the terminal still end the server.
+      if (process.listenerCount(sig) === 1) {
+        process.off(sig, onSignal);
+        reaper.armed = false;
+        process.kill(process.pid, sig);
+      }
+    };
+    process.on(sig, onSignal);
   }
 }
 

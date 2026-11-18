@@ -4,10 +4,10 @@
 //
 // Erasable TypeScript only, like schema.ts: `node --test` imports it as is.
 
-import { and, asc, desc, eq, gt, gte, isNotNull, lt, max } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, max } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema.ts";
-import { attempts, chatMessages, learners, solvedExercises } from "./schema.ts";
+import { attempts, chatMessages, hints, learners, solvedExercises } from "./schema.ts";
 
 /** The server's pool-backed handle and the tests' PGlite one both fit. */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -177,29 +177,21 @@ export async function clearChat(db: Db, learnerId: string): Promise<void> {
   await db.delete(chatMessages).where(eq(chatMessages.learnerId, learnerId));
 }
 
+/** Record that the Tutor gave a hint at `rung` on an exercise. */
+export async function recordHint(db: Db, learnerId: string, lessonId: string, exerciseId: string, rung: number): Promise<void> {
+  await db.insert(hints).values({ learnerId, lessonId, exerciseId, rung });
+}
+
 /**
- * The highest hint rung the Tutor gave on an exercise since it was last
- * solved (or ever, if never solved); 0 for none. A solve starts the ladder
- * again: the next time the exercise comes round, in review, it is unaided
- * until a hint is asked for.
+ * The highest hint rung the Tutor gave on an exercise since `since` (the
+ * start of the learner's local day); 0 for none. The ladder is per day: a
+ * line seen today makes every check of the exercise today assisted, however
+ * often it is checked; the next day, in review, it starts unaided again.
  */
-export async function hintRung(db: Db, learnerId: string, lessonId: string, exerciseId: string): Promise<number> {
-  const [last] = await db
-    .select({ at: max(attempts.createdAt) })
-    .from(attempts)
-    .where(and(eq(attempts.learnerId, learnerId), eq(attempts.lessonId, lessonId), eq(attempts.exerciseId, exerciseId), eq(attempts.solved, true)));
-  const since = last?.at ? new Date(last.at) : null;
+export async function hintRung(db: Db, learnerId: string, lessonId: string, exerciseId: string, since: Date): Promise<number> {
   const [top] = await db
-    .select({ rung: max(chatMessages.rung) })
-    .from(chatMessages)
-    .where(
-      and(
-        eq(chatMessages.learnerId, learnerId),
-        eq(chatMessages.lessonId, lessonId),
-        eq(chatMessages.exerciseId, exerciseId),
-        isNotNull(chatMessages.rung),
-        ...(since ? [gt(chatMessages.createdAt, since)] : []),
-      ),
-    );
+    .select({ rung: max(hints.rung) })
+    .from(hints)
+    .where(and(eq(hints.learnerId, learnerId), eq(hints.lessonId, lessonId), eq(hints.exerciseId, exerciseId), gte(hints.createdAt, since)));
   return top?.rung ?? 0;
 }

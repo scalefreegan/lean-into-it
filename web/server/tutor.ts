@@ -11,9 +11,11 @@
 // rung: (1) a nudge about the idea, (2) the name of the move or lemma, (3)
 // the exact line. Rung 3's line is checked by Lean before it is shown: a
 // line Lean refuses is never handed over (one retry, then a note). The rung
-// given is stored on the chat row, and /api/check reads it from there
-// (scripts/db/progress.ts hintRung) when it records the next check, which
-// rung 3 marks assisted.
+// given is recorded in `hints` (not the chat, which can be cleared), and
+// /api/check reads the day's highest rung (scripts/db/progress.ts hintRung)
+// onto every check of the exercise that day; rung 3 marks them assisted.
+// The ladder is per local day. An ordinary question is asked not to hand
+// over the line, but only the system prompt holds the Tutor to that.
 //
 // The context comes from the browser and goes into a prompt, so it is
 // rebuilt field by field (`sanitizeContext`): the lesson and exercise are
@@ -21,7 +23,8 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { DEFAULT_MODEL, REPO_ROOT, failureHint, startClaude, sweepRunDirs } from "../../scripts/claude.mjs";
-import { appendChat, chatFor, clearChat, hintRung, type ChatRow } from "../../scripts/db/progress.ts";
+import { appendChat, chatFor, clearChat, hintRung, recordHint, type ChatRow } from "../../scripts/db/progress.ts";
+import { startOfDay } from "../shared/progress.ts";
 import type { Content, Exercise, Lesson } from "../shared/content.ts";
 import { readLine } from "../shared/moves.ts";
 import type { TutorContext, TutorHistoryReply, TutorLadderReply, TutorMessage, TutorReply, TutorRequest } from "../shared/wire.ts";
@@ -122,7 +125,7 @@ Keep replies short: a few sentences or a short list, plain prose, no headings. P
 Hints. When a message asks for a HINT at a rung, give exactly that rung and nothing past it:
   rung 1: a nudge about the idea (what kind of step comes next, what to look at), with no tactic or lemma named;
   rung 2: the name of the move or lemma to use, and why it fits, without writing the line;
-  rung 3: the exact next line, with a sentence on why it works. End the reply with one final line of the form
+  rung 3: the exact next line, with a sentence on why it works. If their proof has an error, the line is the one that should replace the first wrong line (it goes after the lines Lean accepts). End the reply with one final line of the form
     LINE: <the Lean line>
   and nothing after it. On the proof board the line must be one a board move writes (the moves on offer); in a fill-the-gap exercise it is what goes in the gap.
 When the learner asks an ordinary question about an exercise, explain, but do not hand over the next line: that is what the hint ladder is for.`;
@@ -160,8 +163,9 @@ export function turnPrompt(prior: Pick<ChatRow, "role" | "text" | "rung">[], ask
 }
 
 /** Rung 3 again, after Lean refused the line. */
-export function retryPrompt(first: string, line: string, why: string, ctx: TutorContext, where: Where): string {
-  return `[CONTEXT]\n${contextNote(ctx, where)}\n\n[APP]\nYou suggested this as the next line:\n${fence(line)}\nThe app asked Lean and it does not work there: ${why}\nYour reply was:\n${fence(first)}\n\nGive the hint at rung 3 again with a line that works, explained in a sentence or two, ending with the LINE: line. This is the last try: a line Lean refuses is not shown.\n\n[TUTOR]`;
+export function retryPrompt(first: string, line: string, why: string, ctx: TutorContext, where: Where, base = ""): string {
+  const after = base ? `after the part of their proof Lean accepts:\n${fence(base)}\n` : "as the first line of the proof.\n";
+  return `[CONTEXT]\n${contextNote(ctx, where)}\n\n[APP]\nYou suggested this as the next line:\n${fence(line)}\nThe app put it ${after}and asked Lean; it does not work there: ${why}\nYour reply was:\n${fence(first)}\n\nGive the hint at rung 3 again with a line that works, explained in a sentence or two, ending with the LINE: line. This is the last try: a line Lean refuses is not shown.\n\n[TUTOR]`;
 }
 
 /** A rung-3 reply's text and its line (the last `LINE:` line), or no line. */
@@ -209,6 +213,23 @@ export async function lineProblem(exercise: Exercise, body: string, line: string
   }
 }
 
+/**
+ * The part of the learner's proof Lean accepts: the lines before its first
+ * error. The next line goes after these, in place of the wrong ones; asked
+ * for help, a proof often has an error in it. A fill has no base.
+ */
+export async function acceptedPart(exercise: Exercise, body: string): Promise<string> {
+  if (exercise.kind === "fill" || !body.trim()) return "";
+  try {
+    const r = await checkExercise(leanServer(), exercise, body);
+    if (!r.error || r.error.line === null) return r.refusal ? "" : body.replace(/\s+$/, "");
+    return body.split("\n").slice(0, r.error.line).join("\n").replace(/\s+$/, "");
+  } catch (e) {
+    const err = leanError(e);
+    throw err instanceof HttpError ? new TurnStopped(`Lean could not check the proof (${err.message})`) : err;
+  }
+}
+
 /* -------------------------------- the turn ------------------------------- */
 
 /** A turn that stopped for a reason the learner may read. */
@@ -249,7 +270,7 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
   const db = rawDb();
   const learner = await learnerId();
   if (rung && where.lesson && where.exercise) {
-    const had = await hintRung(db, learner, where.lesson.id, where.exercise.id);
+    const had = await hintRung(db, learner, where.lesson.id, where.exercise.id, startOfDay(new Date()));
     if (rung > had + 1) throw new HttpError(409, `climb the ladder in order: rung ${had + 1} comes next`);
   }
   // Checked and set with no await in between, so two turns cannot both pass.
@@ -275,12 +296,14 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
       let text = await run(turnPrompt(prior, ask, ctx, where, rung));
       let line: string | null = null;
       if (rung === 3 && where.exercise) {
+        const ex = where.exercise;
+        const base = await acceptedPart(ex, ctx.body ?? "");
         let split = splitLine(text);
-        let why = split.line ? await lineProblem(where.exercise, ctx.body ?? "", split.line) : "the reply had no LINE: line";
+        let why = split.line ? await lineProblem(ex, base, split.line) : "the reply had no LINE: line";
         if (why) {
-          const again = await run(retryPrompt(text, split.line ?? "(none)", why, ctx, where));
+          const again = await run(retryPrompt(text, split.line ?? "(none)", why, ctx, where, base));
           split = splitLine(again);
-          why = split.line ? await lineProblem(where.exercise, ctx.body ?? "", split.line) : "the reply had no LINE: line";
+          why = split.line ? await lineProblem(ex, base, split.line) : "the reply had no LINE: line";
         }
         if (ctrl.signal.aborted) throw new TurnStopped("stopped");
         if (why) {
@@ -291,7 +314,10 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
         text = split.text;
         line = split.line;
       }
+      // Stopped while the reply was on its way: not given, not a rung reached.
+      if (ctrl.signal.aborted) throw new TurnStopped("stopped");
       const shown = line ? `${text}\n\n\`${line}\`` : text;
+      if (rung && where.lesson && where.exercise) await recordHint(db, learner, where.lesson.id, where.exercise.id, rung);
       added.push(await appendChat(db, learner, { role: "assistant", text: shown, ...tag, rung }));
       sendJson(res, 200, { messages: added.map(toMessage), line } satisfies TutorReply);
     } catch (e) {
@@ -323,7 +349,7 @@ export async function handleTutor(req: IncomingMessage, res: ServerResponse): Pr
     const lessonId = q.get("lesson") ?? "";
     const exerciseId = q.get("exercise") ?? "";
     if (!ID.test(lessonId) || !ID.test(exerciseId)) throw new HttpError(400, "lesson and exercise are required");
-    return sendJson(res, 200, { rung: await hintRung(rawDb(), await learnerId(), lessonId, exerciseId) } satisfies TutorLadderReply);
+    return sendJson(res, 200, { rung: await hintRung(rawDb(), await learnerId(), lessonId, exerciseId, startOfDay(new Date())) } satisfies TutorLadderReply);
   }
   if (route === "/history") {
     const db = rawDb();
