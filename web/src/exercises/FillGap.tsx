@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { expandAt } from "../../shared/abbrev.ts";
 import { explain } from "../../shared/explain.ts";
 import { bodyLines, GAP, gapLine } from "../../shared/proof.ts";
 import type { CheckReply } from "../../shared/wire.ts";
@@ -25,12 +26,16 @@ export function FillGap({ lessonId, exercise, solution, onSolved }: ExerciseProp
   const at = gapLine(exercise.proof);
   const choosing = exercise.options.length > 0;
 
-  async function ask(fill: string, record: boolean) {
-    setBusy(true);
+  async function ask(written: string, record: boolean) {
+    const fill = written.trim();
+    // Reading the state at the empty gap is not a check of an answer, and
+    // must not hold one up: on a long lesson it can still be on its way
+    // when the learner has typed theirs.
+    if (fill) setBusy(true);
     setTrouble(null);
     try {
       const reply = await check({ lessonId, exerciseId: exercise.id, body: fill, ...(record ? { record: "submitted" as const } : {}) });
-      if (fill.trim()) setChecked({ answer: fill, reply });
+      if (fill) setChecked({ answer: fill, reply });
       else setOpening(reply);
       if (reply.solved && !told.current) {
         told.current = true;
@@ -39,7 +44,7 @@ export function FillGap({ lessonId, exercise, solution, onSolved }: ExerciseProp
     } catch (e) {
       setTrouble(e instanceof ApiError ? e.message : String(e));
     } finally {
-      setBusy(false);
+      if (fill) setBusy(false);
     }
   }
 
@@ -51,11 +56,14 @@ export function FillGap({ lessonId, exercise, solution, onSolved }: ExerciseProp
     void ask("", false).then(() => (solution?.trim() ? ask(solution, false) : undefined));
   });
 
-  const reply = checked && checked.answer === answer ? checked.reply : null;
+  const reply = checked && checked.answer === answer.trim() ? checked.reply : null;
   const solved = !!reply?.solved;
   const errors = (reply?.diagnostics ?? []).filter((d) => d.severity === "error" && d.line !== null && !(reply?.error && /^unsolved goals/.test(d.message)));
   const wrong = !!reply && !solved;
-  const goals = reply?.cursorGoals ?? opening?.cursorGoals ?? null;
+  // What the gap has to prove. A fill Lean cannot read can leave it with
+  // nothing to say there; the state from the empty gap still holds.
+  const goals = (reply?.cursorGoals?.length ? reply.cursorGoals : null) ?? opening?.cursorGoals ?? reply?.cursorGoals ?? null;
+  const input = useRef<HTMLInputElement>(null);
   const [before, after] = at < 0 ? ["", ""] : lines[at].split(GAP);
 
   return (
@@ -80,7 +88,7 @@ export function FillGap({ lessonId, exercise, solution, onSolved }: ExerciseProp
                           data-gap
                           className={cx(
                             "inline-block min-w-16 rounded-md border-2 px-2 text-center leading-7",
-                            solved ? "border-good bg-good-soft" : wrong ? "border-warn bg-warn-soft" : "border-dashed border-accent bg-panel text-fg-3",
+                            solved ? "border-good bg-good-soft" : wrong ? "border-bad bg-bad-soft" : "border-dashed border-accent bg-panel text-fg-3",
                           )}
                         >
                           {answer || "?"}
@@ -88,9 +96,22 @@ export function FillGap({ lessonId, exercise, solution, onSolved }: ExerciseProp
                       ) : (
                         <input
                           data-gap
+                          ref={input}
                           value={answer}
                           onChange={(e) => setAnswer(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && answer.trim() && !busy && void ask(answer, true)}
+                          onKeyDown={(e) => {
+                            const el = e.currentTarget;
+                            if (e.metaKey || e.ctrlKey || e.altKey || e.nativeEvent.isComposing) return;
+                            if (e.key === "Enter" && answer.trim() && !busy) void ask(answer, true);
+                            // \le and the like become their symbols, as in the editor.
+                            if ((e.key === " " || e.key === "Tab") && el.selectionStart === el.selectionEnd) {
+                              const expanded = expandAt(el.value, el.selectionStart ?? 0);
+                              if (!expanded) return;
+                              e.preventDefault();
+                              setAnswer(expanded.text);
+                              requestAnimationFrame(() => input.current?.setSelectionRange(expanded.caret, expanded.caret));
+                            }
+                          }}
                           aria-label="The missing step"
                           spellCheck={false}
                           autoCapitalize="off"
@@ -99,7 +120,7 @@ export function FillGap({ lessonId, exercise, solution, onSolved }: ExerciseProp
                           style={{ width: `${Math.max(10, answer.length + 3)}ch` }}
                           className={cx(
                             "lean max-w-full rounded-md border-2 bg-panel px-2 leading-7 text-fg outline-none focus:border-solid focus:border-accent",
-                            solved ? "border-good" : wrong ? "border-warn" : "border-dashed border-accent",
+                            solved ? "border-good" : wrong ? "border-bad" : "border-dashed border-accent",
                           )}
                         />
                       )}
@@ -136,12 +157,12 @@ export function FillGap({ lessonId, exercise, solution, onSolved }: ExerciseProp
               </div>
             )}
             <span className="text-sm text-fg-3" aria-live="polite">
-              {busy ? "Lean is checking…" : solved ? "Lean accepts the proof with this in the gap." : ""}
+              {busy ? "Lean is checking…" : solved ? "Lean accepts the proof with this in the gap." : wrong ? "Lean does not accept the proof with this in the gap. The note below says why." : ""}
             </span>
           </div>
 
           <div className="min-w-0" aria-live="polite">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-3">{solved ? "Proof state" : "Where the line with the gap starts"}</div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-3">{solved ? "Proof state" : "At the gap"}</div>
             {trouble ? (
               <Notice tone="warn">{trouble}</Notice>
             ) : solved ? (
@@ -167,7 +188,7 @@ export function FillGap({ lessonId, exercise, solution, onSolved }: ExerciseProp
             )}
             {reply.refusal && <Notice tone="warn">{reply.refusal}</Notice>}
             {errors.map((d, i) => (
-              <Refusal key={i} plain={`${d.line === at ? "In the gap" : `Line ${(d.line as number) + 1}`}: ${explain(d.message) ?? d.message.split("\n")[0]}`} raw={d.message} />
+              <Refusal key={i} plain={`${d.line === at ? "In the gap" : `With this in the gap, line ${(d.line as number) + 1} no longer works`}: ${/^unsolved goals/.test(d.message) ? "Lean can read that step, but it does not prove what it has to. Something is still left to show." : (explain(d.message) ?? d.message.split("\n")[0])}`} raw={d.message} />
             ))}
             {errors.length === 0 && reply.forbidden.length === 0 && !reply.refusal && (
               <Notice tone="warn">Lean can read that step, but the proof does not finish with it: something is still left to show.</Notice>

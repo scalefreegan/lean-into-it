@@ -97,24 +97,27 @@ Name hypotheses in the statement the way Lean users do: `hP` for a proof of
 | `options` | Optional. Two to five fills to choose from, the solution among them. With it the learner chooses and does not type. `npm test` checks that Lean refuses every option but the solution. |
 
 ```yaml
-  - id: left-edge
+  - id: add-one
     kind: fill
-    title: The missing fact
-    says: Suppose |x − 3| < 1. Then 2 < x.
-    statement: "(x : ℝ) (h : |x - 3| < 1) : 2 < x"
+    title: The reason for a link
+    says: For any real number x, |x + 1| ≤ |x| + 1.
+    statement: "(x : ℝ) : |x + 1| ≤ |x| + 1"
     proof: |
-      rw [<gap>] at h
-      obtain ⟨h1, h2⟩ := h
-      linarith
-    solution: abs_lt
+      calc |x + 1| ≤ |x| + |1| := <gap>
+        _ = |x| + 1 := by rw [abs_one]
+    solution: abs_add_le x 1
 ```
 
 Lean checks the proof with the learner's fill in place, in both forms: a
 choice is not compared with `solution`, and a typed fill other than the
 `solution` is accepted if the proof goes through with it. A fill is one line,
-with its own brackets balanced and no comment, so it cannot reach outside
-its gap. `forbid` applies to the fill only; the proof around it may use
-anything. The loader checks the shape; whether the solution compiles and
+with its own brackets and strings closed and no comment, which keeps an
+ordinary answer inside its gap; grading does not rest on that, since Lean
+checks the whole completed proof. `forbid` applies to the fill only; the
+proof around it may use anything. Beside the proof the learner sees what
+the missing step has to show: Lean's goals where the gap starts, or at the
+start of its line when the gap is part of a term. Put the gap where a
+wrong answer fails on the gap's own line, not on a later one. The loader checks the shape; whether the solution compiles and
 the other options fail is checked by `npm test`, as for every solution.
 
 ### The body

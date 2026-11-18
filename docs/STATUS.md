@@ -61,9 +61,9 @@ Landed in the first PR, the foundation slice:
 - Fill the gap (`lii-6xv.1`): the exercise kind `fill`, a proof with one
   step marked `<gap>`. The learner types the step or, where the exercise
   gives `options`, chooses it; Lean checks the proof with it in place, and
-  no answer is stored to compare with. A fill is one line that cannot
-  leave its gap. Two are in the lessons: a choice in "Chains", a typed one
-  in "Absolute value and distance".
+  no answer is stored to compare with. Beside the proof is what the
+  missing step has to show. Two are in the lessons: a choice in "Chains",
+  a typed one in "Absolute value and distance".
 - Pictures for Level 3 (`lii-dvy.11`): three more widgets. `plot` graphs
   functions of x from a small expression parser of its own
   (`web/shared/expr.ts`, never `eval`), with a point to move along the
@@ -104,7 +104,7 @@ Landed in the first PR, the foundation slice:
 - A check that runs past two minutes restarts Lean, and a check that was
   waiting behind it moves to the new server (the rest of `lii-1ou.2`
   remains).
-- Tests: 179, including every reference solution checked by the real Lean,
+- Tests: 181, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

@@ -221,7 +221,8 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
     forbid: strings(e.forbid),
     proof: typeof e.proof === "string" ? e.proof.replace(/\s+$/, "") : "",
     options: strings(e.options).map((o) => o.trim()),
-    solution: typeof e.solution === "string" ? e.solution.replace(/\s+$/, "") : "",
+    // A fill is one line, compared with the options as written there.
+    solution: typeof e.solution !== "string" ? "" : kind === "fill" ? e.solution.trim() : e.solution.replace(/\s+$/, ""),
     concept,
   };
 }

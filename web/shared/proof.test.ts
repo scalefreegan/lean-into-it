@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assemble, axiomsOf, isBlank, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Diagnostic, beforeGap, fillBody, fillProblem, GAP, gapLine } from "./proof.ts";
+import { assemble, axiomsOf, isBlank, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Diagnostic, gapPosition, fillBody, fillProblem, GAP, gapLine } from "./proof.ts";
 
 /** judge with nothing forbidden and Lean's report that no axiom is used, unless said otherwise. */
 const judge = (diagnostics: BodyDiagnostic[], body: string, forbid: string[] = [], axioms: string[] | null = []) => judgeWith(diagnostics, body, forbid, axioms);
@@ -298,8 +298,9 @@ test("a fill is one line that stays in its gap", () => {
   assert.equal(fillBody(proof, "  abs_lt \r"), "intro h\n  rw [abs_lt] at h\nlinarith");
   // A fill is put in as written: `$&` and the like mean nothing.
   assert.equal(fillBody("exact <gap>", "$& $1 $$"), "exact $& $1 $$");
-  assert.equal(beforeGap(proof), "intro h\n  skip");
-  assert.equal(beforeGap("calc a ≤ b := by <gap>\n  _ = c := h"), "skip");
+  assert.deepEqual(gapPosition(proof), { line: 1, character: 6 });
+  assert.deepEqual(gapPosition("calc a ≤ b := by <gap>\n  _ = c := h"), { line: 0, character: 17 });
+  assert.equal(gapPosition("exact h"), null);
 
   for (const fine of ["abs_lt", "abs_add_le (a - b) (b - c)", "⟨h1, h2⟩", "simp [foo]; exact h", 'exact "a) -- b".length', "h.1 ▸ rfl"]) assert.equal(fillProblem(fine), null, fine);
   assert.match(fillProblem("abs_lt\nsorry") ?? "", /one line/);
@@ -309,6 +310,8 @@ test("a fill is one line that stays in its gap", () => {
   assert.match(fillProblem("foo)") ?? "", /closes a bracket/);
   assert.match(fillProblem("(foo]") ?? "", /closes a bracket/);
   assert.match(fillProblem("foo (bar") ?? "", /“\(” opens a bracket that is not closed/);
+  for (const open of ['"', 'exact "abc', 'r#"x', 's!"{x} and']) assert.match(fillProblem(open) ?? "", /string is opened/, open);
+  assert.equal(fillProblem('s!"{x}" ++ r#"a"b"#'), null);
 });
 
 test("in a fill-the-gap exercise the forbid list is about the fill, not the proof around it", () => {

@@ -133,3 +133,8 @@ test("ring's remark that it did not finish is not a line to try", () => {
   assert.equal(suggestion(note), null);
   assert.equal(suggestion("Try this:\n  [apply] exact Nat.le_trans h1 h2"), "exact Nat.le_trans h1 h2");
 });
+
+test("a fact Lean prints unfolded over several lines is not quoted back", () => {
+  const said = explain("Tactic `rcases` failed: `h : Quot.lift (fun a₁ ↦ Quotient.lift ((fun x1 x2 ↦ x1 < x2) a₁) ⋯ 1) ⋯\n  (Quotient.map₂ (fun x1 x2 ↦ x1 ⊔ x2) ⋯ (↑3 + -x.cauchy) (-(↑3 + -x.cauchy)))` is not an inductive datatype");
+  assert.equal(said, "h is not a fact with parts to take apart. obtain works on an “and”, an “or”, an “if and only if” or a “there exists”.");
+});

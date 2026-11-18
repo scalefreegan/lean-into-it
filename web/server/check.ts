@@ -3,7 +3,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals } from "../shared/goals.ts";
-import { assemble, axiomsOf, beforeGap, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapLine, judge, ringFailures, ringNotes, toBody, toSource, type Position } from "../shared/proof.ts";
+import { assemble, axiomsOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { isSolved, recordAttempt } from "../../scripts/db/progress.ts";
@@ -41,26 +41,33 @@ export async function checkExercise(lean: LeanServer, exercise: Exercise, answer
   if (exercise.kind !== "fill") return checkBody(lean, exercise, answer, answer, cursor);
   const refuse = (refusal: string | null): CheckReply => ({ solved: false, goals: [], cursorGoals: null, error: null, diagnostics: [], forbidden: [], refusal });
   const fill = answer.trim();
+  // What the missing step has to prove is the state where the gap starts.
+  // Where the gap is part of a term Lean has no state there, and the state
+  // at the start of its line is shown instead.
+  const gap = gapPosition(exercise.proof)!;
+  const lineStart = { line: gap.line, character: /^\s*/.exec(bodyLines(exercise.proof)[gap.line])![0].length };
   if (!fill) {
-    // Nothing in the gap yet: say what the gap's line starts from.
-    const reply = await checkBody(lean, exercise, beforeGap(exercise.proof), "");
-    return { ...refuse(null), cursorGoals: reply.goals };
+    // Nothing in the gap yet. The state there does not depend on what goes
+    // in, so it is read with the reference fill in place; only the state is
+    // kept, and an empty gap is never solved.
+    const reply = await checkBody(lean, exercise, fillBody(exercise.proof, exercise.solution), "", gap, lineStart);
+    return { ...refuse(null), cursorGoals: reply.cursorGoals };
   }
   const wrong = fillProblem(fill);
   if (wrong) return refuse(wrong);
   if (exercise.options.length && !exercise.options.includes(fill)) return refuse("That is not one of the choices.");
-  const at = gapLine(exercise.proof);
-  const indent = /^\s*/.exec(bodyLines(exercise.proof)[at])![0].length;
-  return checkBody(lean, exercise, fillBody(exercise.proof, fill), fill, { line: at, character: indent });
+  return checkBody(lean, exercise, fillBody(exercise.proof, fill), fill, gap, lineStart);
 }
 
 /**
  * Check a proof body against an exercise's statement. `written` is the part
- * of the body the learner wrote, which the forbid list applies to. All
+ * of the body the learner wrote, which the forbid list applies to.
+ * `otherwise` is a second place to read the goals when Lean has none at
+ * `cursor`. All
  * exercises share one Lean document: they share the import, so moving
  * between them costs a re-check, not a fresh Mathlib load.
  */
-async function checkBody(lean: LeanServer, exercise: Exercise, body: string, written: string, cursor?: Position): Promise<CheckReply> {
+async function checkBody(lean: LeanServer, exercise: Exercise, body: string, written: string, cursor?: Position, otherwise?: Position): Promise<CheckReply> {
   // A body that would step outside a proof is never handed to Lean: what it
   // asks for (`run_tac`, `#eval` …) is a program, and this is not the Playground.
   const escapes = escapesIn(body);
@@ -69,7 +76,7 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
   }
   const given = exercise.given;
   const end = toSource(endOfBody(body), given);
-  const positions = cursor ? [end, toSource(cursor, given)] : [end];
+  const positions = [end, ...(cursor ? [toSource(cursor, given)] : []), ...(cursor && otherwise ? [toSource(otherwise, given)] : [])];
   const source = assemble(exercise.statement, body, given);
   const result = await lean.check("exercise", source, positions);
   // A `ring` that did not finish says so in a note, not an error: whether it
@@ -82,7 +89,7 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
   return {
     solved: verdict.solved,
     goals: parseGoals(result.goals[0] ?? []),
-    cursorGoals: cursor && result.goals[1] ? parseGoals(result.goals[1]) : null,
+    cursorGoals: cursor && result.goals[1]?.length ? parseGoals(result.goals[1]) : cursor && otherwise && result.goals[2] ? parseGoals(result.goals[2]) : cursor && result.goals[1] ? [] : null,
     error: verdict.error,
     diagnostics,
     forbidden: verdict.forbidden,
@@ -102,9 +109,11 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
   const exercise = lesson?.exercises.find((e) => e.id === input.exerciseId);
   if (!lesson || !exercise) throw new HttpError(404, "no such exercise");
 
-  const body = input.body;
+  // A fill is kept as it was checked, without the spaces around it.
+  const body = exercise.kind === "fill" ? input.body.trim() : input.body;
   const reply = await withLean((lean) => checkExercise(lean, exercise, body, cursor));
-  await keep(lesson.id, exercise.id, body, reply, input.record);
+  // Looking at an empty gap is not an attempt at it.
+  if (exercise.kind !== "fill" || body) await keep(lesson.id, exercise.id, body, reply, input.record);
   sendJson(res, 200, reply);
 }
 

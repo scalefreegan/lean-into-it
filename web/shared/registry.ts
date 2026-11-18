@@ -2,7 +2,7 @@ import { checkExpr } from "./expr.ts";
 import { stateBlocks } from "./goals.ts";
 import { isMove } from "./moves.ts";
 import { readInterval, readPoint } from "./numberline.ts";
-import { fillProblem, GAP } from "./proof.ts";
+import { escapesIn, fillBody, fillProblem, GAP, lex } from "./proof.ts";
 
 // The catalogue of widgets a lesson may embed and exercise kinds it may
 // declare, with the parameters each accepts. This file is the single source
@@ -229,12 +229,14 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
       const out = statementProblems(p);
       const proof = typeof p.proof === "string" ? p.proof : "";
       if (proof && proof.split(GAP).length !== 2) out.push(`\`proof\` must contain ${GAP} exactly once (it has ${proof.split(GAP).length - 1})`);
+      else if (proof && !lex(proof).bare.includes(GAP)) out.push(`\`proof\` has its ${GAP} inside a comment or a string, where Lean would never read what is put there`);
       if (/\b(sorry|admit)\b/.test(proof)) out.push("`proof` must not contain sorry or admit");
+      // What every answer would be refused for is refused here, where the author sees it.
+      if (typeof p.solution === "string" && !fillProblem(p.solution)) for (const e of escapesIn(fillBody(proof, p.solution))) out.push(`\`proof\` line ${e.line + 1}: ${e.message}`);
       const fills = [...(typeof p.solution === "string" ? [p.solution] : []), ...(Array.isArray(p.options) ? p.options.filter((o) => typeof o === "string") : [])];
       for (const fill of new Set(fills)) {
         const wrong = fillProblem(fill);
         if (wrong) out.push(`${JSON.stringify(fill)} cannot go in a gap: ${wrong}`);
-        else if (!fill.trim()) out.push("an option must not be empty");
       }
       if (Array.isArray(p.options)) {
         const options = p.options.map((o) => String(o).trim());

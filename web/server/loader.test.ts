@@ -132,6 +132,10 @@ test("a fill-the-gap exercise loads with its proof and its options, and is not a
   assert.deepEqual(content.problems, []);
   const gap = content.lessons[0].exercises.find((e) => e.id === "gap")!;
   assert.deepEqual([gap.kind, gap.mode, gap.proof, gap.options, gap.solution, gap.moves], ["fill", "typed", "exact <gap>", ["hP", "P"], "hP", []]);
+  // Spaces around a fill mean nothing: the solution is still the option it names.
+  const spaced = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": LESSON.replace("---\n\nOpening", `${FILL.replace("solution: hP", 'solution: " hP "')}---\n\nOpening`) }));
+  assert.deepEqual(spaced.problems, []);
+  assert.equal(spaced.lessons[0].exercises.find((e) => e.id === "gap")!.solution, "hP");
   const first = content.lessons[0].exercises[0];
   assert.deepEqual([first.kind, first.mode, first.proof, first.options], ["prove", "board", "", []]);
 });

@@ -204,5 +204,9 @@ test("a fill-the-gap exercise has one gap, a fill that fits it, and options that
   assert.match(checkParams(fill, { ...good, options: ["abs_lt", "x -- y"] }).join(), /"x -- y" cannot go in a gap/);
   assert.match(checkParams(fill, { ...good, statement: "x := sorry" }).join(), /must not contain := or sorry/);
   assert.match(checkParams(fill, { ...good, mode: "board" }).join(), /has no parameter `mode`/);
+  assert.match(checkParams(fill, { ...good, proof: "rw [abs_lt] at h -- <gap>\nlinarith" }).join(), /inside a comment or a string/);
+  assert.match(checkParams(fill, { ...good, proof: 'exact foo "<gap>"' }).join(), /inside a comment or a string/);
+  assert.match(checkParams(fill, { ...good, proof: "rw [<gap>] at h)\nlinarith" }).join(), /`proof` line 1: This line closes a bracket/);
+  assert.match(checkParams(fill, { ...good, proof: "rw [<gap>] at h\nrun_tac foo" }).join(), /`proof` line 2: “run_tac”/);
   assert.match(checkParams(fill, { ...good, solution: undefined }).join(), /needs `solution`/);
 });

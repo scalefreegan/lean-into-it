@@ -137,8 +137,10 @@ export function explain(message: string): string | null {
   if ((m = /^Tactic `(left|right)` failed/.exec(first))) {
     return `${m[1]} chooses a side of a goal of the form “A or B”. This goal is not an “or”.`;
   }
-  if ((m = /^Tactic `rcases` failed: `(\S+) : (.+)` is not an inductive datatype/.exec(first))) {
-    return `${m[1]} says “${m[2]}”, which has no parts to take apart. obtain works on an “and”, an “or”, an “if and only if” or a “there exists”.`;
+  if ((m = /^Tactic `rcases` failed: `(\S+) : ([\s\S]+)` is not an inductive datatype/.exec(message))) {
+    // Lean sometimes prints the fact unfolded past recognition, over several lines.
+    const says = m[2].includes("\n") || m[2].length > 80 ? "is not a fact with parts to take apart" : `says “${m[2]}”, which has no parts to take apart`;
+    return `${m[1]} ${says}. obtain works on an “and”, an “or”, an “if and only if” or a “there exists”.`;
   }
   if (/^Tactic `contradiction` failed/.test(first)) {
     return "Lean cannot see two facts here that flatly contradict each other, such as A and not A.";

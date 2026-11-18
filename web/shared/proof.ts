@@ -123,7 +123,7 @@ const CHAR_LITERAL = /^'(\\(x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4}|.)|[^\\'\n])'/;
  * Where this and Lean could disagree it errs toward seeing more code, never
  * less: the worst a disagreement does is refuse a proof.
  */
-export function lex(body: string): { code: string; bare: string; openComment: number | null } {
+export function lex(body: string): { code: string; bare: string; openComment: number | null; openString: boolean } {
   const text = body.replace(/\r/g, "");
   const code = [...text];
   const bare = [...text];
@@ -134,6 +134,8 @@ export function lex(body: string): { code: string; bare: string; openComment: nu
   let i = 0;
   // Where a block comment that is never closed starts, if there is one.
   let openComment: number | null = null;
+  // Whether a string is opened and never closed.
+  let openString = false;
   while (i < text.length) {
     const c = text[i];
     const next = text[i + 1];
@@ -158,11 +160,13 @@ export function lex(body: string): { code: string; bare: string; openComment: nu
       const hashes = /^r(#*)"/.exec(text.slice(i, i + 40))![1];
       const close = text.indexOf(`"${hashes}`, i + 2 + hashes.length);
       const j = close < 0 ? text.length : close + 1 + hashes.length;
+      if (close < 0) openString = true;
       blank(i, j, [bare]);
       i = j;
     } else if (c === '"') {
       let j = i + 1;
       while (j < text.length && text[j] !== '"') j += text[j] === "\\" ? 2 : 1;
+      if (j >= text.length) openString = true;
       j = Math.min(j + 1, text.length);
       blank(i, j, [bare]);
       i = j;
@@ -174,7 +178,7 @@ export function lex(body: string): { code: string; bare: string; openComment: nu
       } else i++;
     } else i++;
   }
-  return { code: code.join(""), bare: bare.join(""), openComment };
+  return { code: code.join(""), bare: bare.join(""), openComment, openString };
 }
 
 /** Ways a tactic block can run a program or change Lean's settings instead of proving. */
@@ -245,9 +249,12 @@ export function escapesIn(body: string): Escape[] {
  * The marker is not Lean, so a proof whose gap was never filled cannot be
  * accepted, and it is not `sorry`, so a stray `sorry` is still a `sorry`.
  *
- * A fill is one line with its own brackets balanced and no comment. That
- * keeps it in its place: it cannot close a bracket of the proof around it,
- * and cannot comment out the lines after it.
+ * A fill is one line with its own brackets and strings closed and no
+ * comment. That keeps it in its place for a learner's sake: it cannot close
+ * a bracket of the proof around it, or comment out the lines after it.
+ * Nothing rests on that for soundness. Whatever a fill manages to do to the
+ * proof around it, Lean checks the whole of the result against the
+ * exercise's own statement, and the three rules at the top still hold.
  */
 export const GAP = "<gap>";
 
@@ -260,8 +267,9 @@ export function gapLine(proof: string): number {
 export function fillProblem(fill: string): string | null {
   const text = fill.replace(/\r/g, "").trim();
   if (text.includes("\n")) return "The gap takes one line.";
-  const { code, bare } = lex(text);
+  const { code, bare, openString } = lex(text);
   if (code !== text) return "A comment cannot go in the gap.";
+  if (openString) return "A string is opened with \" and never closed.";
   const stack: string[] = [];
   for (const c of bare) {
     if (c in CLOSER) stack.push(c);
@@ -276,14 +284,11 @@ export function fillBody(proof: string, fill: string): string {
   return proof.replace(GAP, () => fill.replace(/\r/g, "").trim());
 }
 
-/** What stands in for a proof whose gap is still empty: the lines before
- *  the gap, and a step that does nothing where the gap's line was. Lean's
- *  goals at its end are the state the gap's line starts from. */
-export function beforeGap(proof: string): string {
-  const lines = bodyLines(proof);
-  const at = gapLine(proof);
-  if (at < 0) return proof;
-  return [...lines.slice(0, at), /^\s*/.exec(lines[at])![0] + PLACEHOLDER].join("\n");
+/** Where the gap starts, as a position in the proof: the place to ask
+ *  Lean what the missing step has to prove. Null when there is no gap. */
+export function gapPosition(proof: string): Position | null {
+  const line = gapLine(proof);
+  return line < 0 ? null : { line, character: bodyLines(proof)[line].indexOf(GAP) };
 }
 
 /** The axioms ordinary mathematics in Lean rests on. Anything else (an axiom

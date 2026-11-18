@@ -105,7 +105,7 @@ Here is a chain with one reason missing. The second link is a calculation, and `
 id: which-reason
 ```
 
-`ring` and `norm_num` prove what is true of all numbers, and x + y ≤ 2 + 3 is not: it is true because of `h1` and `h2`. Only the move that goes and looks for those facts can prove it.
+Whichever you chose, try the others and read what Lean says to each. The first link is not true of all numbers. It is true because of `h1` and `h2`, and only one of the four moves goes and looks for facts.
 
 ## A chain of your own
 
