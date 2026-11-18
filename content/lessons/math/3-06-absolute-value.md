@@ -135,8 +135,10 @@ type: number-line
 range: [0, 8]
 points: ["1: a", "3: c", "6: b"]
 distance: [1, 3]
+via: 6
 ```
- The name comes from the same fact about the corners of a triangle in the plane.
+
+The name comes from the same fact about the corners of a triangle in the plane.
 
 The first form is in the library as `abs_add_le`:
 

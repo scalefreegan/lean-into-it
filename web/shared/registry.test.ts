@@ -113,7 +113,7 @@ test("the block the Gallery prints for each example loads back as that example",
 
 test("what the plot and the number line are given is checked before anything is drawn", () => {
   assert.equal(checkParam("expr[]", ["2x + 1", "x^2", 3]), null);
-  assert.match(checkParam("expr[]", ["2x + 1", "y"]) ?? "", /“y” is not a name it knows/);
+  assert.match(checkParam("expr[]", ["2x + 1", "y"]) ?? "", /“y”, which is not a name it knows/);
   assert.match(checkParam("expr[]", []) ?? "", /must be a list of expressions/);
   assert.match(checkParam("expr[]", "2x") ?? "", /must be a list of expressions/);
   assert.equal(checkParam("range", [-5, 5]), null);
@@ -133,7 +133,10 @@ test("what the plot and the number line are given is checked before anything is 
   assert.match(checkParams(plot, { functions: ["1", "2", "3", "4", "5"] }).join(), /at most 4/);
   assert.match(checkParams(plot, { functions: ["x"], x: [0, 1], domain: [2, 3] }).join(), /`domain` \[2, 3\] is outside/);
   assert.match(checkParams(plot, { functions: ["x"], trace: 9 }).join(), /`trace` 9 is outside the part of the x-axis shown, \[-5, 5\]/);
-  assert.deepEqual(checkParams(plot, { functions: ["x"], x: [0, 10], trace: 9, domain: [-3, 3] }), []);
+  assert.match(checkParams(plot, { functions: ["x"], x: [0, 10], trace: 9, domain: [-3, 3] }).join(), /`trace` 9 is outside `domain` \[-3, 3\]/);
+  assert.deepEqual(checkParams(plot, { functions: ["x"], x: [0, 10], trace: 2, domain: [-3, 3] }), []);
+  assert.match(checkParams(plot, { functions: ["x"], x: [-1e308, 1e308] }).join(), /must stay between/);
+  assert.match(checkParams(plot, { functions: [1e-7] }).join(), /exponent letter/, "a YAML number is read as written, not as e minus 7");
 
   const line = WIDGETS["number-line"];
   assert.deepEqual(checkParams(line, {}), []);
@@ -141,6 +144,12 @@ test("what the plot and the number line are given is checked before anything is 
   assert.match(checkParams(line, { range: [0, 6], points: ["-1: a"] }).join(), /"-1: a" is off the line/);
   assert.match(checkParams(line, { intervals: ["(6, 8)"] }).join(), /the interval \(6, 8\) is off the line/);
   assert.deepEqual(checkParams(line, { intervals: ["(3, 8)", "(-inf, 0]"] }), [], "an interval may run off the end");
+  assert.deepEqual(checkParams(line, { intervals: ["[5, 8)", "(-inf, -5]"] }), [], "an included end on the edge shows");
+  assert.match(checkParams(line, { intervals: ["(5, 8)"] }).join(), /off the line/);
+  assert.deepEqual(checkParams(line, { near: null }), []);
+  assert.deepEqual(checkParams(line, { range: [0, 8], distance: [1, 3], via: 6 }), []);
+  assert.match(checkParams(line, { via: 2 }).join(), /`via` needs `distance`/);
+  assert.match(checkParams(line, { distance: [1, 3], via: 9 }).join(), /`via` 9 is off the line/);
   assert.match(checkParams(line, { near: [3] }).join(), /a centre and a radius/);
   assert.match(checkParams(line, { near: [3, 0] }).join(), /radius must be more than 0/);
   assert.match(checkParams(line, { near: [4.5, 1] }).join(), /window of `near`, from 3.5 to 5.5, is off the line/);

@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { evaluate, parseExpr, type Expr } from "../../shared/expr.ts";
-import { clean, curve, fitHeights, label, ticks, type View } from "../../shared/plot.ts";
+import { clean, curve, fitHeights, label, placesFor, roundStep, tickPlaces, ticks, type View } from "../../shared/plot.ts";
 import { Button } from "../ui.tsx";
 import { list, num, str } from "./params.ts";
 import type { WidgetProps } from "./types.ts";
@@ -47,7 +47,13 @@ export function Plot({ params }: WidgetProps) {
   });
 
   const [view, setView] = useState(home);
-  const [trace, setTrace] = useState(() => num(params, "trace", clean((home.x0 + home.x1) / 2)));
+  // The point stays where the curves are drawn: on an interval, it stops at the ends.
+  const keep = (x: number) => (domain ? Math.min(Math.max(x, domain[0]), domain[1]) : x);
+  const start = () => keep(num(params, "trace", clean((home.x0 + home.x1) / 2)));
+  const [trace, setTraceTo] = useState(start);
+  const setTrace = (x: number) => setTraceTo(keep(x));
+  // The readout is announced when the keyboard moves the point, not on every mouse move.
+  const [spoken, setSpoken] = useState(false);
   const drag = useRef<{ x: number; y: number; view: View; moved: boolean } | null>(null);
   const svg = useRef<SVGSVGElement>(null);
 
@@ -61,29 +67,35 @@ export function Plot({ params }: WidgetProps) {
   };
   // About a hundredth of the width, rounded down to a round number, so the
   // point lands on values like 1.25 and not 1.32.
-  const raw = (view.x1 - view.x0) / 100;
-  const power = 10 ** Math.floor(Math.log10(raw));
-  const step = ([5, 2, 1].find((m) => m * power <= raw) ?? 1) * power;
+  const step = roundStep((view.x1 - view.x0) / 100);
+  // Enough decimals for the zoom: two at first, more as the view narrows.
+  const xPlaces = Math.max(2, placesFor(step));
+  const yPlaces = Math.max(2, placesFor((view.y1 - view.y0) / 100));
   const snap = (x: number) => clean(Math.round(x / step) * step);
 
   const zoom = (factor: number) => {
     const cx = Math.min(Math.max(trace, view.x0), view.x1);
     const cy = (view.y0 + view.y1) / 2;
+    // Past these the numbers stop being tellable apart, or stop meaning anything.
+    const [width, height] = [(view.x1 - view.x0) * factor, (view.y1 - view.y0) * factor];
+    if (Math.min(width, height) < 1e-6 || Math.max(width, height) > 1e7) return;
     setView({ x0: clean(cx + (view.x0 - cx) * factor), x1: clean(cx + (view.x1 - cx) * factor), y0: clean(cy + (view.y0 - cy) * factor), y1: clean(cy + (view.y1 - cy) * factor) });
   };
   const reset = () => {
     setView(home);
-    setTrace(num(params, "trace", clean((home.x0 + home.x1) / 2)));
+    setTraceTo(start());
   };
   /** Move the traced point, taking the view along when it would leave it. */
-  const moveTrace = (to: number) => {
-    setTrace(to);
+  const moveTrace = (target: number) => {
+    const to = keep(target);
+    setTraceTo(to);
     const shift = to < view.x0 ? to - view.x0 : to > view.x1 ? to - view.x1 : 0;
     if (shift) setView({ ...view, x0: clean(view.x0 + shift), x1: clean(view.x1 + shift) });
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
     const big = e.shiftKey ? 10 : 1;
+    setSpoken(true);
     if (e.key === "ArrowLeft") moveTrace(snap(trace - step * big));
     else if (e.key === "ArrowRight") moveTrace(snap(trace + step * big));
     else if (e.key === "+" || e.key === "=") zoom(0.8);
@@ -93,6 +105,7 @@ export function Plot({ params }: WidgetProps) {
     e.preventDefault();
   };
   const onPointerDown = (e: PointerEvent) => {
+    setSpoken(false);
     (e.currentTarget as Element).setPointerCapture(e.pointerId);
     drag.current = { x: e.clientX, y: e.clientY, view, moved: false };
   };
@@ -100,6 +113,7 @@ export function Plot({ params }: WidgetProps) {
     const d = drag.current;
     if (!d) {
       // Not dragging: the point follows the pointer along the curves.
+      if (spoken) setSpoken(false);
       if (e.pointerType === "mouse") setTrace(snap(Math.min(Math.max(xAt(e), view.x0), view.x1)));
       return;
     }
@@ -117,8 +131,7 @@ export function Plot({ params }: WidgetProps) {
     if (d && !d.moved) setTrace(snap(Math.min(Math.max(xAt(e), view.x0), view.x1)));
   };
 
-  const inDomain = (x: number) => !domain || (x >= domain[0] && x <= domain[1]);
-  const values = exprs.map((e) => (inDomain(trace) ? evaluate(e, trace) : Number.NaN));
+  const values = exprs.map((e) => evaluate(e, trace));
   const xs = ticks(view.x0, view.x1, 8);
   const ys = ticks(view.y0, view.y1, 6);
   const axisX = view.y0 <= 0 && view.y1 >= 0 ? sy(0) : null;
@@ -138,7 +151,7 @@ export function Plot({ params }: WidgetProps) {
         <svg
           ref={svg}
           viewBox={`0 0 ${W} ${H}`}
-          className="block h-auto w-full touch-none select-none"
+          className="block h-auto w-full touch-pan-y select-none"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -150,19 +163,19 @@ export function Plot({ params }: WidgetProps) {
             </clipPath>
           </defs>
           <rect x={LEFT} y={TOP} width={PW} height={PH} className="fill-panel stroke-line" />
-          {xs.map((x) => (
-            <g key={`x${x}`}>
+          {xs.map((x, i) => (
+            <g key={`x${i}`}>
               <line x1={sx(x)} x2={sx(x)} y1={TOP} y2={TOP + PH} className="stroke-line" strokeWidth={1} />
               <text x={sx(x)} y={H - 10} textAnchor="middle" className="fill-fg-3 font-mono text-[12px]">
-                {label(x)}
+                {label(x, tickPlaces(xs))}
               </text>
             </g>
           ))}
-          {ys.map((y) => (
-            <g key={`y${y}`}>
+          {ys.map((y, i) => (
+            <g key={`y${i}`}>
               <line x1={LEFT} x2={LEFT + PW} y1={sy(y)} y2={sy(y)} className="stroke-line" strokeWidth={1} />
               <text x={LEFT - 7} y={sy(y) + 4} textAnchor="end" className="fill-fg-3 font-mono text-[12px]">
-                {label(y)}
+                {label(y, tickPlaces(ys))}
               </text>
             </g>
           ))}
@@ -182,12 +195,12 @@ export function Plot({ params }: WidgetProps) {
       </div>
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p data-plot-readout aria-live="polite" className="lean text-sm text-fg">
-          x = {label(trace)}
+        <p data-plot-readout aria-live={spoken ? "polite" : "off"} className="lean text-sm text-fg">
+          x = {label(trace, xPlaces)}
           {values.map((y, i) => (
             <span key={i} className="ml-4 inline-flex items-center gap-1.5">
               <Swatch style={STYLES[i % STYLES.length]} />
-              {shown(sources[i])} = {label(y)}
+              {shown(sources[i])} = {label(y, yPlaces)}
             </span>
           ))}
         </p>

@@ -123,17 +123,19 @@ caption: Where the proof starts.
 | `proof-state` | A proof state as the board draws it: the objects, the facts on teal cards, the goal on an amber card. | `state` (required): the state as Lean prints it, one `name : statement` line per fact and then `⊢ goal`; a blank line starts another goal. `caption`: one line under the cards. |
 | `move-list` | Some of the board's moves, each with the sentence that says what it does. | `moves` (required): move ids, like `[intro, exact]`. |
 | `plot` | Graphs of up to four functions of x, with a point that can be moved along them and a view that can be dragged and zoomed. | `functions` (required): expressions in x, like `["2x + 1", "x^2"]`. `x`, `y`: the stretch of each axis shown, like `[-3, 3]`. `domain`: draw only between two values of x. `trace`: where the point starts. `caption`. |
-| `number-line` | Points, shaded intervals and a distance on a line, and optionally a point x that can be moved, with a sentence saying where it is. | `range`. `points`: numbers, or `"sqrt(2): √2"` for a number and its label. `intervals`: `["(2, 4)", "[0, inf)"]`. `distance`: two numbers. `near`: a centre and a radius, the window \|x − c\| < r. `probe`: where x starts. `caption`. |
+| `number-line` | Points, shaded intervals and a distance on a line, and optionally a point x that can be moved, with a sentence saying where it is. | `range`. `points`: numbers, or `"sqrt(2): √2"` for a number and its label. `intervals`: `["(2, 4)", "[0, inf)"]`. `distance`: two numbers; `via`: a third, for the detour through it. `near`: a centre and a radius, the window \|x − c\| < r. `probe`: where x starts. `caption`. |
 | `square-of-sum` | A square of side a + b in four pieces, with sliders: the picture behind (a + b)² = a² + 2ab + b². | `a`, `b`: the lengths at the start. |
 
 The Gallery (`#/gallery`) has the full list of parameters, drawn examples
 and the block that produces each.
 
-An expression is written as on paper: `2x + 1`, `x^2`, `(x^2 + x)/x`,
+An expression is written much as on paper: `2x + 1`, `x^2`, `(x^2 + x)/x`,
 `|x - 3|` or `abs(x - 3)`, `sqrt(x)`, `sin`, `cos`, `tan`, `exp`, `log`
 (the natural logarithm), `pi`, `e`. Quote it in YAML. It is read by a small
 parser of its own (`web/shared/expr.ts`) and never run as code; anything
-the parser does not know is refused when the lesson loads.
+the parser does not know is refused when the lesson loads. So is what
+could be read two ways: write `(1/2)x` or `1/(2x)`, not `1/2x`, and
+`0.001` or `10^-3`, not `1e-3`.
 
 A block with no `type`, an unknown widget, a missing or misspelt parameter,
 or a value of the wrong kind is refused, and the Path page says which block

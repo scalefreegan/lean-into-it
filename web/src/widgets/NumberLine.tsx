@@ -1,6 +1,6 @@
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { inInterval, intervalLabel, readInterval, readPoint, type Interval, type Point } from "../../shared/numberline.ts";
-import { clean, label, ticks } from "../../shared/plot.ts";
+import { clean, label, placesFor, roundStep, tickPlaces, ticks } from "../../shared/plot.ts";
 import { list, str } from "./params.ts";
 import type { WidgetProps } from "./types.ts";
 
@@ -8,9 +8,7 @@ import type { WidgetProps } from "./types.ts";
 // a point x that can be moved, with a sentence saying where it is.
 
 const W = 640;
-const H = 150;
 const PAD = 30;
-const AXIS = 86;
 
 const pair = (v: unknown): [number, number] | null => (Array.isArray(v) && v.length === 2 && typeof v[0] === "number" && typeof v[1] === "number" ? [v[0], v[1]] : null);
 
@@ -23,6 +21,11 @@ export function NumberLine({ params }: WidgetProps) {
   });
   const distance = pair(params.distance);
   const near = pair(params.near);
+  const via = distance && typeof params.via === "number" ? params.via : null;
+  // Each distance is drawn on its own level above the line; a detour needs two more.
+  const spans: [number, number][] = distance ? [distance, ...(via === null ? [] : ([[distance[0], via], [via, distance[1]]] as [number, number][]))] : [];
+  const AXIS = 86 + (via === null ? 0 : 56);
+  const H = AXIS + 64;
   const caption = str(params, "caption", "");
   const hasProbe = typeof params.probe === "number";
   const [probe, setProbe] = useState(hasProbe ? (params.probe as number) : 0);
@@ -30,7 +33,9 @@ export function NumberLine({ params }: WidgetProps) {
   const dragging = useRef(false);
 
   const sx = (x: number) => PAD + ((x - lo) / (hi - lo)) * (W - 2 * PAD);
-  const step = hi - lo <= 20 ? 0.1 : 1;
+  const step = roundStep((hi - lo) / 50);
+  const places = Math.max(2, placesFor(step));
+  const marks = ticks(lo, hi, 10);
   const put = (x: number) => setProbe(clean(Math.min(hi, Math.max(lo, Math.round(x / step) * step))));
   const xAt = (e: PointerEvent) => {
     const box = svg.current!.getBoundingClientRect();
@@ -52,17 +57,17 @@ export function NumberLine({ params }: WidgetProps) {
   const shaded = [...intervals, ...(window ? [window] : [])];
   const readout: string[] = [];
   if (hasProbe) {
-    readout.push(`x = ${label(probe)}.`);
+    readout.push(`x = ${label(probe, places)}.`);
     if (near) {
       const d = clean(Math.abs(probe - near[0]));
-      readout.push(`|x − ${label(near[0])}| = ${label(d)}, which is ${d < near[1] ? "" : "not "}less than ${label(near[1])}.`);
+      readout.push(`|x − ${label(near[0])}| = ${label(d, places)}, which is ${d < near[1] ? "" : "not "}less than ${label(near[1])}.`);
     }
     for (const i of intervals) readout.push(`x is ${inInterval(probe, i) ? "" : "not "}in ${intervalLabel(i)}.`);
   }
   const summary = [
     points.length ? `points at ${points.map((p) => p.label).join(", ")}` : "",
     shaded.length ? `shaded: ${shaded.map(intervalLabel).join(", ")}` : "",
-    distance ? `the distance from ${label(distance[0])} to ${label(distance[1])}` : "",
+    ...spans.map(([a, b]) => `the distance from ${label(a)} to ${label(b)}, ${label(clean(Math.abs(a - b)))}`),
   ].filter(Boolean);
 
   return (
@@ -70,9 +75,9 @@ export function NumberLine({ params }: WidgetProps) {
       <svg
         ref={svg}
         viewBox={`0 0 ${W} ${H}`}
-        role="img"
+        role={hasProbe ? "group" : "img"}
         aria-label={`A number line from ${label(lo)} to ${label(hi)}${summary.length ? `, with ${summary.join("; ")}` : ""}.`}
-        className={`block h-auto w-full select-none ${hasProbe ? "touch-none" : ""}`}
+        className={`block h-auto w-full select-none ${hasProbe ? "touch-pan-y" : ""}`}
         onPointerDown={(e) => {
           if (!hasProbe) return;
           (e.currentTarget as Element).setPointerCapture(e.pointerId);
@@ -86,32 +91,30 @@ export function NumberLine({ params }: WidgetProps) {
         {/* The line, with an arrowhead at each end: it goes on. */}
         <line x1={8} x2={W - 8} y1={AXIS} y2={AXIS} className="stroke-fg-2" strokeWidth={1.5} />
         <path d={`M8 ${AXIS} l8 -5 v10 z M${W - 8} ${AXIS} l-8 -5 v10 z`} className="fill-fg-2" />
-        {ticks(lo, hi, 10).map((t) => (
-          <g key={t}>
+        {marks.map((t, i) => (
+          <g key={i}>
             <line x1={sx(t)} x2={sx(t)} y1={AXIS - 5} y2={AXIS + 5} className="stroke-fg-2" strokeWidth={1.5} />
             <text x={sx(t)} y={AXIS + 22} textAnchor="middle" className="fill-fg-3 font-mono text-[13px]">
-              {label(t)}
+              {label(t, tickPlaces(marks))}
             </text>
           </g>
         ))}
 
         {shaded.map((i, k) => (
-          <Stretch key={k} interval={i} lo={lo} hi={hi} sx={sx} />
+          <Stretch key={k} interval={i} lo={lo} hi={hi} sx={sx} axis={AXIS} />
         ))}
 
-        {distance && (
-          <g data-distance>
-            <path
-              d={`M${sx(distance[0])} ${AXIS - 30} v-12 M${sx(distance[1])} ${AXIS - 30} v-12 M${sx(distance[0])} ${AXIS - 36} H${sx(distance[1])}`}
-              fill="none"
-              className="stroke-fg"
-              strokeWidth={1.5}
-            />
-            <text x={(sx(distance[0]) + sx(distance[1])) / 2} y={AXIS - 46} textAnchor="middle" className="fill-fg font-mono text-[14px]">
-              |{label(distance[0])} − {label(distance[1])}| = {label(clean(distance[1] - distance[0]))}
-            </text>
-          </g>
-        )}
+        {spans.map(([from, to], level) => {
+          const y = AXIS - 36 - level * 28;
+          return (
+            <g key={level} data-distance={level}>
+              <path d={`M${sx(from)} ${y + 6} v-12 M${sx(to)} ${y + 6} v-12 M${sx(from)} ${y} H${sx(to)}`} fill="none" className="stroke-fg" strokeWidth={1.5} />
+              <text x={(sx(from) + sx(to)) / 2} y={y - 9} textAnchor="middle" className="fill-fg font-mono text-[14px]">
+                |{label(from)} − {label(to)}| = {label(clean(Math.abs(from - to)))}
+              </text>
+            </g>
+          );
+        })}
 
         {near && (
           <g data-near>
@@ -164,7 +167,7 @@ export function NumberLine({ params }: WidgetProps) {
 
 /** A shaded stretch of the line. A filled end belongs to it, a hollow end
  *  does not; an end beyond the picture is simply not drawn. */
-function Stretch({ interval, lo, hi, sx }: { interval: Interval; lo: number; hi: number; sx: (x: number) => number }) {
+function Stretch({ interval, lo, hi, sx, axis: AXIS }: { interval: Interval; lo: number; hi: number; sx: (x: number) => number; axis: number }) {
   const from = Math.max(interval.lo, lo);
   const to = Math.min(interval.hi, hi);
   const left = interval.lo < lo ? 10 : sx(from);

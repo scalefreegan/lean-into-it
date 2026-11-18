@@ -5,6 +5,7 @@
 //
 //   expression := term (("+" | "-") term)*
 //   term       := factor (("*" | "/") factor | factor)*      2x, 2(x+1), x sin(x)
+//                 (but not side by side straight after a division: 1/2x is refused)
 //   factor     := ("-" | "+") factor | power
 //   power      := atom ("^" factor)?                         right to left; -x^2 is -(x^2)
 //   atom       := number | "x" | "pi" | "e" | name "(" expression ")"
@@ -53,6 +54,8 @@ function tokens(source: string): Token[] {
     }
     const number = /^(\d+(\.\d+)?|\.\d+)/.exec(rest);
     if (number) {
+      // 1e-5 would otherwise be read as 1·e − 5. Refused in every spelling.
+      if (/^[eE][+-]?\d/.test(rest.slice(number[0].length))) throw new ExprError("writes a number with an exponent letter, as in 1e-5. Write it out: 0.00001 or 10^-5. For e the constant, write 2*e - 5");
       out.push({ type: "number", value: Number(number[0]) });
       i += number[0].length;
       continue;
@@ -68,7 +71,7 @@ function tokens(source: string): Token[] {
       i++;
       continue;
     }
-    throw new ExprError(`“${rest[0]}” is not something an expression can contain`);
+    throw new ExprError(`contains “${rest[0]}”, which an expression cannot`);
   }
   return out;
 }
@@ -81,7 +84,7 @@ function names(word: string): Token[] {
   let rest = word.toLowerCase();
   while (rest) {
     const next = known.find((k) => rest.startsWith(k));
-    if (!next) throw new ExprError(`“${word}” is not a name it knows. The variable is x, the constants are pi and e, and the functions are ${Object.keys(FUNCTIONS).join(", ")}`);
+    if (!next) throw new ExprError(`uses “${word}”, which is not a name it knows. The variable is x, the constants are pi and e, and the functions are ${Object.keys(FUNCTIONS).join(", ")}`);
     out.push({ type: "name", name: next });
     rest = rest.slice(next.length);
   }
@@ -141,11 +144,15 @@ export function parseExpr(source: string): Expr {
 
   const term = (): Expr => {
     let left = factor();
+    let divided = false;
     for (;;) {
       if (isSymbol("*") || isSymbol("/")) {
         const op = (toks[at++] as { symbol: "*" | "/" }).symbol;
         left = { kind: "binary", op, left, right: factor() };
+        divided = op === "/";
       } else if (startsFactor()) {
+        // 1/2x: half of x, or one over 2x? Paper does not say, so neither do we.
+        if (divided) throw new ExprError("has something written straight after a division, as in 1/2x, which can be read two ways. Write (1/2)x or 1/(2x)");
         left = { kind: "binary", op: "*", left, right: power() };
       } else return left;
     }

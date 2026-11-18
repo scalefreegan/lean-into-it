@@ -28,7 +28,9 @@ test("a product can be written with nothing between its factors", () => {
   near(at("x(x + 1)", 3), 12, "x(…)");
   near(at("2 pi", 0), 2 * Math.PI, "2 pi");
   near(at("x sin(x)", 2), 2 * Math.sin(2), "x sin(x)");
-  near(at("1/2x", 4), 2, "1/2x reads left to right: (1/2)·x");
+  near(at("(1/2)x", 4), 2, "half of x");
+  near(at("1/(2x)", 4), 1 / 8, "one over 2x");
+  near(at("x/2*x", 3), 4.5, "with the * written, left to right");
   near(at("2x/x", 5), 2, "2x/x");
 });
 
@@ -68,15 +70,21 @@ test("anything else is refused, with a reason", () => {
     ["x + 1)", /“\)” left over/],
     ["|x", /needs “\|” to close an absolute value/],
     ["sin x", /needs “\(” after sin/],
-    ["y + 1", /“y” is not a name it knows/],
-    ["foo(x)", /“foo” is not a name it knows/],
-    ["x; alert(1)", /“;” is not something/],
-    ["x = 2", /“=” is not something/],
+    ["y + 1", /“y”, which is not a name it knows/],
+    ["foo(x)", /“foo”, which is not a name it knows/],
+    ["x; alert(1)", /contains “;”/],
+    ["x = 2", /contains “=”/],
     ["constructor", /is not a name it knows/],
-    ["__proto__", /“_” is not something/],
-    ["x.toString()", /“\.” is not something|is not a name/],
+    ["__proto__", /contains “_”/],
+    ["x.toString()", /contains “\.”|is not a name/],
     ["2 ** 3", /where a number or x was expected/],
-    ["1e5", /the number 5 straight after/],
+    ["1e5", /exponent letter/],
+    ["1e-5", /exponent letter/],
+    ["2.5E+3", /exponent letter/],
+    ["x2", /the number 2 straight after/],
+    ["1/2x", /straight after a division/],
+    ["x/2x", /straight after a division/],
+    ["1/2(x + 1)", /straight after a division/],
     ["x2", /the number 2 straight after/],
     ["2 3", /the number 3 straight after/],
     ["x".repeat(201), /longer than 200/],
@@ -89,7 +97,7 @@ test("anything else is refused, with a reason", () => {
   }
   assert.equal(checkExpr("2x + 1"), null);
   assert.match(checkExpr(7) ?? "", /written as text/);
-  assert.match(checkExpr("y") ?? "", /^“y” “y” is not a name/);
+  assert.match(checkExpr("y") ?? "", /^“y” uses “y”, which is not a name/);
 });
 
 test("a particular number can be written as an expression", () => {

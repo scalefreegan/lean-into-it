@@ -65,7 +65,7 @@ Draw a line. Mark a point 0 and a point 1. Every point on the line is a **real n
 ```widget
 type: number-line
 range: [-3, 4]
-points: [0, 1, 2, 3, "1/2", "-7/3", "sqrt(2): √2", "pi: π"]
+points: [0, 1, 2, "1/2", "-7/3", "sqrt(2): √2", "pi: π"]
 caption: Whole numbers, two fractions, and two points that no fraction lands on.
 ```
 

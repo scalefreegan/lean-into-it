@@ -34,7 +34,7 @@ export function SquareOfSum({ params }: WidgetProps) {
       <span className="lean w-16 text-fg">
         {name} = {label(value)}
       </span>
-      <input id={`${id}-${name}`} type="range" min={0.5} max={10} step={0.5} value={value} onChange={(e) => set(Number(e.target.value))} className="w-44 accent-accent" />
+      <input id={`${id}-${name}`} type="range" min={0.5} max={10} step={0.1} value={value} onChange={(e) => set(Number(e.target.value))} className="w-44 accent-accent" />
     </label>
   );
   const total = clean((a + b) ** 2);
@@ -71,7 +71,7 @@ export function SquareOfSum({ params }: WidgetProps) {
             (a + b)² = {label(clean(a + b))}² = {label(total)}
           </div>
           <div>
-            a² + 2ab + b² = {label(clean(a * a))} + 2·{label(clean(a * b))} + {label(clean(b * b))} = {label(total)}
+            a² + 2ab + b² = {label(clean(a * a))} + 2·{label(clean(a * b))} + {label(clean(b * b))} = {label(clean(a * a + 2 * a * b + b * b))}
           </div>
         </div>
       </div>

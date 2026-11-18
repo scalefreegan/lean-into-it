@@ -117,6 +117,7 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       const domain = pair(p.domain);
       if (domain && (domain[1] <= x[0] || domain[0] >= x[1])) out.push(`\`domain\` [${domain.join(", ")}] is outside the part of the x-axis shown, [${x.join(", ")}]`);
       if (typeof p.trace === "number" && (p.trace < x[0] || p.trace > x[1])) out.push(`\`trace\` ${p.trace} is outside the part of the x-axis shown, [${x.join(", ")}]`);
+      else if (typeof p.trace === "number" && domain && (p.trace < domain[0] || p.trace > domain[1])) out.push(`\`trace\` ${p.trace} is outside \`domain\` [${domain.join(", ")}], where the curves are drawn`);
       return out;
     },
   },
@@ -127,6 +128,7 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       points: { type: "point[]", doc: 'Points to mark: a number, or text giving a number and the label to write above it, as in `[0, 1, "1/2", "sqrt(2): √2"]`.' },
       intervals: { type: "interval[]", doc: 'Stretches to shade, in interval notation: `["(2, 4)", "[0, 1]", "(-inf, 3]"]`. A round bracket leaves the end out, a square one includes it.' },
       distance: { type: "range", doc: "Two numbers a and b: draws the distance between them and labels it |a − b|." },
+      via: { type: "number", doc: "With `distance`: a third point b. Also draws the distances from a to b and from b to c, the detour of the triangle inequality." },
       near: { type: "number[]", doc: "A centre c and a radius r, as `[3, 1]`: shades the points within r of c, the window |x − c| < r." },
       probe: { type: "number", doc: "Where a movable point x starts. The readout says where x is, which intervals it is in, and how far it is from the centre of `near`." },
       caption: { type: "string", doc: "One line shown under the line." },
@@ -134,6 +136,7 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
     examples: [
       { range: [-3, 4], points: [0, 1, "1/2", "sqrt(2): √2", "pi: π", "-7/3"] },
       { range: [0, 6], distance: [2, 5], points: ["2: a", "5: b"], caption: "The distance from 2 to 5 is 3, whichever way you subtract." },
+      { range: [0, 8], distance: [1, 3], via: 6, points: ["1: a", "3: c", "6: b"], caption: "From a to c directly, and by way of b." },
       { range: [0, 6], near: [3, 1], probe: 3.4, caption: "The points within 1 of 3." },
       { range: [-5, 5], intervals: ["(-inf, -1]", "(2, 4)"], probe: 0 },
     ],
@@ -148,11 +151,16 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       }
       for (const source of Array.isArray(p.intervals) ? p.intervals : []) {
         const i = readInterval(source);
-        if (typeof i !== "string" && (i.hi <= lo || i.lo >= hi)) out.push(off(`the interval ${source}`));
+        // Off the line unless some point of it is on the line: an end on the edge counts only if it is included.
+        if (typeof i !== "string" && (i.hi < lo || i.lo > hi || (i.hi === lo && !i.hiClosed) || (i.lo === hi && !i.loClosed))) out.push(off(`the interval ${source}`));
       }
       const distance = pair(p.distance);
       if (distance && !(on(distance[0]) && on(distance[1]))) out.push(off(`\`distance\` [${distance.join(", ")}]`));
-      if (p.near !== undefined) {
+      if (typeof p.via === "number") {
+        if (!distance) out.push("`via` needs `distance`: it is the point the detour between those two goes through");
+        else if (!on(p.via)) out.push(off(`\`via\` ${p.via}`));
+      }
+      if (p.near !== undefined && p.near !== null) {
         const near = pair(p.near);
         if (!near) out.push("`near` must be two numbers, a centre and a radius, like [3, 1]");
         else if (!(near[1] > 0)) out.push("`near`: the radius must be more than 0");
@@ -271,6 +279,7 @@ export function checkParam(type: ParamType, value: unknown): string | null {
     }
     case "range": {
       if (!Array.isArray(value) || value.length !== 2 || !value.every((v) => typeof v === "number" && Number.isFinite(v))) return "must be two numbers, like [-5, 5]";
+      if (value.some((v) => Math.abs(v) > 1e6)) return "must stay between -1000000 and 1000000";
       return value[0] < value[1] ? null : `must have the smaller number first: [${value[1]}, ${value[0]}]`;
     }
     case "point[]": {
