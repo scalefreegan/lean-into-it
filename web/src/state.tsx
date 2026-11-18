@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Content, Lesson } from "../shared/content.ts";
 import type { LeanStatus, ProgressReply, SolvedExercise } from "../shared/wire.ts";
-import { getContent, getLean, getProgress } from "./api/client.ts";
+import { getContent, getLean, getProgress, LEAN_TROUBLE, restartLean as askRestart } from "./api/client.ts";
 
 // What every page needs: the curriculum, what has been solved, and whether
 // Lean can run. Loaded once; `markSolved` updates the solved map at once
@@ -13,6 +13,8 @@ interface AppData {
   lean: LeanStatus;
   markSolved: (lessonId: string, exerciseId: string, solution: string) => void;
   reloadLean: () => void;
+  /** Stop Lean and start it again; resolves when its new state is known. */
+  restartLean: () => Promise<void>;
 }
 
 const Ctx = createContext<AppData | null>(null);
@@ -64,9 +66,24 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
     getLean().then(setLean, () => {});
   }, []);
 
+  const restartLean = useCallback(() => askRestart().then(setLean, () => {}), []);
+
+  // Lean's state is watched while it is anything but ready (it gets there
+  // by itself), and looked at again when a check says Lean could not answer.
+  const state = lean?.state;
+  const installed = lean?.installed;
+  useEffect(() => {
+    window.addEventListener(LEAN_TROUBLE, reloadLean);
+    const timer = state !== undefined && state !== "ready" && installed ? setInterval(reloadLean, 2000) : undefined;
+    return () => {
+      window.removeEventListener(LEAN_TROUBLE, reloadLean);
+      clearInterval(timer);
+    };
+  }, [state, installed, reloadLean]);
+
   const value = useMemo(
-    () => (content && solved && lean ? { content, solved, lean, markSolved, reloadLean } : null),
-    [content, solved, lean, markSolved, reloadLean],
+    () => (content && solved && lean ? { content, solved, lean, markSolved, reloadLean, restartLean } : null),
+    [content, solved, lean, markSolved, reloadLean, restartLean],
   );
   if (!value) return <>{fallback({ error })}</>;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

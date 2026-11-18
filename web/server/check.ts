@@ -1,5 +1,6 @@
 // The routes that ask Lean: /api/check (an exercise's proof), /api/playground
-// (any Lean source, nothing scored) and /api/lean (can Lean run here at all).
+// (any Lean source, nothing scored) and /api/lean (can Lean check a proof
+// now, and start it again).
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals } from "../shared/goals.ts";
@@ -8,7 +9,7 @@ import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundR
 import type { Exercise } from "../shared/content.ts";
 import { isSolved, recordAttempt } from "../../scripts/db/progress.ts";
 import { learnerId, rawDb } from "./db.ts";
-import { LeanUnavailable, leanProblem, leanServer, type LeanServer } from "./lean/lsp.ts";
+import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, type LeanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { HttpError, methodNotAllowed, readJsonBody, sendJson } from "./sse.ts";
 
@@ -26,9 +27,17 @@ async function withLean<T>(run: (lean: LeanServer) => Promise<T>): Promise<T> {
   try {
     return await run(leanServer());
   } catch (e) {
-    if (e instanceof LeanUnavailable) throw new HttpError(503, e.message, "lean_unavailable");
-    throw e;
+    throw leanError(e);
   }
+}
+
+/** What a failure of Lean itself becomes for the browser: a 503 whose
+ *  sentence is Lean's own, and a code that says whether it was this proof
+ *  that ran out of time (Lean is still there) or Lean that could not answer. */
+export function leanError(e: unknown): unknown {
+  if (e instanceof LeanTimeout) return new HttpError(503, e.message, "lean_timeout");
+  if (e instanceof LeanUnavailable) return new HttpError(503, e.message, "lean_unavailable");
+  return e;
 }
 
 /**
@@ -151,10 +160,28 @@ export async function handlePlayground(req: IncomingMessage, res: ServerResponse
   sendJson(res, 200, reply);
 }
 
-export function handleLean(req: IncomingMessage, res: ServerResponse): void {
+export function leanStatus(): LeanStatus {
+  const missing = leanProblem();
+  const health = missing ? { state: "down" as const, problem: missing } : leanServer().health();
+  return { ...health, installed: !missing, toolchain: leanToolchain() };
+}
+
+/** GET /api/lean and /api/lean/status: can Lean check a proof now.
+ *  POST /api/lean/restart: stop it and start it again. */
+export async function handleLean(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const route = (req.url ?? "/").split("?")[0].replace(/\/+$/, "");
+  if (route === "/restart") {
+    if (req.method !== "POST") return methodNotAllowed(res, "POST");
+    if (!leanProblem()) {
+      // A failure to start is not an error of this request: the status says it.
+      await leanServer().restart().catch(() => {});
+      warmLean();
+    }
+    return sendJson(res, 200, leanStatus());
+  }
+  if (route !== "" && route !== "/status") return sendJson(res, 404, { error: "no such route" });
   if (req.method !== "GET") return methodNotAllowed(res, "GET");
-  const problem = leanProblem();
-  sendJson(res, 200, { ready: !problem, problem } satisfies LeanStatus);
+  sendJson(res, 200, leanStatus());
 }
 
 /** Load Mathlib into the exercise document before the first click needs it.

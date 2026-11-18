@@ -14,6 +14,9 @@ export class ApiError extends Error {
   }
 }
 
+/** Fired on `window` when a request failed because Lean could not answer. */
+export const LEAN_TROUBLE = "lean-into-it:lean-trouble";
+
 async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
   let res: Response;
   try {
@@ -27,6 +30,8 @@ async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promi
     throw new ApiError(0, "The app's server is not answering. Is `npm run dev` still running?");
   }
   const data = (await res.json().catch(() => null)) as (T & Partial<ErrorReply>) | null;
+  // Lean could not answer: whoever shows its state should look again.
+  if (data?.code === "lean_unavailable" || data?.code === "lean_timeout") window.dispatchEvent(new Event(LEAN_TROUBLE));
   if (!res.ok || data === null) throw new ApiError(res.status, data?.error || `The server answered ${res.status}.`, data?.code);
   return data;
 }
@@ -34,5 +39,6 @@ async function api<T>(path: string, body?: unknown, signal?: AbortSignal): Promi
 export const getContent = () => api<Content>("/api/content");
 export const getProgress = () => api<ProgressReply>("/api/progress");
 export const getLean = () => api<LeanStatus>("/api/lean");
+export const restartLean = () => api<LeanStatus>("/api/lean/restart", {});
 export const check = (req: CheckRequest, signal?: AbortSignal) => api<CheckReply>("/api/check", req, signal);
 export const playground = (req: PlaygroundRequest, signal?: AbortSignal) => api<PlaygroundReply>("/api/playground", req, signal);
