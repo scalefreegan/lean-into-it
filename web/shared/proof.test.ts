@@ -37,8 +37,23 @@ test("diagnostics come back in body lines; one on the statement has no line; a l
   const out = toBody([at(2, "unsolved goals\n⊢ P"), at(5, "Unknown identifier `hP`"), at(5, `unused variable \`hQ\`${FOOTER}`, "warning")], body);
   assert.deepEqual(out, [
     { severity: "error", message: "unsolved goals\n⊢ P", line: null },
-    { severity: "error", message: "Unknown identifier `hP`", line: 1 },
+    { severity: "error", message: "Unknown identifier `hP`", line: 1, range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } } },
   ]);
+});
+
+test("where Lean pointed comes back in the body's own columns, cut off at the body's end", () => {
+  const body = "apply h\nexact hP";
+  const span = (startLine: number, startChar: number, endLine: number, endChar: number, message = "Unknown identifier `hP`"): Diagnostic => ({ severity: "error", message, start: { line: startLine, character: startChar }, end: { line: endLine, character: endChar } });
+  // Source line 5 is body line 1, and the body is indented four columns.
+  assert.deepEqual(toBody([span(5, 10, 5, 12)], body)[0].range, { start: { line: 1, character: 6 }, end: { line: 1, character: 8 } });
+  // A span running past the body (into the closing bracket) ends where the body does.
+  assert.deepEqual(toBody([span(4, 4, 9, 3)], body)[0].range, { start: { line: 0, character: 0 }, end: { line: 1, character: 8 } });
+  // On the statement: no line and no range.
+  assert.equal(toBody([span(2, 0, 2, 5, "unsolved goals\n⊢ P")], body)[0].range, undefined);
+  // Blamed on another line than Lean named (a bracket left open on line 0, noticed at the axiom line): no range.
+  const moved = toBody([span(9, 0, 9, 6, "unexpected token '#print'; expected ')'")], "apply (hPQ\nexact hP")[0];
+  assert.equal(moved.line, 0);
+  assert.equal(moved.range, undefined);
 });
 
 test("an error is never dropped, even when its text looks like a linter's", () => {
@@ -300,7 +315,7 @@ test("a ring that left its goal open is an error in a proof Lean has not accepte
 
   // The goal it ran on is still there afterwards, rewritten: the move failed.
   const open = after([ring, unsolved], [["⊢ A"], ["⊢ A'"]]);
-  assert.deepEqual(open[0], { severity: "error", message: "The `ring` tactic failed to close the goal.", line: 0 });
+  assert.deepEqual({ ...open[0], range: undefined }, { severity: "error", message: "The `ring` tactic failed to close the goal.", line: 0, range: undefined });
   assert.equal(judgeWith(open, "ring", [], [], "ok").error?.message, "The `ring` tactic failed to close the goal.");
   assert.equal(after([ring, unsolved], [[left, right], [left, right]])[0].severity, "error");
 

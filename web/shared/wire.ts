@@ -60,6 +60,8 @@ export interface PlaygroundDiagnostic {
   severity: "error" | "warning" | "info";
   message: string;
   line: number;
+  /** The span Lean pointed at, in the file's own lines and columns. */
+  range: { start: { line: number; character: number }; end: { line: number; character: number } };
 }
 
 export interface PlaygroundReply {

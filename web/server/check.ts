@@ -172,7 +172,7 @@ export async function handlePlayground(req: IncomingMessage, res: ServerResponse
   const result = await withLean((lean) => lean.check("playground", source, cursor ? [cursor] : []));
   const reply: PlaygroundReply = {
     // Everything Lean said, linters included: here the file is the learner's own.
-    diagnostics: result.diagnostics.map((d) => ({ severity: d.severity, message: d.message, line: d.start.line })),
+    diagnostics: result.diagnostics.map((d) => ({ severity: d.severity, message: d.message, line: d.start.line, range: { start: d.start, end: d.end } })),
     cursorGoals: cursor && result.goals[0] ? parseGoals(result.goals[0]) : null,
   };
   sendJson(res, 200, reply);
