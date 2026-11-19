@@ -256,11 +256,11 @@ Landed in the first PR, the foundation slice:
   proof map's, comes with that feature (`lii-8wq.2`).
 
 `docs/hero.png` (1600×900, generated from `docs/hero-image-prompt.md`) is
-in the repo; its bead (`lii-2zf.5`) is Aaron's to close.
+in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-32 beads in 12 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+31 beads in 12 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -353,4 +353,3 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-2zf.3` | `docs/DATA.md` | 3 | |
-| `lii-2zf.5` | Generate `docs/hero.png` from the prompt (Aaron) | 2 | |
