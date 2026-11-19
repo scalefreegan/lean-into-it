@@ -317,24 +317,30 @@ Landed in the first PR, the foundation slice:
   with a token made for that turn, and gets back Lean's messages by line,
   whether Lean accepted the text, whether a `sorry` is left, and the goals
   after a line it names. The scratch text is checked in a Lean document of
-  its own (`tutor`), never the learner's file, and is searched first for
-  anything that runs a program, reads a file, loads a module or reaches
-  the network (`#eval`, `IO`, `run_cmd`, `elab`, `import`, `polyrith`,
-  `#loogle` …; `web/shared/partner.ts`), which is refused unread: of the
-  `#` commands only `#check`, `#check_failure`, `#print`, `#reduce` and
+  its own (`tutor`), never the learner's file. It is searched first and
+  refused unread unless it is plainly statements, proofs and look-ups
+  (`web/shared/partner.ts`): a line in the first column must start one of
+  a short list of commands, and nowhere may the text name what makes Lean
+  run code of the file's own (`#eval`, `IO`, `macro`, `elab`, `simproc`,
+  attributes off a list of four, `plausible`, `config :=`, `import` …) or
+  an `axiom`. **This filter is not a sandbox**: it reads words, and a
+  clever enough text could get past it; what would hold is running the
+  Tutor's Lean under an OS sandbox (`lii-2zo.6`). Of the `#` commands only
+  `#check`, `#check_failure`, `#print`, `#reduce` and
   `#synth` run. The server then asks Lean again about each Lean block in
   the reply and writes Lean's verdict under it ("checked, no errors",
   "the statement is accepted; the proof is left open", "a sketch, not
   accepted as written", "part of a proof, not checked"), so the label is
-  Lean's and not the Tutor's. Each block has an "Insert into the
-  Playground" button, which adds it at the end of the file; nothing
-  reaches the file otherwise. Tested against the real Lean: a statement of
+  Lean's and not the Tutor's (a line the Tutor wrote that looks like a
+  label is taken out). A Lean block that the filter would let through has
+  an "Insert into the Playground" button, which adds it at the end of the
+  file; nothing reaches the file otherwise. Tested against the real Lean: a statement of
   "the sum of two even numbers is even" elaborates, `Nat.add_zero` is
   looked up and accepted in use, a step returns the goals it leaves. Not
   done: lemma search on the internet (Loogle, LeanSearch), left out
   because it would give a run that can read the attempt history a way to
   send text out. Not yet tried in a real Tutor turn.
-- Tests: 394, including every reference solution checked by the real Lean,
+- Tests: 398, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -365,7 +371,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-25 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+26 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -420,6 +426,7 @@ land first.
 |---|---|---|---|
 | `lii-2zo.2` | Tutor lesson authoring with a Lean compile gate and worktree commits | 2 | `lii-2zo.1` |
 | `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |
+| `lii-2zo.6` | Run the Tutor's scratch Lean under an OS sandbox | 2 | `lii-2zo.3` |
 
 ### Curriculum (epic `lii-dvy`)
 

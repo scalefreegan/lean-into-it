@@ -7,6 +7,7 @@ import { Markdown, SpokenMarkdown } from "../markdown.tsx";
 import { useApp } from "../state.tsx";
 import { Button, cx, Notice } from "../ui.tsx";
 import { useTutor } from "./store.ts";
+import { insertable } from "../../shared/partner.ts";
 
 // The Tutor's drawer, beside every page. A question goes to the Tutor with
 // the page and the exercise last worked on; on an exercise, the hint ladder
@@ -24,14 +25,17 @@ export function TutorDrawer() {
   const { open, setOpen, active, snapshot, insert } = useTutor();
   const [inserted, setInserted] = useState<string | null>(null);
   // Under each code block of a reply, where there is a free file to put it in.
+  // Not under a block that is not Lean, or that would run a program: that one is for the learner to type.
   const codeAction = insert
-    ? (code: string) => (
+    ? (code: string, lang?: string) =>
+        !insertable(code, lang) ? null : (
         <Button
           className="mb-2 text-xs"
           data-tutor-insert
           onClick={() => {
             insert(code);
             setInserted(code);
+            window.setTimeout(() => setInserted((was) => (was === code ? null : was)), 2500);
           }}
         >
           {inserted === code ? "Inserted at the end of your file" : "Insert into the Playground"}

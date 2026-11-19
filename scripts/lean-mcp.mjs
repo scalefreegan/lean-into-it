@@ -28,8 +28,9 @@ export const MCP_TOOLS = TOOL_NAMES.map((t) => `mcp__${SERVER_NAME}__${t}`);
 
 /** Characters of scratch Lean (web/shared/partner.ts MAX_SCRATCH). */
 const MAX_LEAN = 20_000;
-/** A check has 20 seconds in the app; a first one also loads Mathlib. */
-const TIMEOUT_MS = 90_000;
+/** A check has 20 seconds in the app; a first one also loads Mathlib,
+ *  which the app allows two minutes. */
+const TIMEOUT_MS = 150_000;
 const TOKEN = /^[A-Za-z0-9_-]{20,100}$/;
 
 /** Where to post and with what, from the environment. Throws when either

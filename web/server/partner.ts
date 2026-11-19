@@ -14,7 +14,7 @@
 // of it, not what the Tutor says.
 
 import type { PartnerMessage, PartnerReply } from "../shared/wire.ts";
-import { SCRATCH_OFFSET, labelled, leanBlocks, scratchProblems, scratchSource, standsAlone, type BlockVerdict } from "../shared/partner.ts";
+import { SCRATCH_OFFSET, withoutLabels, labelled, leanBlocks, scratchProblems, scratchSource, standsAlone, type BlockVerdict } from "../shared/partner.ts";
 import { leanError } from "./check.ts";
 import type { LeanServer } from "./lean/lsp.ts";
 import { HttpError } from "./sse.ts";
@@ -79,7 +79,8 @@ export async function blockVerdict(lean: LeanServer, code: string): Promise<Bloc
 
 /** A Playground reply with Lean's verdict under each of its Lean blocks
  *  (the first MAX_LABELLED; the rest say they were not checked). */
-export async function labelReply(lean: LeanServer, reply: string, signal?: AbortSignal): Promise<string> {
+export async function labelReply(lean: LeanServer, said: string, signal?: AbortSignal): Promise<string> {
+  const reply = withoutLabels(said);
   const blocks = leanBlocks(reply);
   const verdicts: BlockVerdict[] = [];
   let asked = 0;

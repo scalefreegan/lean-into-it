@@ -40,9 +40,9 @@ import { appendChat, chatFor, clearChat, hintRung, recordHint, type ChatRow } fr
 import { startOfDay } from "../shared/progress.ts";
 import type { Content, Exercise, Lesson } from "../shared/content.ts";
 import { readLine } from "../shared/moves.ts";
-import { leanBlocks } from "../shared/partner.ts";
+import { leanBlocks, withoutLabels } from "../shared/partner.ts";
 import type { PartnerRequest, TutorContext, TutorHistoryReply, TutorLadderReply, TutorMessage, TutorReply, TutorRequest } from "../shared/wire.ts";
-import { localHost } from "./api.ts";
+import { localHost } from "./origin.ts";
 import { labelReply, tryLean } from "./partner.ts";
 import { checkExercise, leanError } from "./check.ts";
 import { learnerId, rawDb } from "./db.ts";
@@ -130,7 +130,7 @@ export const PARTNER_PROMPT = `Proof partner. The learner is in the Playground, 
   - formalise: turn a statement in words into a Lean statement. See that it elaborates (end it \`:= by sorry\`) before you show it, and say in a sentence what each part of it says. The other way round, read a Lean statement back in plain words.
   - find a lemma: guess its name and #check it, or state the fact as an \`example\` and prove it with \`exact?\` (\`apply?\` and \`rw?\` search too). Give a name only once Lean accepted it in use.
   - suggest a next step, when asked: put their proof so far and your step in a scratch file, check it with goals_after_line on your step's line, and show the goals it leaves as Lean printed them.
-Never say that Lean accepts something unless lean_check accepted that exact text in this turn; anything else is a sketch, and you say so. Put Lean meant for their file in a fenced \`\`\`lean block, a whole \`example\` or \`theorem\` when you can: the app asks Lean about each block again and writes Lean's verdict under it, and the learner can insert a block into their file with a button. You cannot change their file; offer, and do not assume they took it. You cannot search the internet for lemmas (no Loogle, no LeanSearch), only Lean's own search.`;
+Never say that Lean accepts something unless lean_check accepted that exact text in this turn; anything else is a sketch, and you say so. Put Lean meant for their file in a fenced \`\`\`lean block, a whole \`example\` or \`theorem\` when you can: the app asks Lean about each block again and writes Lean's verdict under it, and the learner can insert a block into their file with a button. You cannot change their file; offer, and do not assume they took it. You cannot search the internet for lemmas (no Loogle, no LeanSearch), only Lean's own search. If lean_check is missing or fails, say that you could not ask Lean, and call every piece of Lean you give a sketch. Never write a line beginning "Lean:" yourself: those lines are the app's.`;
 
 export function systemPrompt(content: Content, partner = false): string {
   const lessons = content.lessons.map((l) => `  - ${l.id} "${l.title}" (level ${l.level}): content/${l.file}`).join("\n");
@@ -422,6 +422,8 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
         line = split.line;
       }
       // In the Playground, what stands under a snippet is Lean's word on it.
+      // A verdict line is the app's to write: one the Tutor wrote is taken out, on any page.
+      text = withoutLabels(text);
       if (ctx.page === "playground" && leanBlocks(text).length) text = await labelReply(leanServer(), text, ctrl.signal);
       // Stopped while the reply was on its way: not given, not a rung reached.
       if (ctrl.signal.aborted) throw new TurnStopped("stopped");

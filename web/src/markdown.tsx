@@ -28,7 +28,7 @@ function inline(text: string, keyBase: string): ReactNode[] {
 }
 
 /** Something to offer under a code block (the Tutor's "Insert" in the Playground). */
-export type CodeAction = (code: string) => ReactNode;
+export type CodeAction = (code: string, lang?: string) => ReactNode;
 
 export function Markdown({ source, codeAction }: { source: string; codeAction?: CodeAction }) {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
@@ -53,7 +53,7 @@ export function Markdown({ source, codeAction }: { source: string; codeAction?: 
       while (i < lines.length && !closes(lines[i], line)) buf.push(lines[i++]);
       i++;
       out.push(<pre key={key}>{buf.join("\n")}</pre>);
-      if (codeAction) out.push(<div key={`${key}a`}>{codeAction(buf.join("\n"))}</div>);
+      if (codeAction) out.push(<div key={`${key}a`}>{codeAction(buf.join("\n"), /^`+\s*([A-Za-z0-9]*)/.exec(line)?.[1] ?? "")}</div>);
     } else if (/^###\s+/.test(line)) {
       out.push(<h3 key={key}>{inline(line.replace(/^###\s+/, ""), key)}</h3>);
       i++;
