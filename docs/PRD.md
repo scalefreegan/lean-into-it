@@ -321,7 +321,7 @@ web/
 scripts/               Lean setup, database setup and migrations, tests
 scripts/db/            Postgres: Drizzle schema, migrations
 data/                  runtime state (gitignored)
-macos/                 Dock app, port 38800 (planned)
+macos/                 Dock app, port 38800 (`./macos/build-app.sh`)
 docs/                  this PRD; STATUS.md (done and remaining); CONTENT.md (lesson format); hero-image-prompt.md
 ```
 

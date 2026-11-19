@@ -65,7 +65,7 @@ This is an early build. Five of the six features below work today; the live proo
   </tr>
 </table>
 
-Also planned: more exercise kinds, Listen mode (read-aloud), a Lab with a gallery of famous proofs, and a Dock app.
+Also planned: more exercise kinds, Listen mode (read-aloud), and a Lab with a gallery of famous proofs.
 
 ## How it works
 
@@ -90,6 +90,8 @@ npm run lean:setup          # once: Lean 4 toolchain and the Mathlib build cache
 npm run db:setup            # once per machine: creates the lean_into_it database and migrates it
 npm run dev                 # http://localhost:38800
 ```
+
+On a Mac, `./macos/build-app.sh` installs a Dock app that starts the server and opens the page in Chrome; see [`macos/README.md`](macos/README.md).
 
 `lean:setup` downloads about 7 GB into `lean/.lake` and about 3 GB of toolchain into `~/.elan`. The first proof check after starting the server takes a while, as Lean loads Mathlib; later checks are quick.
 
