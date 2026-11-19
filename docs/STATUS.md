@@ -316,16 +316,15 @@ Landed in the first PR, the foundation slice:
   (`scripts/lean-mcp.mjs`): it posts scratch Lean to `/api/tutor/lean`
   with a token made for that turn, and gets back Lean's messages by line,
   whether Lean accepted the text, whether a `sorry` is left, and the goals
-  after a line it names. The scratch text is checked in a Lean document of
-  its own (`tutor`), never the learner's file. It is searched first and
+  after a line it names. The scratch text is checked by a Lean of its
+  own, never the learner's file. It is searched first and
   refused unread unless it is plainly statements, proofs and look-ups
   (`web/shared/partner.ts`): a line in the first column must start one of
   a short list of commands, and nowhere may the text name what makes Lean
   run code of the file's own (`#eval`, `IO`, `macro`, `elab`, `simproc`,
   attributes off a list of four, `plausible`, `config :=`, `import` …) or
-  an `axiom`. **This filter is not a sandbox**: it reads words, and a
-  clever enough text could get past it; what would hold is running the
-  Tutor's Lean under an OS sandbox (`lii-2zo.6`). Of the `#` commands only
+  an `axiom`. The filter reads words and is the outer layer only; under
+  it the Tutor's Lean is sandboxed (next entry). Of the `#` commands only
   `#check`, `#check_failure`, `#print`, `#reduce` and
   `#synth` run. The server then asks Lean again about each Lean block in
   the reply and writes Lean's verdict under it ("checked, no errors",
@@ -340,7 +339,24 @@ Landed in the first PR, the foundation slice:
   done: lemma search on the internet (Loogle, LeanSearch), left out
   because it would give a run that can read the attempt history a way to
   send text out. Not yet tried in a real Tutor turn.
-- Tests: 398, including every reference solution checked by the real Lean,
+- The Tutor's Lean is sandboxed (`lii-2zo.6`). Text the Tutor's model
+  wrote (its `lean_check` scratch files and the Lean blocks of a Playground
+  reply) is checked by a second Lean process, `lean --server` started
+  under macOS's `sandbox-exec` (`web/server/lean/sandbox.ts`,
+  `tutorLean()` in `lsp.ts`), not by the `lake serve` that checks the
+  learner's own work. Its profile denies everything by default: it may
+  read the toolchain, `lean/` and the system's libraries, but nothing else
+  under `/Users`, `/Volumes` or the temp folders; it may write nothing,
+  run only the toolchain's own programs, and has no network. Tested with
+  the real Lean and harmless probes: reading a repository file, listing
+  the home folder, writing a file and starting `/bin/echo` are all
+  refused, while `ring` on real numbers still proves. Without
+  `sandbox-exec` (not macOS) the Tutor's Lean does not run at all, rather
+  than run unsandboxed. Not tested: a network probe (the profile denies
+  it; Lean has no simple way to try). Not covered: the rung-3 hint line,
+  which is still checked on the learner's Lean inside an exercise's
+  brackets, and the learner's own Playground, which is theirs.
+- Tests: 402, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -371,7 +387,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-26 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+25 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -426,7 +442,6 @@ land first.
 |---|---|---|---|
 | `lii-2zo.2` | Tutor lesson authoring with a Lean compile gate and worktree commits | 2 | `lii-2zo.1` |
 | `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |
-| `lii-2zo.6` | Run the Tutor's scratch Lean under an OS sandbox | 2 | `lii-2zo.3` |
 
 ### Curriculum (epic `lii-dvy`)
 

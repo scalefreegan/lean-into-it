@@ -17,7 +17,7 @@ import { assemble, axiomsOf, judge, replayOf, toBody } from "../shared/proof.ts"
 import { checkExercise, handleCheck, handleLean, handlePlayground, leanError } from "./check.ts";
 import { checkSolution, checkWithLean } from "./contentcheck.ts";
 import { setDb, type Db } from "./db.ts";
-import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, type LeanServer } from "./lean/lsp.ts";
+import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, tutorLean, type LeanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { documentedLesson } from "./doclesson.ts";
 import type { HttpError } from "./sse.ts";
@@ -51,6 +51,7 @@ before(async () => {
 
 after(async () => {
   leanServer().stop();
+  tutorLean().close();
   setDb(null);
   await closeDb();
 });
@@ -763,9 +764,45 @@ test("an exercise with definitions of its own: goals, error lines and the axiom 
 
 /* ------------------------- the Tutor as proof partner ------------------------- */
 
-test("proof partner: a statement in Lean elaborates, a lemma is found and accepted in use, a step shows the goals it leaves", { skip }, async () => {
+/** The Tutor's Lean runs under macOS's sandbox, and nowhere without it. */
+const skipSandbox = skip || (process.platform !== "darwin" ? "the Tutor's Lean needs macOS's sandbox-exec" : false);
+if (!skip && skipSandbox) console.warn(`[lean.test] SKIPPED the Tutor's Lean: ${skipSandbox}. Nothing about it was checked.`);
+
+test("the Tutor's Lean is shut in: it cannot read the user's files, write, or start a program, and still proves things", { skip: skipSandbox }, async () => {
+  const os = await import("node:os");
+  const repoFile = path.resolve(import.meta.dirname, "../../package.json");
+  const out = path.join(os.tmpdir(), `lean-into-it-sandbox-probe-${process.pid}.txt`);
+  // Harmless probes, run directly (the word filter would refuse them unread): each tries one thing and says whether it could.
+  const probe = `import Mathlib
+def tryIt (what : String) (act : IO Unit) : IO Unit := do
+  try act; IO.println s!"{what}: ALLOWED" catch _ => IO.println s!"{what}: denied"
+#eval tryIt "read a file of the repository" (do let s ← IO.FS.readFile ${JSON.stringify(repoFile)}; IO.println s.length)
+#eval tryIt "list the home folder" (do let d ← System.FilePath.readDir ${JSON.stringify(os.homedir())}; IO.println d.size)
+#eval tryIt "write a temp file" (IO.FS.writeFile ${JSON.stringify(out)} "x")
+#eval tryIt "write in its own folder" (IO.FS.writeFile "x.txt" "x")
+#eval tryIt "start a program" (do let o ← IO.Process.output { cmd := "/bin/echo", args := #["hi"] }; if o.exitCode != 0 then throw (IO.userError "exit"); IO.println o.stdout)
+#eval tryIt "read the toolchain's own file" (do let s ← IO.FS.readFile ${JSON.stringify(path.resolve(import.meta.dirname, "../../lean/lean-toolchain"))}; if s.length == 0 then throw (IO.userError "empty"))
+example (a b : ℝ) : (a + b)^2 = a^2 + 2*a*b + b^2 := by ring
+`;
+  const r = await tutorLean().check("tutor", probe, []);
+  const said = r.diagnostics.filter((d) => d.severity === "info").map((d) => d.message.trim());
+  assert.deepEqual(said, [
+    "read a file of the repository: denied",
+    "list the home folder: denied",
+    "write a temp file: denied",
+    "write in its own folder: denied",
+    "start a program: denied",
+    "read the toolchain's own file: ALLOWED",
+  ]);
+  assert.deepEqual(r.diagnostics.filter((d) => d.severity === "error"), []);
+  assert.equal(fs.existsSync(out), false);
+  // The same probes on the learner's own Lean would be allowed: it is the sandbox that refuses, not Lean.
+  assert.equal(fs.existsSync(repoFile), true);
+});
+
+test("proof partner: a statement in Lean elaborates, a lemma is found and accepted in use, a step shows the goals it leaves", { skip: skipSandbox }, async () => {
   const { tryLean, TUTOR_DOCUMENT } = await import("./partner.ts");
-  const lean = leanServer();
+  const lean = tutorLean();
   assert.equal(TUTOR_DOCUMENT, "tutor");
   // "Formalise: the sum of two even numbers is even."
   const stated = await tryLean(lean, "theorem sum_of_evens (m n : ℕ) (hm : Even m) (hn : Even n) : Even (m + n) := by\n  sorry");
@@ -798,7 +835,7 @@ test("proof partner: a statement in Lean elaborates, a lemma is found and accept
   assert.match(refused.refused[0], /^line 2: “#eval” is not run for the Tutor/);
 });
 
-test("proof partner: a Playground reply's Lean is labelled with what Lean said, and the tool's post is answered during the turn", { skip }, async (t) => {
+test("proof partner: a Playground reply's Lean is labelled with what Lean said, and the tool's post is answered during the turn", { skip: skipSandbox }, async (t) => {
   const { db } = await freshDb().then((f) => (t.after(f.close), setDb(f.db as unknown as Db), f));
   t.after(() => setDb(null));
   t.after(() => setAgent(null));

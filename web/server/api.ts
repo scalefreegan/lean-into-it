@@ -3,7 +3,7 @@ import type { Plugin } from "vite";
 import type { ErrorReply } from "../shared/wire.ts";
 import { handleCheck, handleLean, handlePlayground, warmLean } from "./check.ts";
 import { checkDatabase, setDb, type Db } from "./db.ts";
-import { leanServer } from "./lean/lsp.ts";
+import { closeLean } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { localHost, sameOrigin } from "./origin.ts";
 import { handleProgress } from "./progress.ts";
@@ -64,7 +64,7 @@ export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: bool
     // Vite closes the old server when it restarts itself (a server file was
     // edited). Without this each restart left a Lean, holding Mathlib, behind.
     closeBundle() {
-      leanServer().close();
+      closeLean();
     },
     configureServer(server) {
       // The curriculum, re-read from content/ on every request, so an edit
@@ -84,7 +84,7 @@ export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: bool
       // envelope the client already parses instead of index.html.
       server.middlewares.use("/api", wrap((_req, res) => sendJson(res, 404, { error: "no such route" })));
       // Lean is a child process; it must not outlive the dev server.
-      server.httpServer?.once("close", () => leanServer().close());
+      server.httpServer?.once("close", () => closeLean());
       if (opts.warm !== false) warmLean();
       // The boot check: Vite awaits this hook, so a database that is
       // missing, down or behind on migrations stops `npm run dev` with

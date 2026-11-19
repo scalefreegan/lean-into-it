@@ -21,6 +21,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { SANDBOX_EXEC, sandboxEnv, sandboxSetup, type SandboxSetup } from "./sandbox.ts";
 import { ROOT } from "../../../scripts/env.mjs";
 
 export const LEAN_DIR = path.join(ROOT, "lean");
@@ -181,6 +182,10 @@ export interface LeanServerOptions {
   loadTimeoutMs?: number;
   /** How long the server may take to answer `initialize`. */
   bootTimeoutMs?: number;
+  /** Run Lean under the OS sandbox (sandbox.ts): no writes, no network, no
+   *  programs but its own, no reading the user's files. For Lean the
+   *  learner did not write. */
+  sandboxed?: boolean;
 }
 
 export class LeanServer {
@@ -189,6 +194,8 @@ export class LeanServer {
   private timeoutMs: number;
   private loadTimeoutMs: number;
   private bootTimeoutMs: number;
+  private sandboxed: boolean;
+  private sandbox: SandboxSetup | null = null;
   /** A check has finished on the current server process: Mathlib is loaded. */
   private warm = false;
   /** A check has finished on some server process since this object was made. */
@@ -213,6 +220,26 @@ export class LeanServer {
     this.timeoutMs = opts.timeoutMs ?? 20_000;
     this.loadTimeoutMs = opts.loadTimeoutMs ?? 120_000;
     this.bootTimeoutMs = opts.bootTimeoutMs ?? 60_000;
+    this.sandboxed = opts.sandboxed ?? false;
+  }
+
+  /** The folder documents are named under: the Lake project, or the sandbox's empty one. */
+  private root(): string {
+    return this.sandbox?.workDir ?? this.dir;
+  }
+
+  /** The Lean process: `lake serve`, or `lean --server` shut in. A sandbox
+   *  that cannot be set up is a reason Lean is unavailable, never a
+   *  fall-back to running without one. */
+  private launch(): ChildProcessWithoutNullStreams {
+    if (!this.sandboxed) return spawn("lake", ["serve"], { cwd: this.dir, env: leanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    try {
+      this.sandbox ??= sandboxSetup(this.dir, leanEnv());
+    } catch (e) {
+      throw new LeanUnavailable(`The sandbox for the Tutor's Lean could not be set up: ${(e as Error)?.message || e}.`);
+    }
+    const s = this.sandbox;
+    return spawn(SANDBOX_EXEC, ["-p", s.profile, s.lean, "--server"], { cwd: s.workDir, env: sandboxEnv(s), stdio: ["pipe", "pipe", "pipe"] });
   }
 
   /**
@@ -344,6 +371,16 @@ export class LeanServer {
   close(): void {
     this.closed = true;
     this.stop();
+    // The sandbox's empty folder (nothing could be written in it).
+    const work = this.sandbox?.workDir;
+    this.sandbox = null;
+    if (work) {
+      try {
+        fs.rmSync(work, { recursive: true, force: true });
+      } catch {
+        /* the OS will */
+      }
+    }
   }
 
   private start(): Promise<void> {
@@ -369,7 +406,7 @@ export class LeanServer {
   private async boot(): Promise<void> {
     const problem = leanProblem(this.dir);
     if (problem) throw new LeanUnavailable(problem);
-    const proc = spawn("lake", ["serve"], { cwd: this.dir, env: leanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const proc = this.launch();
     this.proc = proc;
     // Output a killed process had already written can still arrive after its
     // successor has started; only the current process is listened to.
@@ -392,7 +429,7 @@ export class LeanServer {
     });
     try {
       await Promise.race([
-        this.request("initialize", { processId: process.pid, rootUri: pathToFileURL(this.dir).toString(), capabilities: {} }),
+        this.request("initialize", { processId: process.pid, rootUri: pathToFileURL(this.root()).toString(), capabilities: {} }),
         slow,
       ]);
     } finally {
@@ -412,7 +449,7 @@ export class LeanServer {
       doc = {
         key,
         // A path inside the Lake project, so imports resolve; the file never exists on disk.
-        uri: pathToFileURL(path.join(this.dir, "Scratch", `${safe}.lean`)).toString(),
+        uri: pathToFileURL(path.join(this.root(), "Scratch", `${safe}.lean`)).toString(),
         generation: this.generation,
         version: 0,
         header: null,
@@ -621,8 +658,23 @@ function toDiagnostic(d: RawDiagnostic): LeanDiagnostic {
 
 let shared: LeanServer | null = null;
 
-/** The dev server's one Lean. */
+/** The dev server's Lean for the learner's own work: exercises and the Playground. */
 export function leanServer(): LeanServer {
   shared ??= new LeanServer();
   return shared;
+}
+
+let shut: LeanServer | null = null;
+
+/** The Lean for text the Tutor's model wrote: a process of its own under
+ *  the OS sandbox (sandbox.ts), one document. Started on first use. */
+export function tutorLean(): LeanServer {
+  shut ??= new LeanServer({ sandboxed: true, maxDocs: 1 });
+  return shut;
+}
+
+/** Stop every Lean this server started. */
+export function closeLean(): void {
+  leanServer().close();
+  shut?.close();
 }

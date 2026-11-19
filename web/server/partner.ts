@@ -6,8 +6,9 @@
 // Playground turn starts with a token made for that turn; it answers only
 // while that turn runs. The scratch Lean is searched first for anything
 // that runs a program (web/shared/partner.ts scratchProblems) and then
-// checked in a document of its own (`tutor`), never the learner's
-// Playground file nor the exercises' document. Nothing is recorded.
+// checked by a Lean of its own under the OS sandbox (lean/lsp.ts
+// tutorLean, lean/sandbox.ts), never the Lean that checks the learner's
+// Playground file and the exercises. Nothing is recorded.
 //
 // The same check labels the Lean blocks of a Playground reply
 // (`labelReply`): what the learner reads under a snippet is what Lean said
@@ -19,8 +20,7 @@ import { leanError } from "./check.ts";
 import type { LeanServer } from "./lean/lsp.ts";
 import { HttpError } from "./sse.ts";
 
-/** The Tutor's scratch document: its own, so the learner's file and the
- *  exercises never wait behind it or see it. */
+/** The Tutor's scratch document, the one document of the sandboxed Lean. */
 export const TUTOR_DOCUMENT = "tutor";
 
 const MAX_MESSAGES = 30;
