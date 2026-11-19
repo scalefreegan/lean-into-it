@@ -772,32 +772,45 @@ test("the Tutor's Lean is shut in: it cannot read the user's files, write, or st
   const os = await import("node:os");
   const repoFile = path.resolve(import.meta.dirname, "../../package.json");
   const out = path.join(os.tmpdir(), `lean-into-it-sandbox-probe-${process.pid}.txt`);
-  // Harmless probes, run directly (the word filter would refuse them unread): each tries one thing and says whether it could.
+  const toolchainFile = path.resolve(import.meta.dirname, "../../lean/lean-toolchain");
+  // Harmless probes (the word filter would refuse them unread, so they are
+  // given to each Lean directly): each tries one thing and says whether it
+  // could, with Lean's reason when it could not.
   const probe = `import Mathlib
 def tryIt (what : String) (act : IO Unit) : IO Unit := do
-  try act; IO.println s!"{what}: ALLOWED" catch _ => IO.println s!"{what}: denied"
-#eval tryIt "read a file of the repository" (do let s ← IO.FS.readFile ${JSON.stringify(repoFile)}; IO.println s.length)
-#eval tryIt "list the home folder" (do let d ← System.FilePath.readDir ${JSON.stringify(os.homedir())}; IO.println d.size)
+  try act; IO.println s!"{what}: ALLOWED" catch e => IO.println s!"{what}: {e}"
+#eval tryIt "read a file of the repository" (do let s ← IO.FS.readFile ${JSON.stringify(repoFile)}; if s.length == 0 then throw (IO.userError "empty"))
+#eval tryIt "list the home folder" (do let _ ← System.FilePath.readDir ${JSON.stringify(os.homedir())})
+#eval tryIt "ask about a folder in the home folder" (do let _ ← System.FilePath.metadata ${JSON.stringify(path.join(os.homedir(), "Library"))})
+#eval tryIt "list a folder outside the home folder" (do let _ ← System.FilePath.readDir "/Applications")
+#eval tryIt "read a system setting" (do let s ← IO.FS.readFile "/private/etc/hosts"; if s.length == 0 then throw (IO.userError "empty"))
 #eval tryIt "write a temp file" (IO.FS.writeFile ${JSON.stringify(out)} "x")
-#eval tryIt "write in its own folder" (IO.FS.writeFile "x.txt" "x")
-#eval tryIt "start a program" (do let o ← IO.Process.output { cmd := "/bin/echo", args := #["hi"] }; if o.exitCode != 0 then throw (IO.userError "exit"); IO.println o.stdout)
-#eval tryIt "read the toolchain's own file" (do let s ← IO.FS.readFile ${JSON.stringify(path.resolve(import.meta.dirname, "../../lean/lean-toolchain"))}; if s.length == 0 then throw (IO.userError "empty"))
+#eval tryIt "start a program" (do let o ← IO.Process.output { cmd := "/bin/echo", args := #["hi"] }; if o.stdout != "hi\\n" then throw (IO.userError "it did not run"))
+#eval tryIt "start the toolchain's lake" (do let o ← IO.Process.output { cmd := "lake", args := #["--version"] }; if o.exitCode != 0 then throw (IO.userError "it did not run"))
+#eval tryIt "read a file of lean/" (do let s ← IO.FS.readFile ${JSON.stringify(toolchainFile)}; if s.length == 0 then throw (IO.userError "empty"))
 example (a b : ℝ) : (a + b)^2 = a^2 + 2*a*b + b^2 := by ring
+example : (37 : ℕ).Prime := by norm_num
 `;
-  const r = await tutorLean().check("tutor", probe, []);
-  const said = r.diagnostics.filter((d) => d.severity === "info").map((d) => d.message.trim());
-  assert.deepEqual(said, [
-    "read a file of the repository: denied",
-    "list the home folder: denied",
-    "write a temp file: denied",
-    "write in its own folder: denied",
-    "start a program: denied",
-    "read the toolchain's own file: ALLOWED",
-  ]);
-  assert.deepEqual(r.diagnostics.filter((d) => d.severity === "error"), []);
+  const told = (r: { diagnostics: { severity: string; message: string }[] }) => r.diagnostics.filter((d) => d.severity === "info").map((d) => d.message.trim().split("\n")[0]);
+  const shut = await tutorLean().check("tutor", probe, []);
+  const refused = (what: string) => new RegExp(`^${what}: operation not permitted`);
+  const said = told(shut);
+  for (const [i, what] of ["read a file of the repository", "list the home folder", "ask about a folder in the home folder", "list a folder outside the home folder", "read a system setting", "write a temp file"].entries()) assert.match(said[i], refused(what));
+  assert.equal(said[6], "start a program: it did not run");
+  assert.equal(said[7], "start the toolchain's lake: it did not run");
+  assert.equal(said[8], "read a file of lean/: ALLOWED");
+  assert.equal(said.length, 9);
+  assert.deepEqual(shut.diagnostics.filter((d) => d.severity === "error"), []);
   assert.equal(fs.existsSync(out), false);
-  // The same probes on the learner's own Lean would be allowed: it is the sandbox that refuses, not Lean.
-  assert.equal(fs.existsSync(repoFile), true);
+  // The control: the same file on the learner's own Lean, where nothing is
+  // shut in. Every probe is allowed there, so it is the sandbox that refused.
+  try {
+    const open = told(await leanServer().check("sandbox-control", probe, []));
+    assert.deepEqual(open.map((l) => l.replace(/^.*: /, "")), Array.from({ length: 9 }, () => "ALLOWED"), open.join("\n"));
+    assert.equal(fs.existsSync(out), true);
+  } finally {
+    fs.rmSync(out, { force: true });
+  }
 });
 
 test("proof partner: a statement in Lean elaborates, a lemma is found and accepted in use, a step shows the goals it leaves", { skip: skipSandbox }, async () => {

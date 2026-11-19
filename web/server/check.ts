@@ -10,7 +10,7 @@ import type { Exercise } from "../shared/content.ts";
 import { hintRung, recordAttempt, solvedSince } from "../../scripts/db/progress.ts";
 import { startOfDay } from "../shared/progress.ts";
 import { learnerId, rawDb } from "./db.ts";
-import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, type LeanCheck, type LeanServer } from "./lean/lsp.ts";
+import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, restartTutorLean, type LeanCheck, type LeanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { HttpError, methodNotAllowed, readJsonBody, sendJson } from "./sse.ts";
 
@@ -193,6 +193,7 @@ export async function handleLean(req: IncomingMessage, res: ServerResponse): Pro
     if (!leanProblem()) {
       // A failure to start is not an error of this request: the status says it.
       await leanServer().restart().catch(() => {});
+      void restartTutorLean();
       warmLean();
     }
     return sendJson(res, 200, leanStatus());

@@ -66,9 +66,11 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   `web/server/api.ts`: the Host must be this machine and the Origin must
   match it. No exceptions, and never serve this app on a network.
 - All exercises share one Lean document (`"exercise"`), the Playground has
-  its own. Lean the Tutor's model wrote never goes to that server: it is
-  checked by `tutorLean()`, a second Lean under the OS sandbox
-  (`web/server/lean/sandbox.ts`), and nowhere when there is no sandbox. A new document pays for `import Mathlib` again (several seconds);
+  its own. Lean the Tutor's model wrote is checked on the Tutor's behalf
+  only by `tutorLean()`, a second Lean under the OS sandbox
+  (`web/server/lean/sandbox.ts`), and nowhere when there is no sandbox.
+  (Two things still reach the learner's Lean: a rung-3 hint line, inside
+  an exercise's brackets, and a block the learner presses Insert on.) A new document pays for `import Mathlib` again (several seconds);
   a changed one costs about 200 ms. Do not add a document per exercise.
 - A check has 20 seconds (`web/server/lean/lsp.ts`); past it the document is
   closed, which ends its Lean worker, and the reply says Lean took too long.

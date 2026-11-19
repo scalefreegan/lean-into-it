@@ -1,25 +1,41 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { sandboxEnv, sandboxProfile, type SandboxSetup } from "./sandbox.ts";
+import { EMPTY_DIR, SYSTEM_READS, sandboxEnv, sandboxProfile, type SandboxSetup } from "./sandbox.ts";
 
 // The profile as text; lean.test.ts runs a real Lean under it.
 
-const paths = { sysroot: "/Users/me/.elan/toolchains/lean4", leanDir: "/Users/me/app/lean", workDir: "/private/var/folders/x/lean-into-it-sandbox-1" };
+const paths = { sysroot: "/Users/me/.elan/toolchains/lean4", leanDir: "/Users/me/app/lean", workDir: EMPTY_DIR };
+const lines = sandboxProfile(paths).split("\n");
+const about = (re: RegExp) => lines.filter((l) => re.test(l));
 
-test("everything is denied unless allowed; the user's files are taken out of what may be read, then Lean's own put back", () => {
-  const lines = sandboxProfile(paths).split("\n");
+test("everything is denied unless a line names it: there is no rule that allows a whole kind of thing", () => {
   assert.equal(lines[0], "(version 1)");
   assert.equal(lines[1], "(deny default)");
-  const at = (re: RegExp) => lines.findIndex((l) => re.test(l));
-  const [readAll, denyUsers, allowLean] = [at(/^\(allow file-read\*\)$/), at(/^\(deny file-read\* \(subpath "\/Users"\)/), at(/^\(allow file-read\* \(subpath "\/Users\/me\/\.elan/)];
-  assert.ok(readAll > 0 && readAll < denyUsers && denyUsers < allowLean, "later rules win, so the order is the meaning");
-  for (const place of ["/Volumes", "/private/tmp", "/private/var/folders", "/Library/Keychains"]) assert.ok(lines[denyUsers].includes(`(subpath "${place}")`), place);
-  assert.ok(lines[allowLean].includes('(subpath "/Users/me/app/lean")'));
-  // No rule lets it write a file, reach the network, or run anything but the toolchain's programs.
-  const writes = lines.filter((l) => /file-write/.test(l));
-  assert.deepEqual(writes, ['(allow file-write-data (literal "/dev/null") (literal "/dev/dtracehelper"))']);
-  assert.deepEqual(lines.filter((l) => /network/.test(l)), ["(deny network*)"]);
-  assert.deepEqual(lines.filter((l) => /process-exec/.test(l)), ['(allow process-exec (subpath "/Users/me/.elan/toolchains/lean4/bin"))']);
+  // Every allow but fork carries a filter: a place, a name, or self.
+  for (const l of lines.filter((x) => x.startsWith("(allow") && x !== "(allow process-fork)")) assert.match(l, /\((subpath|literal|sysctl-name|sysctl-name-prefix|target) /, l);
+  assert.deepEqual(about(/mach-/), ["(deny mach-lookup)"]);
+  assert.deepEqual(about(/network/), ["(deny network*)"]);
+  assert.deepEqual(about(/ipc|iokit|file-ioctl|process-info/), []);
+});
+
+test("it may read the system's libraries, the toolchain, lean/ and the empty folder, by name, and nowhere a person's files live", () => {
+  const reads = about(/^\(allow file-read\*/).join(" ");
+  for (const p of [...SYSTEM_READS, paths.sysroot, paths.leanDir, EMPTY_DIR]) assert.ok(reads.includes(`(subpath "${p}")`), p);
+  const places = [...reads.matchAll(/\(subpath "([^"]+)"\)/g)].map((m) => m[1]);
+  for (const p of places) {
+    // Nothing above the two folders of the user's that Lean needs, and no home, Homebrew, /Library data or temp folder.
+    assert.ok(!["/", "/Users", "/Users/me", "/Users/me/app", "/opt", "/Library", "/private", "/private/var", "/private/etc", "/private/tmp", "/Applications", "/Volumes"].includes(p), p);
+  }
+  assert.ok(reads.includes('(literal "/")'), "the root folder's own names, not what is under them");
+  // The folders above may be looked at (size, date), each by name; nothing else may.
+  const meta = about(/^\(allow file-read-metadata/).join(" ");
+  for (const p of ["/Users", "/Users/me", "/Users/me/app", "/Users/me/.elan"]) assert.ok(meta.includes(`(literal "${p}")`), p);
+  assert.ok(!/subpath/.test(meta));
+});
+
+test("it may write nothing, and run only lean itself", () => {
+  assert.deepEqual(about(/file-write/), ['(allow file-write-data (literal "/dev/null"))']);
+  assert.deepEqual(about(/process-exec/), ['(allow process-exec (literal "/Users/me/.elan/toolchains/lean4/bin/lean"))']);
 });
 
 test("a path that could end its string and add rules of its own is refused", () => {
@@ -28,7 +44,7 @@ test("a path that could end its string and add rules of its own is refused", () 
   }
 });
 
-test("the sandboxed Lean is told where the libraries are and nothing of the user's environment", () => {
+test("the sandboxed Lean is told where the libraries are and nothing of the user's environment; it runs in the system's empty folder", () => {
   const env = sandboxEnv({ ...paths, lean: "/x/bin/lean", leanPath: "/a:/b", profile: "" } as SandboxSetup);
-  assert.deepEqual(env, { LEAN_PATH: "/a:/b", LEAN_SYSROOT: paths.sysroot, PATH: `${paths.sysroot}/bin`, HOME: paths.workDir, TMPDIR: paths.workDir });
+  assert.deepEqual(env, { LEAN_PATH: "/a:/b", LEAN_SYSROOT: paths.sysroot, LAKE: "/private/var/empty/no-lake", PATH: `${paths.sysroot}/bin`, HOME: EMPTY_DIR, TMPDIR: EMPTY_DIR });
 });

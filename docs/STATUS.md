@@ -344,19 +344,26 @@ Landed in the first PR, the foundation slice:
   reply) is checked by a second Lean process, `lean --server` started
   under macOS's `sandbox-exec` (`web/server/lean/sandbox.ts`,
   `tutorLean()` in `lsp.ts`), not by the `lake serve` that checks the
-  learner's own work. Its profile denies everything by default: it may
-  read the toolchain, `lean/` and the system's libraries, but nothing else
-  under `/Users`, `/Volumes` or the temp folders; it may write nothing,
-  run only the toolchain's own programs, and has no network. Tested with
-  the real Lean and harmless probes: reading a repository file, listing
-  the home folder, writing a file and starting `/bin/echo` are all
-  refused, while `ring` on real numbers still proves. Without
-  `sandbox-exec` (not macOS) the Tutor's Lean does not run at all, rather
-  than run unsandboxed. Not tested: a network probe (the profile denies
-  it; Lean has no simple way to try). Not covered: the rung-3 hint line,
-  which is still checked on the learner's Lean inside an exercise's
-  brackets, and the learner's own Playground, which is theirs.
-- Tests: 402, including every reference solution checked by the real Lean,
+  learner's own work. Its profile is an allow-list: everything is denied
+  unless a line names it. It may read the system's libraries, the
+  toolchain and `lean/`, and nothing else (not the home folder, the
+  repository, `.env` files, Homebrew's data, `/Applications`); write
+  nothing; run only `lean` itself (not `lake`, not a compiler); use no
+  network and no Mach service. It runs in `/var/empty`. Tested with the
+  real Lean and harmless probes, each refused with "operation not
+  permitted" and each allowed when the same file is given to the
+  learner's Lean: reading a repository file, listing the home folder,
+  asking about a folder in it, listing `/Applications`, reading
+  `/etc/hosts`, writing a file, starting `/bin/echo` and `lake`; `ring`
+  and `norm_num` still prove. Without `sandbox-exec` (not macOS) the
+  Tutor's Lean does not run at all, rather than run unsandboxed. The
+  Restart button restarts it too. Not probed from Lean: the network (the
+  profile denies it; the reviewer saw `nc` to 127.0.0.1 refused under the
+  same network rule). Not covered: the rung-3 hint line, still checked on
+  the learner's Lean inside an exercise's brackets; and a block the
+  learner chooses to Insert, which goes to their own Playground and so to
+  their own Lean (only the word filter stands before that button).
+- Tests: 404, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

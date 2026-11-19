@@ -15,6 +15,10 @@
 // Lean elaborates whatever text it is given with this user's permissions
 // (a `#eval` can run a process). The only callers are the same-origin API
 // routes on localhost; see docs/PRD.md, Trust and safety.
+// The exception is a server made with `sandboxed` (tutorLean, for text the
+// Tutor's model wrote): that one is `lean --server` under the OS sandbox
+// (sandbox.ts), which can read only Lean's own files, write nothing and
+// run nothing else.
 
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
@@ -182,9 +186,10 @@ export interface LeanServerOptions {
   loadTimeoutMs?: number;
   /** How long the server may take to answer `initialize`. */
   bootTimeoutMs?: number;
-  /** Run Lean under the OS sandbox (sandbox.ts): no writes, no network, no
-   *  programs but its own, no reading the user's files. For Lean the
-   *  learner did not write. */
+  /** Run Lean under the OS sandbox (sandbox.ts): it reads only the
+   *  toolchain, lean/ and the system's libraries, writes nothing, runs
+   *  nothing but itself, and has no network. For Lean the learner did not
+   *  write. */
   sandboxed?: boolean;
 }
 
@@ -231,10 +236,10 @@ export class LeanServer {
   /** The Lean process: `lake serve`, or `lean --server` shut in. A sandbox
    *  that cannot be set up is a reason Lean is unavailable, never a
    *  fall-back to running without one. */
-  private launch(): ChildProcessWithoutNullStreams {
+  private async launch(): Promise<ChildProcessWithoutNullStreams> {
     if (!this.sandboxed) return spawn("lake", ["serve"], { cwd: this.dir, env: leanEnv(), stdio: ["pipe", "pipe", "pipe"] });
     try {
-      this.sandbox ??= sandboxSetup(this.dir, leanEnv());
+      this.sandbox ??= await sandboxSetup(this.dir, leanEnv());
     } catch (e) {
       throw new LeanUnavailable(`The sandbox for the Tutor's Lean could not be set up: ${(e as Error)?.message || e}.`);
     }
@@ -304,6 +309,8 @@ export class LeanServer {
     this.stop();
     this.failures = 0;
     this.lastFailure = null;
+    // Asked again: the toolchain may have moved (npm run lean:setup).
+    this.sandbox = null;
     return this.start();
   }
 
@@ -371,16 +378,6 @@ export class LeanServer {
   close(): void {
     this.closed = true;
     this.stop();
-    // The sandbox's empty folder (nothing could be written in it).
-    const work = this.sandbox?.workDir;
-    this.sandbox = null;
-    if (work) {
-      try {
-        fs.rmSync(work, { recursive: true, force: true });
-      } catch {
-        /* the OS will */
-      }
-    }
   }
 
   private start(): Promise<void> {
@@ -406,7 +403,13 @@ export class LeanServer {
   private async boot(): Promise<void> {
     const problem = leanProblem(this.dir);
     if (problem) throw new LeanUnavailable(problem);
-    const proc = this.launch();
+    const generation = this.generation;
+    const proc = await this.launch();
+    // Stopped while the sandbox was being set up: this boot is no longer wanted.
+    if (generation !== this.generation || this.closed) {
+      proc.kill("SIGKILL");
+      throw new LeanUnavailable("the Lean server stopped");
+    }
     this.proc = proc;
     // Output a killed process had already written can still arrive after its
     // successor has started; only the current process is listened to.
@@ -673,8 +676,15 @@ export function tutorLean(): LeanServer {
   return shut;
 }
 
-/** Stop every Lean this server started. */
+/** Stop every Lean this server started, for good: one asked for after
+ *  this (a Tutor turn still running on a module Vite has replaced) is
+ *  closed before it can start a process nobody would stop. */
 export function closeLean(): void {
   leanServer().close();
-  shut?.close();
+  tutorLean().close();
+}
+
+/** Start the Tutor's Lean afresh if it has been used: with the learner's, by the Restart button. */
+export function restartTutorLean(): Promise<void> {
+  return shut ? shut.restart().catch(() => {}) : Promise.resolve();
 }
