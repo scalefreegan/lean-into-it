@@ -18,6 +18,7 @@ web/shared/proof.ts      exercise + body -> Lean source, diagnostics -> verdict 
 web/shared/moves.ts      the proof board's moves; each writes one tactic line
 web/shared/explain.ts    Lean's error messages in plain words
 web/shared/leaneditor.ts the editor's colouring and completion rules (pure)
+web/shared/lab.ts        the Lab's data: an example per move (each checked by Lean in the tests), the explorers
 web/shared/reference.ts  docs/CONTENT-REFERENCE.md as text (scripts/gen-reference.ts writes it)
 web/shared/registry.ts   every widget and exercise kind, with its parameters (the loader checks lessons against it)
 web/shared/progress.ts   mastery per concept and per move, from the attempt rows (pure)
@@ -30,11 +31,11 @@ web/server/api.ts        wrap() and the route table
 web/server/tutor.ts      /api/tutor: the read-only Tutor, the hint ladder, rung 3 checked by Lean
 scripts/claude.mjs       the headless `claude -p` the Tutor runs on (read-only sandbox, argv pinned by a test)
 scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
-web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor
+web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor, LeanPad (a free Lean file with its goals and messages)
 web/src/widgets/         one component per widget; registry.ts maps registered names to them
 web/src/exercises/       one component per exercise kind (ProveIt, FillGap), mapped the same way
 web/src/tutor/           the Tutor drawer and what pages tell it (store.ts)
-web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/moves), Playground, Gallery (#/gallery)
+web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/moves), Lab (#/lab), Playground, Gallery (#/gallery)
 ```
 
 ## Rules that keep it working

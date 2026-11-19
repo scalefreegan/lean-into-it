@@ -10,6 +10,7 @@ import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../s
 import type { Exercise } from "../shared/content.ts";
 import { explain } from "../shared/explain.ts";
 import { unsolvedGoals } from "../shared/goals.ts";
+import { LAB_FIRST_LINE, labSource, TACTIC_EXAMPLES } from "../shared/lab.ts";
 import { EXERCISES } from "../shared/registry.ts";
 import { misfit, moveLine, readLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, judge, replayOf, toBody } from "../shared/proof.ts";
@@ -704,6 +705,18 @@ test("the Playground reports everything Lean says, linters' remarks included, an
   assert.match(unused?.message ?? "", /This linter can be disabled/);
   assert.ok(reply.diagnostics.some((d) => d.severity === "info" && d.line === 4), "the #check answer is there too");
   assert.equal("solved" in reply, false);
+});
+
+test("every move's example in the Lab is real: Lean accepts it, and shows the opening goal where the cursor starts", { skip }, async () => {
+  for (const [tactic, example] of Object.entries(TACTIC_EXAMPLES)) {
+    const { status, reply } = await call<PlaygroundReply>(handlePlayground, { source: labSource(example.lean), cursor: { line: LAB_FIRST_LINE + 1, character: 0 } });
+    assert.equal(status, 200, tactic);
+    assert.deepEqual(reply.diagnostics.filter((d) => d.severity !== "info"), [], `the example for ${tactic}`);
+    assert.equal(reply.cursorGoals?.length, 1, `${tactic}: one goal before the first line of the proof`);
+  }
+  // exact? answers with the fact it found, which is the point of its example.
+  const found = await call<PlaygroundReply>(handlePlayground, { source: labSource(TACTIC_EXAMPLES["exact?"].lean) });
+  assert.ok(found.reply.diagnostics.some((d) => d.severity === "info" && /Nat\.add_comm/.test(d.message)));
 });
 
 test("a refused body is never handed to Lean", async () => {

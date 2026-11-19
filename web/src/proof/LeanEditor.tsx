@@ -26,6 +26,8 @@ interface Props {
   value: string;
   onChange: (value: string, caret: Position) => void;
   onCaret: (caret: Position) => void;
+  /** Where the caret is when the editor is made. Default: the very start. */
+  startAt?: Position;
   /** 0-based lines to mark as having an error. */
   errorLines?: number[];
   /** Where Lean pointed: underlined, with the message on hover. */
@@ -177,7 +179,7 @@ function expand(view: EditorView): boolean {
   return true;
 }
 
-export function LeanEditor({ value, onChange, onCaret, errorLines = [], marks = [], stale = false, names = [], rows = 8, label, header }: Props) {
+export function LeanEditor({ value, onChange, onCaret, startAt, errorLines = [], marks = [], stale = false, names = [], rows = 8, label, header }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   // The latest props, for the editor's own callbacks (it is made once).
@@ -224,6 +226,13 @@ export function LeanEditor({ value, onChange, onCaret, errorLines = [], marks = 
       theme,
     ];
     const made = new EditorView({ parent: host.current!, state: EditorState.create({ doc: value, extensions }) });
+    if (startAt) {
+      // A start past the end of the text is the end of its line, or of the
+      // text; the page is told where the caret really is.
+      const line = made.state.doc.line(Math.min(Math.max(startAt.line, 0) + 1, made.state.doc.lines));
+      made.dispatch({ selection: { anchor: Math.min(line.from + Math.max(startAt.character, 0), line.to) }, annotations: fromOutside.of(true) });
+      latest.current.onCaret(positionOf(made.state));
+    }
     view.current = made;
     return () => {
       made.destroy();

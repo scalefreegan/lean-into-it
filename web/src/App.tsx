@@ -6,6 +6,7 @@ import { Lesson } from "./pages/Lesson.tsx";
 import { Moves } from "./pages/Moves.tsx";
 import { Review } from "./pages/Review.tsx";
 import { Placement } from "./pages/Placement.tsx";
+import { Lab } from "./pages/Lab.tsx";
 import { Playground } from "./pages/Playground.tsx";
 import { href, useRoute } from "./router.ts";
 import { AppProvider, useApp } from "./state.tsx";
@@ -36,6 +37,7 @@ function Shell() {
     { name: "home", label: "Path", active: route.name === "home" || route.name === "lesson" },
     { name: "review", label: "Review", active: route.name === "review" },
     { name: "moves", label: "Moves", active: route.name === "moves" },
+    { name: "lab", label: "Lab", active: route.name === "lab" },
     { name: "playground", label: "Playground", active: route.name === "playground" },
   ];
   return (
@@ -77,6 +79,8 @@ function Shell() {
             <Placement />
           ) : route.name === "moves" ? (
             <Moves />
+          ) : route.name === "lab" ? (
+            <Lab {...(route.arg ? { tool: route.arg } : {})} />
           ) : route.name === "playground" ? (
             <Playground />
           ) : route.name === "gallery" ? (

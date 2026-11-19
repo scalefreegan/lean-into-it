@@ -117,7 +117,7 @@ export interface OpenLevelRequest {
 /** What the page tells the Tutor about itself (web/server/tutor.ts rebuilds
  *  it field by field; the lesson and exercise are looked up by id). */
 export interface TutorContext {
-  page: "path" | "lesson" | "review" | "moves" | "playground";
+  page: "path" | "lesson" | "review" | "moves" | "playground" | "lab";
   lessonId?: string;
   /** The exercise in view, with the learner's work on it. */
   exerciseId?: string;
@@ -127,7 +127,7 @@ export interface TutorContext {
   goals?: string;
   /** Lean's last error, as text. */
   error?: string;
-  /** The Playground's file. */
+  /** A free Lean file: the Playground's, or the example open in the Lab. */
   source?: string;
 }
 

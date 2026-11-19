@@ -43,7 +43,7 @@ export type Rung = 1 | 2 | 3;
 
 /* ------------------------------ the context ------------------------------ */
 
-const PAGES = new Set<TutorContext["page"]>(["path", "lesson", "review", "moves", "playground"]);
+const PAGES = new Set<TutorContext["page"]>(["path", "lesson", "review", "moves", "playground", "lab"]);
 const ID = /^[A-Za-z0-9_.-]{1,80}$/;
 /** Text kept as written (a proof, goals, an error), only clipped. */
 const keep = (v: unknown, max: number): string => (typeof v === "string" ? v.slice(0, max) : "");
@@ -59,7 +59,7 @@ export function sanitizeContext(raw: unknown): TutorContext {
     out.goals = keep(r.goals, 4000);
     out.error = keep(r.error, 2000);
   }
-  if (out.page === "playground") out.source = keep(r.source, 8000);
+  if (out.page === "playground" || out.page === "lab") out.source = keep(r.source, 8000);
   return out;
 }
 
@@ -81,6 +81,7 @@ const PAGE_WORDS: Record<TutorContext["page"], string> = {
   review: "a review session (exercises on concepts that are due again)",
   moves: "the Moves page (every proof-board move and how well they know it)",
   playground: "the Playground (a free Lean file, nothing scored)",
+  lab: "the Lab (explorers, and every move with a small Lean example to run and change; nothing scored)",
 };
 
 const fence = (text: string) => "```\n" + text.replace(/```/g, "` ` `") + "\n```";
@@ -102,6 +103,7 @@ export function contextNote(ctx: TutorContext, where: Where): string {
     if (ctx.error?.trim()) lines.push(`Lean's last error:\n${fence(ctx.error)}`);
   }
   if (ctx.page === "playground" && ctx.source?.trim()) lines.push(`Their Playground file:\n${fence(ctx.source)}`);
+  if (ctx.page === "lab" && ctx.source?.trim()) lines.push(`The example they have open in the Lab, as it is now:\n${fence(ctx.source)}`);
   return lines.join("\n");
 }
 

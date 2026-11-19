@@ -245,7 +245,21 @@ Landed in the first PR, the foundation slice:
   (`BodyDiagnostic.range`, in the body's own columns) and Lean's message
   on hover. What it knows without asking Lean is pure and tested
   (`web/shared/leaneditor.ts`).
-- Tests: 302, including every reference solution checked by the real Lean,
+- The Lab (`lii-kqz.1`, `#/lab`): the open side of the app, with nothing
+  scored. A move reference, level by level from `curriculum.yaml`: each
+  move with what it does and an example that opens as a small Lean file to
+  run and change, with the goal at the cursor and Lean's messages beside it
+  (the same panel as the Playground, `web/src/proof/LeanPad.tsx`, checked
+  by `/api/playground`, so nothing is recorded). Three explorers from the
+  widgets there are: functions (plot), the number line, and the square of a
+  sum; and a link to the Playground. What is on offer is data in
+  `web/shared/lab.ts`; tests hold it to the curriculum (every move has an
+  example), to the registry, and to Lean (every example is accepted). The
+  Tutor is told the page and the example open. Not yet, each with its own
+  bead: truth tables and induction dominoes (`lii-53v.5`), limits
+  (`lii-53v.2`), the proof map (`lii-8wq.2`), the program stepper
+  (`lii-53v.4`), the Famous Proofs gallery (`lii-kqz.2`).
+- Tests: 307, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -276,7 +290,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-30 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+29 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -355,8 +369,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-kqz.1` | Lab page | 2 | |
-| `lii-kqz.2` | Famous Proofs gallery | 2 | `lii-kqz.1`, `lii-53v.3`, `lii-8wq.2` |
+| `lii-kqz.2` | Famous Proofs gallery | 2 | `lii-53v.3`, `lii-8wq.2` |
 
 ### Docs and content tooling (epic `lii-2zf`)
 

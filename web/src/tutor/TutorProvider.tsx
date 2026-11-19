@@ -2,11 +2,11 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 import { goalsText } from "../../shared/goals.ts";
 import type { TutorContext } from "../../shared/wire.ts";
 import { useRoute } from "../router.ts";
-import { PLAYGROUND_KEY, TutorCtx, workKey, type Work } from "./store.ts";
+import { LAB_KEY, PLAYGROUND_KEY, TutorCtx, workKey, type Work } from "./store.ts";
 
 // Holds what the Tutor knows of the page (store.ts).
 
-const PAGE: Record<string, TutorContext["page"]> = { home: "path", lesson: "lesson", review: "review", placement: "review", moves: "moves", playground: "playground" };
+const PAGE: Record<string, TutorContext["page"]> = { home: "path", lesson: "lesson", review: "review", placement: "review", moves: "moves", playground: "playground", lab: "lab" };
 
 export function TutorProvider({ children }: { children: ReactNode }) {
   const route = useRoute();
@@ -36,6 +36,7 @@ export function TutorProvider({ children }: { children: ReactNode }) {
       Object.assign(ctx, { lessonId: active.lessonId, exerciseId: active.exerciseId, body: w?.body ?? "", goals: goalsText(w?.goals ?? null), error: w?.error ?? "" });
     }
     if (page === "playground") ctx.source = work.current.get(PLAYGROUND_KEY)?.body ?? "";
+    if (page === "lab") ctx.source = work.current.get(LAB_KEY)?.body ?? "";
     return ctx;
   }, [route.name, route.arg, active]);
 
