@@ -171,8 +171,8 @@ Landed in the first PR, the foundation slice:
   touched, its proof so far, Lean's goals and its last error (the lesson
   and exercise are looked up on the server, not taken from the page). It
   is a headless `claude -p` on the Claude Code login (`scripts/claude.mjs`,
-  after Fret Not's), read-only: Read, Glob and Grep, nothing else, no MCP
-  servers, no settings files; one turn at a time. On an exercise, the hint
+  after Fret Not's), read-only: Read, Glob and Grep, no settings files,
+  and no MCP server but its own history tools (below); one turn at a time. On an exercise, the hint
   ladder: a nudge, the name of the move, the line, each its own request
   and only in order, per local day. Lean checks rung 3's line first, after
   the part of the proof it accepts (it must raise no error, change the
@@ -292,7 +292,24 @@ Landed in the first PR, the foundation slice:
   are not sure of, and symbols no table has; both lists are empty now.
   `docs/CONTENT.md` "Spoken forms" has the syntax. How the forms sound in
   a real voice has not been heard: nothing was sent to ElevenLabs.
-- Tests: 364, including every reference solution checked by the real Lean,
+- The Tutor reads the learner's history (`lii-2zo.5`), and cannot change
+  it: three tools, `recent_attempts` (checks newest first, with the proof
+  sent, Lean's error and the hint rung), `trouble` (failed checks by
+  concept and by move, with the commonest errors) and `progress` (mastery,
+  what is due, which levels are open, worked out as the Path does). They
+  are a stdio MCP server (`scripts/history-mcp.mjs`, after Lingo Dojo's
+  bank server) that each Tutor run starts with the learner fixed in its
+  environment. It reads as the Postgres role `lean_tutor_ro` (migration
+  `0005_tutor_reader`: SELECT on `attempts`, `solved_exercises`, `hints`,
+  `level_opens` and `concept_credits`, nothing else, no login), inside a
+  read-only transaction; the tests show every write through it failing, on
+  PGlite. The role belongs to the whole Postgres server, so a scratch
+  database names its own with `LEAN_INTO_IT_READER_ROLE`
+  (`lean_tutor_ro_scratch`). The drawer says the Tutor can read the
+  attempts. Checked against a real Postgres 17 over stdio; not yet tried
+  in a real Tutor turn (that spends a `claude` call), so whether the CLI
+  hands the tools to the run under `--restricted` is unproven.
+- Tests: 375, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -323,7 +340,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-27 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+26 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -379,7 +396,6 @@ land first.
 | `lii-2zo.2` | Tutor lesson authoring with a Lean compile gate and worktree commits | 2 | `lii-2zo.1` |
 | `lii-2zo.3` | Tutor as proof partner in the Playground | 2 | `lii-2zo.1` |
 | `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |
-| `lii-2zo.5` | Tutor read-only access to attempt history | 2 | `lii-2zo.1`, `lii-zjf.1` |
 
 ### Curriculum (epic `lii-dvy`)
 

@@ -25,6 +25,15 @@ test("a Tutor turn may only read: Read, Glob and Grep exist, every way to write 
   assert.ok(!args.some((a) => a.includes("Conversation so far")));
 });
 
+test("MCP tools are granted one by one, by exact name, on top of the read tools", () => {
+  const tools = ["mcp__history__recent_attempts", "mcp__history__trouble"];
+  const args = buildArgs({ systemPrompt: "s", mcpConfigPath: "/tmp/x/mcp.json", repoRoot: "/r", mcpTools: tools });
+  assert.deepEqual(args.slice(args.indexOf("--allowedTools") + 1, args.indexOf("--disallowedTools")), [...READ_TOOLS, ...tools]);
+  assert.equal(after(args, "--tools"), "Read,Glob,Grep");
+  assert.ok(args.includes("--strict-mcp-config"));
+  for (const bad of ["mcp__history__*", "mcp__history", "Bash", "mcp__history__x y"]) assert.throws(() => buildArgs({ mcpTools: [bad] }), /not an MCP tool name/, bad);
+});
+
 test("the run bills the Claude Code login, not an API key, and is not a child session", () => {
   const env = childEnv({ PATH: "/bin", ANTHROPIC_API_KEY: "k", CLAUDECODE: "1", CLAUDE_CODE_ENTRYPOINT: "cli", ANTHROPIC_AUTH_TOKEN: "t", ANTHROPIC_BASE_URL: "u", HOME: "/h" });
   assert.deepEqual(env, { PATH: "/bin", HOME: "/h" });

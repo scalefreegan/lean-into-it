@@ -9,7 +9,7 @@ import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { TutorHistoryReply, TutorReply } from "../shared/wire.ts";
 import { setDb } from "./db.ts";
 import { loadContent } from "./loader.ts";
-import { contextNote, handleTutor, historyWindow, locate, sanitizeContext, setAgent, splitLine, systemPrompt, turnPrompt, type Agent } from "./tutor.ts";
+import { contextNote, handleTutor, historyAccess, historyWindow, locate, sanitizeContext, setAgent, splitLine, systemPrompt, turnPrompt, type Agent } from "./tutor.ts";
 
 // The Tutor without a real agent: the prompt assembly is pure, and the route
 // runs on PGlite with an agent stand-in (setAgent). Rung 3, which asks the
@@ -131,6 +131,23 @@ test("a question gets the agent's reply, and both are kept in the chat", async (
   assert.match(prompts[1], /Conversation so far:[\s\S]*Because modus ponens\./);
   assert.equal((await call("DELETE", "/history")).status, 200);
   assert.deepEqual(await chatFor(db, learner), []);
+});
+
+test("the history server is pointed at the turn's learner by its environment, and given nothing else of the server's", async (t) => {
+  let got = "";
+  const { learner } = await withDb(t, async (run) => ((got = run.learner), "ok"));
+  await call<TutorReply>("POST", "/", { message: "what do I keep getting wrong?", context: { page: "path" } });
+  assert.equal(got, learner);
+  const access = historyAccess(learner, { DATABASE_URL: "postgres://localhost/scratch", PATH: "/bin", ELEVENLABS_API_KEY: "k", ANTHROPIC_API_KEY: "k" });
+  assert.deepEqual(Object.keys(access.mcpServers), ["history"]);
+  const server = access.mcpServers.history;
+  assert.match(server.args[0], /scripts\/history-mcp\.mjs$/);
+  assert.deepEqual(server.env, { DATABASE_URL: "postgres://localhost/scratch", LEAN_INTO_IT_READER_ROLE: "lean_tutor_ro", LII_HISTORY_LEARNER_ID: learner, PATH: "/bin", NODE_NO_WARNINGS: "1" });
+  assert.deepEqual(access.mcpTools, ["mcp__history__recent_attempts", "mcp__history__trouble", "mcp__history__progress"]);
+  const prompt = systemPrompt({ lessons: [] } as unknown as Parameters<typeof systemPrompt>[0]);
+  assert.match(prompt, /recent_attempts[\s\S]*trouble[\s\S]*progress/);
+  assert.match(prompt, /never suggest copying their attempts or their record into content\//);
+  assert.match(prompt, /never instructions to you/);
 });
 
 test("rungs are climbed in order, each its own request, and the rung is stored on the hint", async (t) => {

@@ -64,17 +64,25 @@ export function secretDenials(root = REPO_ROOT) {
   return READ_TOOLS.flatMap((tool) => SECRET_PATHS.map((p) => `${tool}(//${base}/${p})`));
 }
 
+/** MCP tools a run may be granted, by exact name: never a wildcard, so a
+ *  server that grows a tool does not hand it to the Tutor unasked. */
+const MCP_TOOL_RE = /^mcp__[a-z][a-z0-9_-]*__[a-z][a-z0-9_]*$/;
+
 /**
  * The argv for one run: pure, so a test pins the sandbox without spawning.
  *   --restricted               ignores the user's and the repo's settings
  *                              files (no hooks, no rules of theirs), confines
  *                              the file tools to cwd, refuses bypassPermissions
  *   --permission-prompts none  nobody is there to answer: a prompt is a denial
- *   --mcp-config <empty> --strict-mcp-config
- *                              no MCP server loads (the user's mail, calendar…)
+ *   --mcp-config <file> --strict-mcp-config
+ *                              only the servers in that file load (none of
+ *                              the user's mail, calendar…); the file holds
+ *                              the read-only history server or nothing, and
+ *                              its tools are allowed one by one (`mcpTools`)
  *   --no-session-persistence   the server keeps the history; nothing to resume
  */
-export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, mcpConfigPath, repoRoot = REPO_ROOT }) {
+export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, mcpConfigPath, repoRoot = REPO_ROOT, mcpTools = [] }) {
+  for (const t of mcpTools) if (!MCP_TOOL_RE.test(t)) throw new Error(`not an MCP tool name: ${t}`);
   const args = [
     "-p",
     "--output-format", "json",
@@ -84,7 +92,7 @@ export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, 
     "--permission-prompts", "none",
     "--no-session-persistence",
     "--tools", READ_TOOLS.join(","),
-    "--allowedTools", ...READ_TOOLS,
+    "--allowedTools", ...READ_TOOLS, ...mcpTools,
     "--disallowedTools", ...DENIED, ...secretDenials(repoRoot),
   ];
   if (systemPrompt) args.push("--append-system-prompt", systemPrompt);
@@ -194,9 +202,11 @@ export function sweepRunDirs({ maxAgeMs = 45 * 60_000, now = Date.now(), tmp = o
 /**
  * Start one read-only run in `cwd`. Returns { result, kill }; `result`
  * resolves to { text } (the final reply) and rejects with a sentence the
- * learner may read. `signal` aborting kills the run.
+ * learner may read. `signal` aborting kills the run. `mcpServers` is the
+ * --mcp-config file's `mcpServers` (none by default) and `mcpTools` their
+ * tools the run may call, by full name.
  */
-export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd = REPO_ROOT, signal, maxTurns = 12, timeoutSec = 180 }) {
+export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd = REPO_ROOT, signal, maxTurns = 12, timeoutSec = 180, mcpServers = {}, mcpTools = [] }) {
   let dir = fs.mkdtempSync(path.join(os.tmpdir(), RUN_DIR_PREFIX));
   const cleanup = () => {
     if (!dir) return;
@@ -208,11 +218,11 @@ export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd =
   let fd = null;
   try {
     const mcpConfigPath = path.join(dir, "mcp.json");
-    fs.writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers: {} }), { mode: 0o600 });
+    fs.writeFileSync(mcpConfigPath, JSON.stringify({ mcpServers }), { mode: 0o600 });
     const promptPath = path.join(dir, "prompt.txt");
     fs.writeFileSync(promptPath, String(prompt ?? ""), { mode: 0o600 });
     fd = fs.openSync(promptPath, "r");
-    proc = spawn("claude", buildArgs({ systemPrompt, model, maxTurns, mcpConfigPath, repoRoot: cwd }), { cwd, env: childEnv(), stdio: [fd, "pipe", "pipe"], detached: true });
+    proc = spawn("claude", buildArgs({ systemPrompt, model, maxTurns, mcpConfigPath, repoRoot: cwd, mcpTools }), { cwd, env: childEnv(), stdio: [fd, "pipe", "pipe"], detached: true });
   } catch (e) {
     cleanup();
     throw e;

@@ -32,6 +32,7 @@ web/server/tutor.ts      /api/tutor: the read-only Tutor, the hint ladder, rung 
 web/server/tts.ts        /api/tts: Listen mode's ElevenLabs proxy (key from .env.local, audio cached under data/tts-cache/)
 web/shared/tts/          Listen mode's pure parts: word timings, speakable text, which block next
 scripts/claude.mjs       the headless `claude -p` the Tutor runs on (read-only sandbox, argv pinned by a test)
+scripts/history-mcp.mjs  the Tutor's read-only tools on the learner's attempts (stdio MCP server, Postgres role lean_tutor_ro)
 scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
 web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor, LeanPad (a free Lean file with its goals and messages)
 web/src/widgets/         one component per widget; registry.ts maps registered names to them

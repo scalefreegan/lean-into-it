@@ -12,7 +12,7 @@
 // Lingo Dojo.
 
 import pg from "pg";
-import { databaseName, databaseUrl, redact } from "./config.mjs";
+import { databaseName, databaseUrl, readerRole, redact } from "./config.mjs";
 import { applyMigrations, describeMigrations, migrationState } from "./migrations.mjs";
 
 const migrateOnly = process.argv.includes("--migrate-only");
@@ -44,6 +44,8 @@ async function main() {
   await client.connect();
   try {
     const query = async (text, params) => (await client.query(text, params)).rows;
+    // The name migration 0005 gives the Tutor's read-only role (a setting, since SQL files take no parameters).
+    await query("select set_config('lii.reader_role', $1, false)", [readerRole()]);
     const { applied } = await applyMigrations(query);
     if (applied.length) console.log(`applied ${applied.length} migration(s)`);
     const after = await migrationState(query);
@@ -57,6 +59,7 @@ main().catch((e) => {
   const hint =
     e?.code === "ECONNREFUSED" ? " (is Postgres running? brew services start postgresql@17)"
     : e?.code === "3D000" ? " (run `npm run db:setup` to create it)"
+    : e?.code === "42501" ? " (creating the Tutor's read-only role needs a Postgres role that may create roles; Homebrew's default user may)"
     : "";
   console.error(`db ${migrateOnly ? "migrate" : "setup"} failed: ${e?.message || e}${hint}`);
   process.exit(1);
