@@ -127,7 +127,7 @@ export interface TutorContext {
   goals?: string;
   /** Lean's last error, as text. */
   error?: string;
-  /** The Playground's file. */
+  /** A free Lean file: the Playground's, or the example open in the Lab. */
   source?: string;
 }
 

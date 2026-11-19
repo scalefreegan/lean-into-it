@@ -44,7 +44,7 @@ export const TACTIC_EXAMPLES: Record<string, TacticExample> = {
   },
   intro: {
     lean: "example (P : Prop) : P → P := by\n  intro hP\n  exact hP",
-    watch: "Put the cursor on the intro line and then on the line after it: P leaves the goal and joins the facts as hP.",
+    watch: "Put the cursor at the start of the intro line, and then at the start of the line after it: P leaves the goal and joins the facts as hP.",
   },
   apply: {
     lean: "example (P Q : Prop) (hP : P) (hPQ : P → Q) : Q := by\n  apply hPQ\n  exact hP",
@@ -96,7 +96,7 @@ export const TACTIC_EXAMPLES: Record<string, TacticExample> = {
   },
   induction: {
     lean: "example (n : ℕ) : 0 + n = n := by\n  induction n with\n  | zero => rfl\n  | succ n ih => rw [← Nat.add_assoc, ih]",
-    watch: "Two cases: 0, and n + 1. Put the cursor on the last line to see ih, the claim for n, among the facts.",
+    watch: "Two cases: 0, and n + 1. Put the cursor on the last line, after the =>, to see ih, the claim for n, among the facts.",
   },
   omega: {
     lean: "example (a b : ℕ) (h : a < b) : a + 1 ≤ b := by\n  omega",

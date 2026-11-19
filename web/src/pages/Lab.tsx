@@ -80,10 +80,13 @@ function MoveReference() {
   const [open, setOpen] = useState<string | null>(null);
   // What has been typed into the open example. Closing it, or opening another, starts from the example again.
   const [source, setSource] = useState("");
+  // Counts fresh starts: each one is a new pad, cursor back in the proof and nothing to undo.
+  const [starts, setStarts] = useState(0);
   useTutorSource(open ? source : "", LAB_KEY);
 
   const show = (tactic: string | null) => {
     setOpen(tactic);
+    setStarts((n) => n + 1);
     setSource(tactic ? labSource(TACTIC_EXAMPLES[tactic].lean) : "");
   };
 
@@ -110,7 +113,7 @@ function MoveReference() {
                         <code className="w-28 shrink-0 font-mono font-semibold text-fg">{t}</code>
                         <span className="min-w-0 flex-1 text-sm text-fg-2">{moveDoes(t)}</span>
                         {example && (
-                          <Button aria-expanded={on} onClick={() => show(on ? null : t)}>
+                          <Button aria-expanded={on} aria-label={on ? `Close the example of ${t}` : `Run an example of ${t}`} onClick={() => show(on ? null : t)}>
                             {on ? "Close" : "Run an example"}
                           </Button>
                         )}
@@ -120,7 +123,7 @@ function MoveReference() {
                           <p className="max-w-[96ch] text-sm text-fg-2">
                             <span className="font-semibold text-fg">Watch for:</span> {example.watch}
                           </p>
-                          <LeanPad key={t} label={`An example of ${t}`} source={source} onChange={setSource} rows={Math.max(6, source.split("\n").length + 1)} startAt={{ line: LAB_FIRST_LINE + 1, character: 0 }} />
+                          <LeanPad key={`${t}:${starts}`} label={`An example of ${t}`} source={source} onChange={setSource} rows={Math.max(6, source.split("\n").length + 1)} startAt={{ line: LAB_FIRST_LINE + 1, character: 0 }} />
                           <p className="text-sm text-fg-3">
                             <button type="button" className="font-semibold text-accent underline-offset-2 hover:underline" onClick={() => show(t)}>
                               Start this example again

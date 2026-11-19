@@ -225,13 +225,14 @@ export function LeanEditor({ value, onChange, onCaret, startAt, errorLines = [],
       }),
       theme,
     ];
-    const first = EditorState.create({ doc: value, extensions });
-    // A start past the end of the text is the end of its line, or of the text.
-    const line = startAt ? first.doc.line(Math.min(Math.max(startAt.line, 0) + 1, first.doc.lines)) : null;
-    const made = new EditorView({
-      parent: host.current!,
-      state: line ? EditorState.create({ doc: value, extensions, selection: { anchor: Math.min(line.from + Math.max(startAt!.character, 0), line.to) } }) : first,
-    });
+    const made = new EditorView({ parent: host.current!, state: EditorState.create({ doc: value, extensions }) });
+    if (startAt) {
+      // A start past the end of the text is the end of its line, or of the
+      // text; the page is told where the caret really is.
+      const line = made.state.doc.line(Math.min(Math.max(startAt.line, 0) + 1, made.state.doc.lines));
+      made.dispatch({ selection: { anchor: Math.min(line.from + Math.max(startAt.character, 0), line.to) }, annotations: fromOutside.of(true) });
+      latest.current.onCaret(positionOf(made.state));
+    }
     view.current = made;
     return () => {
       made.destroy();

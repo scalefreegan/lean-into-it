@@ -33,8 +33,6 @@ function stored(): string {
 
 export function Playground() {
   const [source, setSource] = useState(stored);
-  // Resetting starts a new pad, so the cursor goes back to the top with the text.
-  const [resets, setResets] = useState(0);
   useTutorSource(source);
 
   function change(text: string) {
@@ -53,17 +51,11 @@ export function Playground() {
           <h1 className="text-4xl font-semibold text-fg">Playground</h1>
           <p className="mt-1 text-fg-2">Free Lean with all of Mathlib. Nothing is scored and nothing is recorded.</p>
         </div>
-        <Button
-          onClick={() => {
-            change(STARTER);
-            setResets((n) => n + 1);
-          }}
-        >
-          Reset to the starter
-        </Button>
+        {/* The text changes under the editor that is there, so the reset can be undone like any other edit. */}
+        <Button onClick={() => change(STARTER)}>Reset to the starter</Button>
       </header>
 
-      <LeanPad key={resets} label="Lean playground" source={source} onChange={change} />
+      <LeanPad label="Lean playground" source={source} onChange={change} />
     </div>
   );
 }
