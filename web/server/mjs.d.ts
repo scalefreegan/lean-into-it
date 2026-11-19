@@ -76,3 +76,10 @@ declare module "*/scripts/history-mcp.mjs" {
   export const TOOL_NAMES: string[];
   export const MCP_TOOLS: string[];
 }
+
+declare module "*/scripts/lean-mcp.mjs" {
+  /** The Lean tool server's name in an MCP config, and its tools by full name. */
+  export const SERVER_NAME: string;
+  export const TOOL_NAMES: string[];
+  export const MCP_TOOLS: string[];
+}

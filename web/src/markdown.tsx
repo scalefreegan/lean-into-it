@@ -27,7 +27,10 @@ function inline(text: string, keyBase: string): ReactNode[] {
   return out;
 }
 
-export function Markdown({ source }: { source: string }) {
+/** Something to offer under a code block (the Tutor's "Insert" in the Playground). */
+export type CodeAction = (code: string) => ReactNode;
+
+export function Markdown({ source, codeAction }: { source: string; codeAction?: CodeAction }) {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   const out: ReactNode[] = [];
   let i = 0;
@@ -50,6 +53,7 @@ export function Markdown({ source }: { source: string }) {
       while (i < lines.length && !closes(lines[i], line)) buf.push(lines[i++]);
       i++;
       out.push(<pre key={key}>{buf.join("\n")}</pre>);
+      if (codeAction) out.push(<div key={`${key}a`}>{codeAction(buf.join("\n"))}</div>);
     } else if (/^###\s+/.test(line)) {
       out.push(<h3 key={key}>{inline(line.replace(/^###\s+/, ""), key)}</h3>);
       i++;
@@ -131,7 +135,7 @@ function renderWords(block: SpokenBlock, activeWord: number | null | undefined, 
  *  sounding, can be marked. Code blocks are shown and not read. A second
  *  component and not a prop: only the passage being read pays for the
  *  per-word elements. */
-export function SpokenMarkdown({ source, activeWord }: { source: string; activeWord?: number | null }) {
+export function SpokenMarkdown({ source, activeWord, codeAction }: { source: string; activeWord?: number | null; codeAction?: CodeAction }) {
   const blocks = spokenBlocks(source);
   const out: ReactNode[] = [];
   let i = 0;
@@ -154,6 +158,7 @@ export function SpokenMarkdown({ source, activeWord }: { source: string; activeW
           {b.code}
         </pre>,
       );
+      if (codeAction) out.push(<div key={`${key}a`}>{codeAction(b.code ?? "")}</div>);
     }
     else {
       const words = renderWords(b, activeWord, key);

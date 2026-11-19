@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useTutorSource } from "../tutor/store.ts";
+import { useCallback, useState } from "react";
+import { useTutorInsert, useTutorSource } from "../tutor/store.ts";
 import { LeanPad } from "../proof/LeanPad.tsx";
 import { Button } from "../ui.tsx";
 
@@ -31,18 +31,32 @@ function stored(): string {
   }
 }
 
+function keep(text: string): void {
+  try {
+    localStorage.setItem(KEY, text);
+  } catch {
+    /* private window: the text just isn't kept */
+  }
+}
+
 export function Playground() {
   const [source, setSource] = useState(stored);
   useTutorSource(source);
 
   function change(text: string) {
     setSource(text);
-    try {
-      localStorage.setItem(KEY, text);
-    } catch {
-      /* private window: the text just isn't kept */
-    }
+    keep(text);
   }
+  // Lean the Tutor offered, when the learner presses Insert: added at the
+  // end of the file, after a blank line. Like the reset, it can be undone.
+  const insert = useCallback((lean: string) => {
+    setSource((was) => {
+      const next = `${was.replace(/\s+$/, "")}\n\n${lean.replace(/\s+$/, "")}\n`;
+      keep(next);
+      return next;
+    });
+  }, []);
+  useTutorInsert(insert);
 
   return (
     <div className="mx-auto flex max-w-[2400px] flex-col gap-4">
