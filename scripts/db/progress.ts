@@ -1,6 +1,8 @@
 // The learner and what they have done: the only code that reads or writes
 // the personal tables. Every function takes the learner id, so nothing here
-// can touch rows without saying whose they are.
+// can touch rows without saying whose they are. The Tutor's history tools
+// read through the `reader…` functions at the end: plain SQL on a query
+// function, since they run as another role inside their own transaction.
 //
 // Erasable TypeScript only, like schema.ts: `node --test` imports it as is.
 
@@ -258,4 +260,48 @@ export async function setListenSettings(db: Db, learnerId: string, patch: Partia
   if (patch.ttsModelId !== undefined) set.ttsModelId = patch.ttsModelId;
   if (Object.keys(set).length) await db.update(learners).set(set).where(eq(learners.id, learnerId));
   return listenSettings(db, learnerId);
+}
+
+/* ------------------- the Tutor's reader (scripts/history-mcp.mjs) ------------------- */
+
+/** One statement on the reader's connection, resolving to its rows. */
+export type ReaderQuery = (text: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
+
+/** Checks newest first, at most `limit`: all of them, or one lesson's, one
+ *  exercise's, the refused ones, or those after `since`. */
+export function readerAttempts(q: ReaderQuery, learnerId: string, o: { limit: number; lesson?: string | null; exercise?: string | null; failedOnly?: boolean; since?: Date | null }) {
+  return q(
+    `select lesson_id, exercise_id, body, solved, error, rung, assisted, created_at
+       from attempts
+      where learner_id = $1
+        and ($2::text is null or lesson_id = $2)
+        and ($3::text is null or exercise_id = $3)
+        and (not $4::boolean or not solved)
+        and ($5::timestamptz is null or created_at > $5)
+      order by created_at desc, id desc
+      limit $6`,
+    [learnerId, o.lesson ?? null, o.exercise ?? null, o.failedOnly === true, o.since ?? null, o.limit],
+  );
+}
+
+/** The newest `limit` checks in the shape mastery is worked out from
+ *  (web/shared/progress.ts AttemptLike), newest first. */
+export function readerAttemptsForMastery(q: ReaderQuery, learnerId: string, limit: number) {
+  return q(
+    `select lesson_id as "lessonId", exercise_id as "exerciseId", body, solved, assisted, created_at as "createdAt"
+       from attempts where learner_id = $1 order by created_at desc, id desc limit $2`,
+    [learnerId, limit],
+  );
+}
+
+export function readerCredits(q: ReaderQuery, learnerId: string) {
+  return q(`select concept, credited_at as "creditedAt", due_at as "dueAt" from concept_credits where learner_id = $1`, [learnerId]);
+}
+
+export function readerLevelOpens(q: ReaderQuery, learnerId: string) {
+  return q(`select level, how, opened_at as "openedAt" from level_opens where learner_id = $1`, [learnerId]);
+}
+
+export function readerSolved(q: ReaderQuery, learnerId: string) {
+  return q(`select lesson_id, exercise_id, solved_at from solved_exercises where learner_id = $1`, [learnerId]);
 }

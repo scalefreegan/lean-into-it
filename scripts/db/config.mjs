@@ -49,6 +49,33 @@ export function databaseUrl(env = process.env, file = envFile(), root = ROOT) {
   return DEFAULT_DATABASE_URL;
 }
 
+/** The Tutor's read-only Postgres role (migration 0005_tutor_reader), and
+ *  what such a name must look like. */
+export const READER_ROLE = "lean_tutor_ro";
+export const READER_ROLE_RE = /^lean_tutor_ro[a-z0-9_]{0,40}$/;
+/** The tables the role may SELECT, and nothing else. */
+export const READER_TABLES = ["attempts", "solved_exercises", "hints", "level_opens", "concept_credits"];
+
+/**
+ * The role the Tutor's history tools read as: LEAN_INTO_IT_READER_ROLE from
+ * the shell or .env.local, else lean_tutor_ro. Roles are server-wide, so a
+ * scratch database can name its own (lean_tutor_ro_scratch) and drop it
+ * afterwards; the grants themselves are per database either way.
+ */
+export function readerRole(env = process.env, file = envFile()) {
+  let v = env.LEAN_INTO_IT_READER_ROLE?.trim();
+  if (!v) {
+    try {
+      v = parseEnv(fs.readFileSync(file, "utf8")).LEAN_INTO_IT_READER_ROLE?.trim();
+    } catch {
+      /* no file: the default */
+    }
+  }
+  if (!v) return READER_ROLE;
+  if (!READER_ROLE_RE.test(v)) throw new Error(`LEAN_INTO_IT_READER_ROLE must look like ${READER_ROLE}[a-z0-9_]* (at most 53 characters), got ${JSON.stringify(v)}`);
+  return v;
+}
+
 /** The database name in a postgres:// URL (the path's one segment). */
 export function databaseName(url) {
   const name = decodeURIComponent(new URL(url).pathname.replace(/^\//, ""));

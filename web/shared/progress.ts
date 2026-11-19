@@ -138,7 +138,7 @@ export function tacticsIn(lean: string, tactics: string[]): string[] {
 
 /** The last line of a body with code on it, strings and comments blanked:
  *  a line inside a string is not a move. */
-function lastLine(body: string): string {
+export function lastLine(body: string): string {
   const lines = lex(body).bare.split("\n");
   for (let i = lines.length - 1; i >= 0; i--) if (lines[i].trim()) return lines[i];
   return "";

@@ -5,7 +5,7 @@
 
 import pg from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { databaseUrl, redact } from "../../scripts/db/config.mjs";
+import { databaseUrl, readerRole, redact } from "../../scripts/db/config.mjs";
 import { describeMigrations, migrationState } from "../../scripts/db/migrations.mjs";
 import { ensureLearner, type Db } from "../../scripts/db/progress.ts";
 import * as schema from "../../scripts/db/schema.ts";
@@ -94,6 +94,16 @@ export async function checkDatabase(url?: string): Promise<{ applied: number; to
           ? "This checkout can't migrate it; point DATABASE_URL at a database for this branch (or update the checkout)."
           : FIX;
       throw new Error(`Lean Into It's database at ${where} is ${describeMigrations(state)}.\n${fix}`);
+    }
+    // The Tutor's history tools read as this role (migration 0005). A name
+    // other than the one db:setup ran with has no grants here: say so now,
+    // not in the middle of a Tutor turn. Never fatal: only those tools fail.
+    try {
+      const role = readerRole();
+      const { rows } = await client.query("select has_table_privilege(r.oid, 'public.attempts', 'select') as ok from pg_roles r where r.rolname = $1", [role]);
+      if (!rows[0]?.ok) console.warn(`[lean-into-it] the Tutor's read-only role ${role} ${rows[0] ? "has no grants in" : "does not exist for"} ${where}, so the Tutor cannot read the attempt history. Was \`npm run db:setup\` run with another LEAN_INTO_IT_READER_ROLE?`);
+    } catch (e) {
+      console.warn(`[lean-into-it] the Tutor's read-only role could not be checked (${(e as Error)?.message || e}); the Tutor may not be able to read the attempt history.`);
     }
     return { applied: state.applied, total: state.total };
   } finally {

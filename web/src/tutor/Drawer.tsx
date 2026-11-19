@@ -142,6 +142,9 @@ export function TutorDrawer() {
         <div>
           <h2 className="font-display text-lg font-semibold text-fg">Tutor</h2>
           <p className="text-xs text-fg-3">Explains and hints. Lean decides what is proved.</p>
+          <p className="text-xs text-fg-3" data-tutor-history-note>
+            It can read your attempts and progress, and cannot change them.
+          </p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => void clear()} disabled={busy || !messages?.length}>
@@ -156,7 +159,7 @@ export function TutorDrawer() {
       <div className="flex-1 overflow-y-auto px-4 py-3" aria-live="polite">
         {messages === null && !trouble && <p className="text-sm text-fg-3">Loading…</p>}
         {messages?.length === 0 && (
-          <p className="text-sm text-fg-3">Ask about anything on the page: why a move did what it did, what a goal means, what an error is saying. On an exercise, the hints below go one step at a time.</p>
+          <p className="text-sm text-fg-3">Ask about anything on the page: why a move did what it did, what a goal means, what an error is saying. On an exercise, the hints below go one step at a time. It can also look at your past attempts: try “what do I keep getting wrong?”</p>
         )}
         <ol className="flex flex-col gap-3">
           {messages?.map((m) => (

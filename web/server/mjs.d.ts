@@ -16,6 +16,11 @@ declare module "*/scripts/db/config.mjs" {
   /** The shell's DATABASE_URL, else .env.local's, else the default; throws
    *  in a linked worktree with neither. */
   export function databaseUrl(env?: Record<string, string | undefined>, file?: string, root?: string): string;
+  export const READER_ROLE: string;
+  export const READER_ROLE_RE: RegExp;
+  export const READER_TABLES: string[];
+  /** The Tutor's read-only role: LEAN_INTO_IT_READER_ROLE, else lean_tutor_ro. */
+  export function readerRole(env?: Record<string, string | undefined>, file?: string): string;
   /** Throws when the URL names no database. */
   export function databaseName(url: string): string;
   /** The URL with any password masked. */
@@ -57,10 +62,17 @@ declare module "*/scripts/claude.mjs" {
   export function armReaper(): void;
   export function failureHint(text: string): string | null;
   export function secretDenials(root?: string): string[];
-  export function buildArgs(o: { systemPrompt?: string; model?: string; maxTurns?: number; mcpConfigPath?: string; repoRoot?: string }): string[];
+  export function buildArgs(o: { systemPrompt?: string; model?: string; maxTurns?: number; mcpConfigPath?: string; repoRoot?: string; mcpTools?: string[] }): string[];
   export function childEnv(env?: Record<string, string | undefined>): Record<string, string | undefined>;
   export function resultEnvelope(stdout: string): Record<string, unknown> | null;
   export function classifyExit(o: { code: number | null; stdout: string; stderr: string }): { ok: true; text: string } | { ok: false; message: string };
   export function sweepRunDirs(o?: { maxAgeMs?: number; now?: number; tmp?: string }): number;
-  export function startClaude(o: { prompt: string; systemPrompt?: string; model?: string; cwd?: string; signal?: AbortSignal; maxTurns?: number; timeoutSec?: number }): { result: Promise<{ text: string }>; kill: () => void };
+  export function startClaude(o: { prompt: string; systemPrompt?: string; model?: string; cwd?: string; signal?: AbortSignal; maxTurns?: number; timeoutSec?: number; mcpServers?: Record<string, { command: string; args: string[]; env: Record<string, string> }>; mcpTools?: string[] }): { result: Promise<{ text: string }>; kill: () => void };
+}
+
+declare module "*/scripts/history-mcp.mjs" {
+  /** The history server's name in an MCP config, and its tools by full name. */
+  export const SERVER_NAME: string;
+  export const TOOL_NAMES: string[];
+  export const MCP_TOOLS: string[];
 }
