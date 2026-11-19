@@ -7,6 +7,7 @@ import { Markdown, SpokenMarkdown } from "../markdown.tsx";
 import { useApp } from "../state.tsx";
 import { Button, cx, Notice } from "../ui.tsx";
 import { useTutor } from "./store.ts";
+import { insertable } from "../../shared/partner.ts";
 
 // The Tutor's drawer, beside every page. A question goes to the Tutor with
 // the page and the exercise last worked on; on an exercise, the hint ladder
@@ -21,7 +22,26 @@ const RUNGS = [
 ] as const;
 
 export function TutorDrawer() {
-  const { open, setOpen, active, snapshot } = useTutor();
+  const { open, setOpen, active, snapshot, insert } = useTutor();
+  const [inserted, setInserted] = useState<string | null>(null);
+  // Under each code block of a reply, where there is a free file to put it in.
+  // Not under a block that is not Lean, or that would run a program: that one is for the learner to type.
+  const codeAction = insert
+    ? (code: string, lang?: string) =>
+        !insertable(code, lang) ? null : (
+        <Button
+          className="mb-2 text-xs"
+          data-tutor-insert
+          onClick={() => {
+            insert(code);
+            setInserted(code);
+            window.setTimeout(() => setInserted((was) => (was === code ? null : was)), 2500);
+          }}
+        >
+          {inserted === code ? "Inserted at the end of your file" : "Insert into the Playground"}
+        </Button>
+      )
+    : undefined;
   const { content } = useApp();
   const [messages, setMessages] = useState<TutorMessage[] | null>(null);
   // Listen mode: a reply is read aloud as it arrives, the word sounding marked.
@@ -159,7 +179,7 @@ export function TutorDrawer() {
       <div className="flex-1 overflow-y-auto px-4 py-3" aria-live="polite">
         {messages === null && !trouble && <p className="text-sm text-fg-3">Loading…</p>}
         {messages?.length === 0 && (
-          <p className="text-sm text-fg-3">Ask about anything on the page: why a move did what it did, what a goal means, what an error is saying. On an exercise, the hints below go one step at a time. It can also look at your past attempts: try “what do I keep getting wrong?”</p>
+          <p className="text-sm text-fg-3">Ask about anything on the page: why a move did what it did, what a goal means, what an error is saying. On an exercise, the hints below go one step at a time. It can also look at your past attempts: try “what do I keep getting wrong?”{insert ? " Here in the Playground it can try things in Lean itself: ask it to put a statement into Lean, to find a lemma, or for a next step. Nothing goes into your file unless you press Insert." : ""}</p>
         )}
         <ol className="flex flex-col gap-3">
           {messages?.map((m) => (
@@ -171,7 +191,7 @@ export function TutorDrawer() {
               ) : (
                 <div className="mr-4 rounded-xl border border-line bg-ground px-3 py-2 text-sm">
                   {m.rung && <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-accent">Hint {m.rung}</p>}
-                  {spoken?.id === m.id ? <SpokenMarkdown source={m.text} activeWord={spoken.word} /> : <Markdown source={m.text} />}
+                  {spoken?.id === m.id ? <SpokenMarkdown source={m.text} activeWord={spoken.word} codeAction={codeAction} /> : <Markdown source={m.text} codeAction={codeAction} />}
                 </div>
               )}
             </li>

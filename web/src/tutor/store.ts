@@ -24,6 +24,10 @@ export interface TutorStore {
   report: (key: string, work: Work) => void;
   /** The context for a message, as of now. */
   snapshot: () => TutorContext;
+  /** Puts Lean the Tutor offered into the free file on this page, when
+   *  there is one (the Playground) and only when the learner asks. */
+  insert: ((lean: string) => void) | null;
+  setInsert: (fn: ((lean: string) => void) | null) => void;
 }
 
 export const TutorCtx = createContext<TutorStore | null>(null);
@@ -64,4 +68,13 @@ export function useTutorSource(source: string, key = PLAYGROUND_KEY): void {
     store?.report(key, { body: source, goals: null, error: null });
     return () => store?.report(key, { body: "", goals: null, error: null });
   }, [store, source, key]);
+}
+
+/** The page's way to take Lean the Tutor offered; gone when the page goes. */
+export function useTutorInsert(fn: (lean: string) => void): void {
+  const setInsert = useContext(TutorCtx)?.setInsert;
+  useEffect(() => {
+    setInsert?.(fn);
+    return () => setInsert?.(null);
+  }, [setInsert, fn]);
 }

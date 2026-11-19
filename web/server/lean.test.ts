@@ -760,3 +760,101 @@ test("an exercise with definitions of its own: goals, error lines and the axiom 
   const other = content.lessons.find((l) => l.id === "programs-2-first-function")!.exercises.find((x) => x.id === "test-len")!;
   assert.equal((await checkExercise(leanServer(), other, "exact len_app [] []")).solved, false);
 });
+
+/* ------------------------- the Tutor as proof partner ------------------------- */
+
+test("proof partner: a statement in Lean elaborates, a lemma is found and accepted in use, a step shows the goals it leaves", { skip }, async () => {
+  const { tryLean, TUTOR_DOCUMENT } = await import("./partner.ts");
+  const lean = leanServer();
+  assert.equal(TUTOR_DOCUMENT, "tutor");
+  // "Formalise: the sum of two even numbers is even."
+  const stated = await tryLean(lean, "theorem sum_of_evens (m n : ℕ) (hm : Even m) (hn : Even n) : Even (m + n) := by\n  sorry");
+  assert.deepEqual([stated.ran, stated.accepted, stated.sorry], [true, true, true]);
+  const wrong = await tryLean(lean, "theorem sum_of_evens (m n : ℕ) : IsEven (m + n) := by\n  sorry");
+  assert.equal(wrong.accepted, false);
+  assert.equal(wrong.messages.find((m) => m.severity === "error")!.line, 1);
+  // "What lemma says a + 0 = a?": a guessed name is looked up, and accepted in use; a wrong guess is not.
+  const used = await tryLean(lean, "#check Nat.add_zero\nexample (a : ℕ) : a + 0 = a := Nat.add_zero a");
+  assert.deepEqual([used.accepted, used.sorry], [true, false]);
+  assert.ok(used.messages.some((m) => m.severity === "info" && m.line === 1 && /Nat\.add_zero.*\+ 0 = /.test(m.message)), JSON.stringify(used.messages));
+  assert.equal((await tryLean(lean, "#check Nat.zero_plus_nothing")).accepted, false);
+  // Lean's own search finds a proof too (not always the lemma one would name), and what it found is accepted in use.
+  const found = await tryLean(lean, "example (a : ℕ) : a + 0 = a := by\n  exact?");
+  const said = found.messages.find((m) => m.severity === "info" && m.line === 2)?.message ?? "";
+  const term = /exact (.+)$/m.exec(said)?.[1];
+  assert.ok(term, JSON.stringify(found.messages));
+  assert.equal((await tryLean(lean, `example (a : ℕ) : a + 0 = a := ${term}`)).accepted, true);
+  // A next step, run: the goals after its line, as Lean prints them.
+  const step = await tryLean(lean, "example (P Q : Prop) (hP : P) (hPQ : P → Q) : Q := by\n  apply hPQ\n  sorry", 2);
+  assert.equal(step.goals?.length, 1);
+  assert.match(step.goals![0], /hP : P[\s\S]*⊢ P$/);
+  const done = await tryLean(lean, "example (P Q : Prop) (hP : P) (hPQ : P → Q) : Q := by\n  apply hPQ\n  exact hP", 3);
+  assert.deepEqual([done.accepted, done.sorry, done.goals], [true, false, []]);
+  // Not asked for, or past the end of the text: no goals reported.
+  assert.equal((await tryLean(lean, "example : True := trivial", 9)).goals, null);
+  // What would run a program is refused unread.
+  const refused = await tryLean(lean, "example : True := trivial\n#eval 1 + 1");
+  assert.deepEqual([refused.ran, refused.accepted], [false, false]);
+  assert.match(refused.refused[0], /^line 2: “#eval” is not run for the Tutor/);
+});
+
+test("proof partner: a Playground reply's Lean is labelled with what Lean said, and the tool's post is answered during the turn", { skip }, async (t) => {
+  const { db } = await freshDb().then((f) => (t.after(f.close), setDb(f.db as unknown as Db), f));
+  t.after(() => setDb(null));
+  t.after(() => setAgent(null));
+  await ensureLearner(db);
+  const call = async <T,>(url: string, body: unknown): Promise<{ status: number; reply: T }> => {
+    const req = Object.assign(Readable.from([Buffer.from(JSON.stringify(body))]), { method: "POST", headers: { host: "localhost:38800" }, url }) as unknown as IncomingMessage;
+    let text = "";
+    let status = 0;
+    const res = Object.assign(new (await import("node:events")).EventEmitter(), { destroyed: false, writeHead(c: number) { status = c; return this; }, end(c?: string) { text = c ?? ""; } }) as unknown as ServerResponse;
+    try {
+      await handleTutor(req, res);
+    } catch (e) {
+      return { status: (e as HttpError).status, reply: { error: (e as Error).message } as T };
+    }
+    return { status, reply: JSON.parse(text) as T };
+  };
+  let tool: { status: number; reply: { accepted: boolean; goals: string[] | null } } | null = null;
+  setAgent(async ({ lean }) => {
+    tool = await call("/lean", { token: lean!.token, lean: "example (P : Prop) (hP : P) : P ∧ P := by\n  constructor\n  all_goals sorry", goalsAfterLine: 2 });
+    return [
+      "Here it is in Lean:",
+      "```lean",
+      "theorem sum_of_evens (m n : ℕ) (hm : Even m) (hn : Even n) : Even (m + n) := by",
+      "  sorry",
+      "```",
+      "Proved:",
+      "```lean",
+      "example (a : ℕ) : a + 0 = a := Nat.add_zero a",
+      "```",
+      "Not right:",
+      "```lean",
+      "example (a : ℕ) : a + 0 = a := Nat.no_such_lemma a",
+      "```",
+      "Then:",
+      "```lean",
+      "exact hP",
+      "```",
+      "And never:",
+      "```lean",
+      "example : True := by run_tac pure ()",
+      "```",
+    ].join("\n");
+  });
+  const { reply } = await call<TutorReply>("/", { message: "formalise: the sum of two even numbers is even", context: { page: "playground", source: "" } });
+  assert.equal(tool!.status, 200);
+  assert.equal(tool!.reply.accepted, true);
+  assert.equal(tool!.reply.goals?.length, 2);
+  const labels = reply.messages.at(-1)!.text.split("\n").filter((l) => l.startsWith("*Lean:"));
+  assert.equal(labels.length, 5);
+  assert.match(labels[0], /the statement is accepted; the proof is left open/);
+  assert.equal(labels[1], "*Lean: checked, no errors.*");
+  assert.match(labels[2], /a sketch, not accepted as written \(.*no_such_lemma/);
+  assert.match(labels[3], /not checked; this is part of a proof/);
+  assert.match(labels[4], /not checked \(“run_tac” is not run for the Tutor/);
+  // Outside the Playground a reply is left as it is.
+  setAgent(async () => "```lean\nexample : True := trivial\n```");
+  const plain = await call<TutorReply>("/", { message: "show me", context: { page: "path" } });
+  assert.ok(!plain.reply.messages.at(-1)!.text.includes("Lean:"));
+});

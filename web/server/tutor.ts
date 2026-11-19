@@ -5,6 +5,7 @@
 //   GET    /api/tutor/history  → TutorHistoryReply
 //   GET    /api/tutor/ladder?lesson=&exercise=  → {rung}: the rung reached
 //   DELETE /api/tutor/history  → {ok}
+//   POST   /api/tutor/lean     the Tutor's own Lean tool (partner.ts)
 //
 // It explains and hints; it never grades (Lean decides, web/shared/proof.ts).
 // A hint is one rung of a ladder climbed only on request, one request per
@@ -17,20 +18,32 @@
 // The ladder is per local day. An ordinary question is asked not to hand
 // over the line, but only the system prompt holds the Tutor to that.
 //
+// In the Playground the Tutor is a proof partner: the run is also given a
+// tool that asks Lean about scratch Lean of its own (scripts/lean-mcp.mjs,
+// which posts back to /api/tutor/lean with a token made for the turn), and
+// every Lean block in its reply is checked again here and labelled with
+// what Lean said (partner.ts labelReply). Nothing reaches the learner's
+// file unless they press Insert.
+//
 // The context comes from the browser and goes into a prompt, so it is
 // rebuilt field by field (`sanitizeContext`): the lesson and exercise are
 // looked up by id in the content on disk, never taken from the page.
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { DEFAULT_MODEL, REPO_ROOT, failureHint, startClaude, sweepRunDirs } from "../../scripts/claude.mjs";
 import { databaseUrl, readerRole } from "../../scripts/db/config.mjs";
 import { MCP_TOOLS, SERVER_NAME } from "../../scripts/history-mcp.mjs";
+import { MCP_TOOLS as LEAN_TOOLS, SERVER_NAME as LEAN_SERVER } from "../../scripts/lean-mcp.mjs";
 import { appendChat, chatFor, clearChat, hintRung, recordHint, type ChatRow } from "../../scripts/db/progress.ts";
 import { startOfDay } from "../shared/progress.ts";
 import type { Content, Exercise, Lesson } from "../shared/content.ts";
 import { readLine } from "../shared/moves.ts";
-import type { TutorContext, TutorHistoryReply, TutorLadderReply, TutorMessage, TutorReply, TutorRequest } from "../shared/wire.ts";
+import { leanBlocks, withoutLabels } from "../shared/partner.ts";
+import type { PartnerRequest, TutorContext, TutorHistoryReply, TutorLadderReply, TutorMessage, TutorReply, TutorRequest } from "../shared/wire.ts";
+import { localHost } from "./origin.ts";
+import { labelReply, tryLean } from "./partner.ts";
 import { checkExercise, leanError } from "./check.ts";
 import { learnerId, rawDb } from "./db.ts";
 import { leanServer } from "./lean/lsp.ts";
@@ -112,7 +125,14 @@ export function contextNote(ctx: TutorContext, where: Where): string {
 
 /* ------------------------------ the prompts ------------------------------ */
 
-export function systemPrompt(content: Content): string {
+/** What a Playground turn is told on top: it can ask Lean, and how to offer Lean. */
+export const PARTNER_PROMPT = `Proof partner. The learner is in the Playground, a free Lean file where nothing is scored, and in this turn you can ask Lean yourself with the lean_check tool: it checks a scratch file of yours (never the learner's file) with the app's Lean and Mathlib, and returns Lean's messages and, when asked, the goals after a line. Use it to:
+  - formalise: turn a statement in words into a Lean statement. See that it elaborates (end it \`:= by sorry\`) before you show it, and say in a sentence what each part of it says. The other way round, read a Lean statement back in plain words.
+  - find a lemma: guess its name and #check it, or state the fact as an \`example\` and prove it with \`exact?\` (\`apply?\` and \`rw?\` search too). Give a name only once Lean accepted it in use.
+  - suggest a next step, when asked: put their proof so far and your step in a scratch file, check it with goals_after_line on your step's line, and show the goals it leaves as Lean printed them.
+Never say that Lean accepts something unless lean_check accepted that exact text in this turn; anything else is a sketch, and you say so. Put Lean meant for their file in a fenced \`\`\`lean block, a whole \`example\` or \`theorem\` when you can: the app asks Lean about each block again and writes Lean's verdict under it, and the learner can insert a block into their file with a button. You cannot change their file; offer, and do not assume they took it. You cannot search the internet for lemmas (no Loogle, no LeanSearch), only Lean's own search. If lean_check is missing or fails, say that you could not ask Lean, and call every piece of Lean you give a sketch. Never write a line beginning "Lean:" yourself: those lines are the app's.`;
+
+export function systemPrompt(content: Content, partner = false): string {
   const lessons = content.lessons.map((l) => `  - ${l.id} "${l.title}" (level ${l.level}): content/${l.file}`).join("\n");
   return `You are the Tutor inside Lean Into It, a visual app for learning mathematical proof with Lean 4 and Mathlib. You run headless; the learner talks to you from a drawer beside the page they have open and sees only your final reply.
 
@@ -135,7 +155,7 @@ Hints. When a message asks for a HINT at a rung, give exactly that rung and noth
   rung 3: the exact next line, with a sentence on why it works. If their proof has an error, the line is the one that should replace the first wrong line (it goes after the lines Lean accepts). End the reply with one final line of the form
     LINE: <the Lean line>
   and nothing after it. On the proof board the line must be one a board move writes (the moves on offer); in a fill-the-gap exercise it is what goes in the gap.
-When the learner asks an ordinary question about an exercise, explain, but do not hand over the next line: that is what the hint ladder is for.`;
+When the learner asks an ordinary question about an exercise, explain, but do not hand over the next line: that is what the hint ladder is for.${partner ? `\n\n${PARTNER_PROMPT}` : ""}`;
 }
 
 function render(m: Pick<ChatRow, "role" | "text" | "rung">): string {
@@ -244,11 +264,36 @@ export class TurnStopped extends Error {}
 
 /** One turn at a time; on globalThis because Vite re-evaluates this module
  *  on edit, and a fresh `let` would let a second turn in beside the first. */
-const tutor = ((globalThis as { __leanIntoItTutor?: { running: boolean } }).__leanIntoItTutor ??= { running: false });
+const tutor = ((globalThis as { __leanIntoItTutor?: { running: boolean; leanToken?: string | null } }).__leanIntoItTutor ??= { running: false, leanToken: null });
 export const tutorBusy = (): boolean => tutor.running;
 
 /** The agent, injectable so the tests can run a turn without spawning one. */
-export type Agent = (run: { prompt: string; systemPrompt: string; signal: AbortSignal; learner: string }) => Promise<string>;
+export type Agent = (run: { prompt: string; systemPrompt: string; signal: AbortSignal; learner: string; lean: LeanAccess | null }) => Promise<string>;
+
+/** Where a Playground turn's Lean tool posts, and the token that lets it. */
+export interface LeanAccess {
+  url: string;
+  token: string;
+}
+
+/**
+ * The Lean tool for a Playground turn, or null when this request did not
+ * come to one of this machine's own names (wrap() has already refused
+ * those; a test calls the handler bare). The tool posts back to the server
+ * that is answering this request.
+ */
+export function leanAccessFor(host: string | undefined): LeanAccess | null {
+  if (!host || !localHost(host) || !/^[A-Za-z0-9.[\]:]+$/.test(host)) return null;
+  return { url: `http://${host}/api/tutor/lean`, token: randomBytes(24).toString("base64url") };
+}
+
+/** The run's MCP entry for the Lean tool: told where to post and the token, nothing else. */
+export function leanTool(lean: LeanAccess, env: NodeJS.ProcessEnv = process.env) {
+  return {
+    mcpServers: { [LEAN_SERVER]: { command: process.execPath, args: [path.join(REPO_ROOT, "scripts", "lean-mcp.mjs")], env: { LII_LEAN_URL: lean.url, LII_LEAN_TOKEN: lean.token, PATH: env.PATH ?? "", NODE_NO_WARNINGS: "1" } } },
+    mcpTools: LEAN_TOOLS,
+  };
+}
 
 /** What a Postgres client reads from its environment: who is connecting
  *  (pg takes the user's name from USER, ~/.pgpass from HOME) and libpq's
@@ -291,7 +336,17 @@ function historyOrNone(learner: string) {
   }
 }
 
-const claudeAgent: Agent = async ({ prompt, systemPrompt, signal, learner }) => (await startClaude({ prompt, systemPrompt, model: DEFAULT_MODEL, cwd: REPO_ROOT, signal, ...historyOrNone(learner) }).result).text;
+/** A partner turn asks Lean several times before it answers: more turns and more time. */
+const PARTNER_TURNS = 24;
+const PARTNER_SECONDS = 300;
+
+const claudeAgent: Agent = async ({ prompt, systemPrompt, signal, learner, lean }) => {
+  const history: { mcpServers?: Record<string, { command: string; args: string[]; env: Record<string, string> }>; mcpTools?: string[] } = historyOrNone(learner);
+  const tool = lean ? leanTool(lean) : null;
+  const mcpServers = { ...history.mcpServers, ...tool?.mcpServers };
+  const mcpTools = [...(history.mcpTools ?? []), ...(tool?.mcpTools ?? [])];
+  return (await startClaude({ prompt, systemPrompt, model: DEFAULT_MODEL, cwd: REPO_ROOT, signal, mcpServers, mcpTools, ...(lean ? { maxTurns: PARTNER_TURNS, timeoutSec: PARTNER_SECONDS } : {}) }).result).text;
+};
 let agent: Agent = claudeAgent;
 /** Tests only: null puts the real agent back. */
 export function setAgent(a: Agent | null): void {
@@ -325,17 +380,20 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
   // Checked and set with no await in between, so two turns cannot both pass.
   if (tutor.running) throw new HttpError(409, "the Tutor is still answering; wait for it to finish");
   tutor.running = true;
+  // The Playground: this turn may ask Lean. The token lives as long as the turn.
+  const lean = ctx.page === "playground" ? leanAccessFor(req.headers.host) : null;
+  tutor.leanToken = lean?.token ?? null;
   try {
     sweepRunDirs();
     const prior = historyWindow(await chatFor(db, learner, HISTORY_WINDOW));
     const ask = rung ? hintAsk(rung) : message;
     const tag = where.exercise && where.lesson ? { lessonId: where.lesson.id, exerciseId: where.exercise.id } : {};
     const added: ChatRow[] = [await appendChat(db, learner, { role: "user", text: ask, ...tag })];
-    const system = systemPrompt(content);
+    const system = systemPrompt(content, lean !== null);
     const run = async (prompt: string) => {
       if (ctrl.signal.aborted) throw new TurnStopped("stopped");
       try {
-        return (await agent({ prompt, systemPrompt: system, signal: ctrl.signal, learner })).trim();
+        return (await agent({ prompt, systemPrompt: system, signal: ctrl.signal, learner, lean })).trim();
       } catch (e) {
         const msg = String((e as Error)?.message || e);
         throw new TurnStopped(failureHint(msg) || msg);
@@ -363,6 +421,10 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
         text = split.text;
         line = split.line;
       }
+      // In the Playground, what stands under a snippet is Lean's word on it.
+      // A verdict line is the app's to write: one the Tutor wrote is taken out, on any page.
+      text = withoutLabels(text);
+      if (ctx.page === "playground" && leanBlocks(text).length) text = await labelReply(leanServer(), text, ctrl.signal);
       // Stopped while the reply was on its way: not given, not a rung reached.
       if (ctrl.signal.aborted) throw new TurnStopped("stopped");
       const shown = line ? `${text}\n\n\`${line}\`` : text;
@@ -382,12 +444,28 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
     }
   } finally {
     tutor.running = false;
+    tutor.leanToken = null;
     res.off("close", onClose);
   }
 }
 
+/** POST /lean: the running Playground turn's own tool asks Lean (partner.ts). */
+async function handleLean(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = await readJsonBody<Partial<PartnerRequest>>(req);
+  const token = tutor.running ? tutor.leanToken : null;
+  if (!token || typeof body.token !== "string" || body.token !== token) throw new HttpError(403, "this is the Tutor's own tool, and only while it is answering in the Playground");
+  if (typeof body.lean !== "string" || !body.lean.trim()) throw new HttpError(400, "lean is required");
+  const line = body.goalsAfterLine;
+  if (line !== undefined && !(Number.isInteger(line) && line >= 1)) throw new HttpError(400, "goalsAfterLine must be a line number, from 1");
+  sendJson(res, 200, await tryLean(leanServer(), body.lean, line));
+}
+
 export async function handleTutor(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const route = (req.url ?? "/").split("?")[0].replace(/\/+$/, "");
+  if (route === "/lean") {
+    if (req.method !== "POST") return methodNotAllowed(res, "POST");
+    return handleLean(req, res);
+  }
   if (route === "") {
     if (req.method !== "POST") return methodNotAllowed(res, "POST");
     return handlePost(req, res);

@@ -170,6 +170,40 @@ export interface TutorLadderReply {
   rung: number;
 }
 
+/* ----------------------------- proof partner ----------------------------- */
+
+/** POST /api/tutor/lean: the Tutor's own tool asks Lean about scratch Lean
+ *  (scripts/lean-mcp.mjs). `token` is the running Playground turn's. */
+export interface PartnerRequest {
+  token: string;
+  /** Lean to go under `import Mathlib` in a scratch file. */
+  lean: string;
+  /** 1-based line of `lean`: also report the goals at the end of it. */
+  goalsAfterLine?: number;
+}
+
+export interface PartnerMessage {
+  severity: "error" | "warning" | "info";
+  /** 1-based line of the scratch text. */
+  line: number;
+  message: string;
+}
+
+export interface PartnerReply {
+  /** False when the text was refused unread (`refused` says why). */
+  ran: boolean;
+  refused: string[];
+  /** Lean raised no error. With `sorry` true, a proof is still left open. */
+  accepted: boolean;
+  sorry: boolean;
+  /** Everything Lean said, in line order: errors, `#check` output, what `exact?` found. */
+  messages: PartnerMessage[];
+  /** Messages left out past the cap. */
+  more?: number;
+  /** The goals after `goalsAfterLine`, as Lean prints them ([] : none left); null when not asked, or not inside a proof there. */
+  goals: string[] | null;
+}
+
 /* ------------------------------ Listen mode ------------------------------ */
 
 export interface TtsModel {

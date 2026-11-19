@@ -12,6 +12,9 @@ export function TutorProvider({ children }: { children: ReactNode }) {
   const route = useRoute();
   const [open, setOpen] = useState(false);
   const work = useRef(new Map<string, Work>());
+  const [insert, setInsertFn] = useState<((lean: string) => void) | null>(null);
+  // A function in state: wrapped, or React would call it as an updater.
+  const setInsert = useCallback((fn: ((lean: string) => void) | null) => setInsertFn(() => fn), []);
   // The exercise touched, and on which page: a new page starts with nothing touched.
   const where = `${route.name}/${route.arg ?? ""}`;
   const [touched, setTouched] = useState<{ where: string; lessonId: string; exerciseId: string } | null>(null);
@@ -40,7 +43,7 @@ export function TutorProvider({ children }: { children: ReactNode }) {
     return ctx;
   }, [route.name, route.arg, active]);
 
-  const value = useMemo(() => ({ open, setOpen, active, touch, report, snapshot }), [open, active, touch, report, snapshot]);
+  const value = useMemo(() => ({ open, setOpen, active, touch, report, snapshot, insert, setInsert }), [open, active, touch, report, snapshot, insert, setInsert]);
   return <TutorCtx.Provider value={value}>{children}</TutorCtx.Provider>;
 }
 

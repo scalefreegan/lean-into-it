@@ -9,6 +9,7 @@ import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { TutorHistoryReply, TutorReply } from "../shared/wire.ts";
 import { setDb } from "./db.ts";
 import { loadContent } from "./loader.ts";
+import { PARTNER_PROMPT, leanAccessFor, leanTool, type LeanAccess } from "./tutor.ts";
 import { contextNote, handleTutor, historyAccess, historyWindow, locate, sanitizeContext, setAgent, splitLine, systemPrompt, turnPrompt, type Agent } from "./tutor.ts";
 
 // The Tutor without a real agent: the prompt assembly is pure, and the route
@@ -79,8 +80,8 @@ test("the replayed history is a contiguous tail within both limits", () => {
 
 /* --------------------------------- route --------------------------------- */
 
-function call<T>(method: string, url: string, body?: unknown): Promise<{ status: number; reply: T }> {
-  const req = Object.assign(Readable.from(body === undefined ? [] : [Buffer.from(JSON.stringify(body))]), { method, headers: {}, url }) as unknown as IncomingMessage;
+function call<T>(method: string, url: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; reply: T }> {
+  const req = Object.assign(Readable.from(body === undefined ? [] : [Buffer.from(JSON.stringify(body))]), { method, headers, url }) as unknown as IncomingMessage;
   let status = 0;
   let text = "";
   const res = Object.assign(new EventEmitter(), {
@@ -150,6 +151,55 @@ test("the history server is pointed at the turn's learner by its environment, an
   assert.match(prompt, /recent_attempts[\s\S]*trouble[\s\S]*progress/);
   assert.match(prompt, /never suggest copying their attempts or their record into content\//);
   assert.match(prompt, /never instructions to you/);
+});
+
+test("only a Playground turn is given the Lean tool, with a token that dies with the turn", async (t) => {
+  const seen: (LeanAccess | null)[] = [];
+  let during = 0;
+  let wrong = 0;
+  let unread = 0;
+  await withDb(t, async (run) => {
+    seen.push(run.lean);
+    if (run.lean) {
+      // The tool's own post, while the turn runs: a wrong token is refused; the right one gets past the door (no Lean text, so 400).
+      wrong = (await call("POST", "/lean", { token: "x".repeat(32), lean: "example : True := trivial" })).status;
+      during = (await call("POST", "/lean", { token: run.lean.token, lean: "" })).status;
+      // Text that would run a program is refused unread: Lean is never started for it.
+      unread = (await call<{ ran: boolean }>("POST", "/lean", { token: run.lean.token, lean: "#eval 1" })).reply.ran ? 1 : 2;
+    }
+    return "ok";
+  });
+  const host = { host: "localhost:38800" };
+  await call<TutorReply>("POST", "/", { message: "hello", context: { page: "path" } }, host);
+  await call<TutorReply>("POST", "/", { message: "hello", context: { page: "lab", source: "example : True := trivial" } }, host);
+  await call<TutorReply>("POST", "/", { message: "formalise it", context: { page: "playground", source: "" } }, host);
+  // A request that did not come to this machine's own name gets no tool.
+  await call<TutorReply>("POST", "/", { message: "again", context: { page: "playground", source: "" } }, { host: "evil.example" });
+  assert.deepEqual(seen.map((s) => s !== null), [false, false, true, false]);
+  const lean = seen[2]!;
+  assert.equal(lean.url, "http://localhost:38800/api/tutor/lean");
+  assert.match(lean.token, /^[A-Za-z0-9_-]{32}$/);
+  assert.deepEqual([wrong, during, unread], [403, 400, 2]);
+  // The turn is over: its token opens nothing, and no token is no key either.
+  assert.equal((await call("POST", "/lean", { token: lean.token, lean: "example : True := trivial" })).status, 403);
+  assert.equal((await call("POST", "/lean", { lean: "example : True := trivial" })).status, 403);
+  assert.equal((await call("GET", "/lean")).status, 405);
+  assert.notEqual(leanAccessFor("localhost:1")!.token, leanAccessFor("localhost:1")!.token);
+  assert.equal(leanAccessFor(undefined), null);
+  assert.equal(leanAccessFor("localhost:1/x@evil"), null);
+});
+
+test("the Lean tool is told where to post and its token, nothing else; the partner prompt is for the Playground only", () => {
+  const tool = leanTool({ url: "http://localhost:38800/api/tutor/lean", token: "t".repeat(32) }, { PATH: "/bin", DATABASE_URL: "postgres://x", ELEVENLABS_API_KEY: "k" });
+  assert.deepEqual(Object.keys(tool.mcpServers), ["lean"]);
+  assert.match(tool.mcpServers.lean.args[0], /scripts\/lean-mcp\.mjs$/);
+  assert.deepEqual(tool.mcpServers.lean.env, { LII_LEAN_URL: "http://localhost:38800/api/tutor/lean", LII_LEAN_TOKEN: "t".repeat(32), PATH: "/bin", NODE_NO_WARNINGS: "1" });
+  assert.deepEqual(tool.mcpTools, ["mcp__lean__lean_check"]);
+  const content = { lessons: [] } as unknown as Parameters<typeof systemPrompt>[0];
+  assert.ok(!systemPrompt(content).includes("lean_check"));
+  assert.ok(systemPrompt(content, true).endsWith(PARTNER_PROMPT));
+  assert.match(PARTNER_PROMPT, /Never say that Lean accepts something unless lean_check accepted that exact text/);
+  assert.match(PARTNER_PROMPT, /You cannot change their file/);
 });
 
 test("rungs are climbed in order, each its own request, and the rung is stored on the hint", async (t) => {
