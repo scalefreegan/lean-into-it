@@ -5,7 +5,9 @@ import os from "node:os";
 import path from "node:path";
 import { after, test } from "node:test";
 import type { CheckReply } from "../shared/wire.ts";
-import { checkSnippets, checkWithLean, classify, coverage, declarations, lessonGiven, signatureName, snippetSource, snippetsOf, whyNot } from "./contentcheck.ts";
+import type { Content } from "../shared/content.ts";
+import { speakableText, spokenBlocks } from "../shared/tts/speakable.ts";
+import { checkSnippets, checkWithLean, classify, coverage, spokenCoverage, declarations, lessonGiven, signatureName, snippetSource, snippetsOf, whyNot } from "./contentcheck.ts";
 import { LeanServer, leanProblem } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 
@@ -455,4 +457,37 @@ test("the command fails on a broken reference solution, with Lean's error", { sk
   assert.match(out.text, /✖ lessons\/logic\/bad\.md: exercise "wrong": the reference solution is not accepted: Lean says, at line 1 of the solution: /);
   assert.match(out.text, /Lean: 1 lessons in \d+ s\. 3 reference solutions, 1 wrong options, 1 snippets and 1 library names checked; 5 problems\./);
   assert.match(out.text, /5 problems\.\n$/);
+});
+
+test("what Listen mode cannot say well is listed per lesson: unsure formulas with no form, and symbols with no word", () => {
+  const lesson = (id: string, markdown: string, says: string) => ({ id, blocks: [{ type: "prose", markdown }], exercises: [{ title: "A title", says }] });
+  const content = {
+    lessons: [
+      lesson("one", "See `∀ m < n, P m` twice: `∀ m < n, P m`. But `rfl` and `∑ i ∈ s, f i`{say: the sum of f over s} are fine.", "Suppose a ≤ b. Then a ⊕ b."),
+      lesson("two", "Nothing here but `A ∧ B`, |x| and a².", "For any a, a × 0 = 0, and `∀ m < n, Q m`."),
+    ],
+  } as unknown as Content;
+  assert.deepEqual(spokenCoverage(content), {
+    formulas: [
+      { lesson: "one", code: "∀ m < n, P m", said: "for every m is less than n, P m" },
+      // In a claim a form would be shown, so it is marked for rewording.
+      { lesson: "two", code: "∀ m < n, Q m", said: "for every m is less than n, Q m", claim: true },
+    ],
+    symbols: [{ lesson: "one", symbols: ["⊕"] }],
+  });
+});
+
+test("every lesson there is can be said: the spoken words line up, and nothing is left for --gaps", () => {
+  const content = loadContent();
+  for (const l of content.lessons) {
+    for (const text of [...l.blocks.flatMap((b) => (b.type === "prose" ? [b.markdown] : [])), ...l.exercises.flatMap((e) => [e.title, e.says])]) {
+      const said = speakableText(text).text;
+      const words = spokenBlocks(text).flatMap((b) => b.words);
+      // What is sent, split on spaces, is exactly the words the page numbers: the highlight cannot drift.
+      assert.equal(words.reduce((n, w) => n + w.span, 0), said ? said.split(" ").length : 0, l.id);
+      for (const w of words) assert.equal(said.split(" ").slice(w.index, w.index + w.span).join(" "), w.say, `${l.id}: ${w.text}`);
+      assert.ok(!said.includes("{say"), l.id);
+    }
+  }
+  assert.deepEqual(spokenCoverage(content), { formulas: [], symbols: [] });
 });

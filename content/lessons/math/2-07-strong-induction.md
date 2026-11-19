@@ -67,7 +67,7 @@ The dominoes still fall, if you set them up to match. Prove the statement for 0 
 
 Lean has this principle in its library under the name `Nat.twoStepInduction`, and `induction … using` lets you choose it:
 
-```lean
+```lean say: Induction on n using nat two step induction, with three cases: zero, one, and a case called more, for k, with two induction hypotheses, I H 1 and I H 2.
 induction n using Nat.twoStepInduction with
 | zero => …
 | one => …
@@ -98,12 +98,12 @@ The classic use is: every whole number greater than 1 is divisible by a prime. T
 
 In Lean the principle is `Nat.strong_induction_on`:
 
-```lean
+```lean say: Induction on n using nat strong induction on, with a single case called ind, for n, with the hypothesis I H.
 induction n using Nat.strong_induction_on with
 | ind n ih => …
 ```
 
-There is one case, called `ind`. In it, `ih` says: for every m, if m < n then the statement holds for m. Lean prints that as `∀ m < n, P m`, a shorthand for `∀ m, m < n → P m`.
+There is one case, called `ind`. In it, `ih` says: for every m, if m < n then the statement holds for m. Lean prints that as `∀ m < n, P m`{say: for every m less than n, P of m}, a shorthand for `∀ m, m < n → P m`.
 
 The exercise is the principle itself, stated with a fact `h` that does the step. Start the induction as above. Then `h n` needs exactly what `ih` provides.
 

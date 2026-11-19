@@ -162,7 +162,7 @@ All the thinking in that proof was in choosing which square to look at. The rest
 
 In the last exercise somebody put the useful fact on the board for you. In a real proof you put it there yourself. The typed move for that is **have**:
 
-```lean
+```lean say: have h, which says 0 is at most x minus 1, squared; proved by positivity.
 have h : 0 ≤ (x - 1) ^ 2 := by positivity
 ```
 
@@ -180,4 +180,4 @@ id: both-steps
 - `linarith` handles `≤` and `<` as it handles `=`, as long as everything is linear.
 - `nlinarith` also tries products of pairs of facts.
 - `positivity` proves that something is positive or not negative from its form.
-- `have name : statement := by …` states and proves a fact of your own in the middle of a proof.
+- `have name : statement := by …`{say: have, a name, a colon, the statement, colon equals by, and the proof} states and proves a fact of your own in the middle of a proof.

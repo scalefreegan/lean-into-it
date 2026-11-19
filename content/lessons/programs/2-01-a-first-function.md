@@ -74,7 +74,7 @@ Addition was defined by saying what to do at zero and what to do at "the one aft
 
 Here is the length of a list:
 
-```lean
+```lean say: A definition of len, from lists of natural numbers to natural numbers, in two cases. For the empty list it is 0. For a list with a first item and a rest, x's, it is len of x's, plus 1.
 def len : List ℕ → ℕ
   | [] => 0
   | _ :: xs => len xs + 1
@@ -84,7 +84,7 @@ The first line names the function and gives its kind: it takes a `List ℕ` and 
 
 And here is `app`, which joins two lists end to end. (Lean has both of these built in, as `List.length` and `++`. Writing them yourself is the point.)
 
-```lean
+```lean say: A definition of app, which takes two lists and gives a list, in two cases. The empty list with y's gives y's. And x followed by x's, with y's, gives x followed by app of x's and y's.
 def app : List ℕ → List ℕ → List ℕ
   | [], ys => ys
   | x :: xs, ys => x :: app xs ys
@@ -98,7 +98,7 @@ Each exercise in this track can show you the definitions it is about. There they
 
 The first thing anyone does with a new program is run it. In the **Playground**, paste the two definitions and add:
 
-```lean
+```lean say: Two lines. hash eval len of the list 4, 7, 9. And hash eval app of the list 1, 2 and the list 3.
 #eval len [4, 7, 9]
 #eval app [1, 2] [3]
 ```

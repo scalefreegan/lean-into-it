@@ -55,7 +55,7 @@ The math lessons of this level have used facts from Lean's library by name: `Nat
 
 A Lean file is a list of declarations. Three kinds matter now.
 
-```lean
+```lean say: Three declarations. A definition: double of n is n plus n. A theorem named double eq: double of n equals 2 times n, proved by unfolding double and then omega. And an example: double of 3 equals 6, by refl.
 def double (n : ℕ) : ℕ := n + n
 
 theorem double_eq (n : ℕ) : double n = 2 * n := by
@@ -69,9 +69,9 @@ example : double 3 = 6 := by rfl
 - **theorem** has the same form. The name is `double_eq`, the inputs are `(n : ℕ)`, after the colon is the statement, and after `:=` is the proof. It is the same form because, as the last Lean lesson said, a proof is a thing and a statement is its kind. `lemma` is another word for the same.
 - **example** is a theorem with no name. It is checked and then forgotten. Every exercise in this app shows its statement as an `example`.
 
-The part before the colon is where the board's objects and facts come from. In `(a b : ℕ) (h : a ≤ b) : a < b + 1`, the brackets introduce two numbers and one fact, and the claim follows the colon.
+The part before the colon is where the board's objects and facts come from. In `(a b : ℕ) (h : a ≤ b) : a < b + 1`{say: a and b, natural numbers; h, which says a is at most b; and after the colon, a is less than b plus 1}, the brackets introduce two numbers and one fact, and the claim follows the colon.
 
-You can try the three declarations above in the **Playground**, which takes a whole Lean file. Add the line `#check double_eq` to have Lean print what a theorem says.
+You can try the three declarations above in the **Playground**, which takes a whole Lean file. Add the line `#check double_eq`{say: hash check double eq} to have Lean print what a theorem says.
 
 ## How names are made
 

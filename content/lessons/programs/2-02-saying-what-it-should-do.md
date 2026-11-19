@@ -62,7 +62,7 @@ Suppose you were asked what `app` is *supposed* to do. You would not answer with
 
 A statement like that is called a **specification**: a precise claim about what a program does on **every** input. In Lean it is written as a theorem.
 
-```lean
+```lean say: A theorem named len app, for lists x's and y's: len of app x's y's equals len of x's plus len of y's.
 theorem len_app (xs ys : List ℕ) : len (app xs ys) = len xs + len ys
 ```
 
@@ -77,7 +77,7 @@ Once it is proved, it is settled for every pair of lists there could ever be. Th
 
 One more function for this lesson: `total` adds up a list of numbers.
 
-```lean
+```lean say: A definition of total, from lists of natural numbers to natural numbers, in two cases. For the empty list it is 0. For x followed by x's, it is x plus total of x's.
 def total : List ℕ → ℕ
   | [] => 0
   | x :: xs => x + total xs

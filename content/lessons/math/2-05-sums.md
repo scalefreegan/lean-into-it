@@ -58,11 +58,11 @@ The trick gives a formula: 1 + 2 + … + n is n(n + 1)/2. This lesson proves it 
 
 Mathematicians write a long sum with a capital sigma, Σ. Lean does too:
 
-```lean
+```lean say: The sum, for i in the range 5, of i.
 ∑ i ∈ Finset.range 5, i
 ```
 
-Read it as "the sum, for i in the range 5, of i". `Finset.range 5` is the collection 0, 1, 2, 3, 4: the five numbers *below* 5. So this sum is 0 + 1 + 2 + 3 + 4. After the comma comes what is added up for each i, and it can be any expression: `∑ i ∈ Finset.range 3, (2 * i + 1)` is 1 + 3 + 5.
+Read it as "the sum, for i in the range 5, of i". `Finset.range 5` is the collection 0, 1, 2, 3, 4: the five numbers *below* 5. So this sum is 0 + 1 + 2 + 3 + 4. After the comma comes what is added up for each i, and it can be any expression: `∑ i ∈ Finset.range 3, (2 * i + 1)`{say: the sum, for i in the range 3, of 2 times i plus 1} is 1 + 3 + 5.
 
 A sum of particular numbers can be checked by working it out.
 
@@ -74,7 +74,7 @@ id: a-small-sum
 
 A written proof of an equation is often a chain: a = b = c = d, with a reason for each step. Lean has a way to write exactly that, called **calc**:
 
-```lean
+```lean say: A calc with two links. a equals b plus 1, by h 1. And that equals 2 times c plus 1, by rewriting with h 2.
 calc a = b + 1 := h1
   _ = 2 * c + 1 := by rw [h2]
 ```
@@ -109,7 +109,7 @@ id: gauss
 
 If you get stuck, this is the shape. The step takes two lines, so they go under their case, indented:
 
-```lean
+```lean say: Induction on n, with a line for the zero case, and under the successor case two lines: a rewrite, then ring.
 induction n with
 | zero => …
 | succ k ih =>
@@ -129,7 +129,7 @@ id: odd-numbers
 
 ## What you used
 
-- `∑ i ∈ Finset.range n, …`: a sum over the n numbers 0, 1, …, n − 1.
+- `∑ i ∈ Finset.range n, …`{say: the sum, for i in the range n, of something}: a sum over the n numbers 0, 1, …, n − 1.
 - `calc`: a chain of equalities, each with its reason.
 - `Finset.sum_range_succ` to split off the last term of a sum.
 - Induction, with `ring` for the algebra at the end of the step.

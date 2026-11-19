@@ -71,7 +71,7 @@ The logic lessons have been showing you Lean's goal state as cards. Underneath, 
 
 Here is what Lean prints at the start of an exercise from the lesson on if-then:
 
-```lean
+```lean say: Four lines. P, Q and R are propositions. h P Q says P implies Q. h Q R says Q implies R. And the goal is P implies R.
 P Q R : Prop
 hPQ : P → Q
 hQR : Q → R
@@ -101,7 +101,7 @@ When there is more than one goal, Lean prints one such block for each, and each 
 
 Look again at these two lines.
 
-```lean
+```lean say: x, a natural number; and h P, a proof of P.
 x : ℕ
 hP : P
 ```
@@ -162,7 +162,7 @@ id: chain
 
 Compare what you just typed with the board proof of the same statement:
 
-```lean
+```lean say: Four moves: intro h P, apply h Q R, apply h P Q, exact h P.
 intro hP
 apply hQR
 apply hPQ
@@ -175,7 +175,7 @@ Neither style is better. Tactics are easier when you are finding a proof, becaus
 
 ## What you used
 
-- `name : type` is read "name is a …" for objects and "name is a proof of …" for facts.
+- `name : type`{say: name, colon, type} is read "name is a …" for objects and "name is a proof of …" for facts.
 - `hPQ hP`: a proof of an if-then is a function; apply it to a proof of its "if" part.
 - `hf 2`: a proof of a for-all is a function; apply it to the particular thing.
 - `⟨hP, hQ⟩` builds a proof of an and; `h.1` and `h.2` are its parts.

@@ -114,13 +114,13 @@ This is the most important use of absolute value. "x is within ε of a" is writt
 
 The fact that turns the distance into two ordinary inequalities is `abs_lt`:
 
-```lean
+```lean say: abs L T says: the absolute value of a is less than b, if and only if minus b is less than a, and a is less than b.
 abs_lt : |a| < b ↔ -b < a ∧ a < b
 ```
 
 It is an "if and only if", and `rw` can rewrite with one of those as it does with an equation: the left side is replaced by the right. To rewrite inside a fact and not in the goal, add `at` and the fact's name:
 
-```lean
+```lean say: rewrite abs L T at h.
 rw [abs_lt] at h
 ```
 
@@ -152,7 +152,7 @@ The name comes from the same fact about the corners of a triangle in the plane.
 
 The first form is in the library as `abs_add_le`:
 
-```lean
+```lean say: abs add L E, for a and b, says: the absolute value of a plus b is at most the absolute value of a, plus the absolute value of b.
 abs_add_le a b : |a + b| ≤ |a| + |b|
 ```
 

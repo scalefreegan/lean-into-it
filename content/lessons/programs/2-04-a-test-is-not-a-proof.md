@@ -72,7 +72,7 @@ exercises:
 
 Somebody else has written a function to reverse a list. They call it `badRev`, though they did not know yet that the name would fit.
 
-```lean
+```lean say: A definition of bad rev, from lists to lists, in two cases. The empty list gives the empty list. And x followed by x's gives app of the list x and bad rev of x's.
 def badRev : List ℕ → List ℕ
   | [] => []
   | x :: xs => app [x] (badRev xs)

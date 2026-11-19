@@ -65,7 +65,7 @@ It is read left to right. Each sign is a claim with its own small reason, and th
 
 Suppose the facts on the board are `h1 : x = y`, `h2 : y ≤ z` and `h3 : z < w`. Then this proves `x < w`:
 
-```lean
+```lean say: A calc with three links. x equals y, by h 1. That is at most z, by h 2. And that is less than w, by h 3.
 calc x = y := h1
   _ ≤ z := h2
   _ < w := h3
@@ -73,7 +73,7 @@ calc x = y := h1
 
 - The first line starts the chain: a claim, then `:=`, then its proof.
 - Each later line starts with an underscore, which stands for "the right-hand side of the line above". By custom it is indented, so that the signs line up.
-- A proof can be the name of a fact, as here, or `by` and a move: `:= by ring`.
+- A proof can be the name of a fact, as here, or `by` and a move: `:= by ring`{say: colon equals by ring}.
 
 The links may be a mixture of `=`, `≤` and `<`. Lean works out what the whole chain says: all `=` gives `=`, any `<` among them gives `<`, and otherwise `≤`. They must all point the same way. A chain cannot mix `≤` with `≥`, on paper or in Lean.
 
