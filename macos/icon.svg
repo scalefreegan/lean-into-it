@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Lean Into It app icon: the turnstile (⊢, "from these facts, this goal")
-     leaning forward on an indigo tile, with a teal fact dot on its upright
+     leaning forward on an indigo tile, with teal fact dots on its upright
      and an amber goal dot where its arm ends, in the app's palette
-     (web/src/index.css: accent, fact, goal). Flat shapes only; sips
+     (web/src/index.css: accent, fact-line, goal-line). Flat shapes only; sips
      rasterizes via CoreGraphics' basic SVG support, so no filters, no text.
      Rendered to icon-1024.png by render-icon.sh. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
@@ -21,7 +21,7 @@
       <!-- the goal, where the arm points -->
       <circle cx="262" cy="0" r="108" fill="#4338ca"/>
       <circle cx="262" cy="0" r="84" fill="#ecc277"/>
-      <!-- a fact, on the upright -->
+      <!-- facts, on the upright -->
       <circle cx="-186" cy="-254" r="26" fill="#8fcfc6"/>
       <circle cx="-186" cy="254" r="26" fill="#8fcfc6"/>
     </g>

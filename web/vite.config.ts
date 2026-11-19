@@ -7,7 +7,7 @@ import { apiPlugins } from "./server/api.ts";
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), apiPlugins()],
-  // Fixed port so the Mac app (macos/, to come) has a deterministic URL;
+  // Fixed port so the Mac app (macos/) has a deterministic URL;
   // strict so a second instance fails loudly instead of serving a twin on the
   // next port. 38800 = Lean Into It; Fret Not is 38600, jev-ants 38500, Lingo
   // Dojo 38400, Atlas 38300, Wine Guide 38200 and Basecamp 38100.

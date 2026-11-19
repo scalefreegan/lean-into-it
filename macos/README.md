@@ -33,13 +33,17 @@ first launch, run once in the repo: `npm install`, `npm --prefix web install`,
   the nested, faceless **Lean Into It Server.app** (`Contents/Helpers/`).
   All it does is `exec` the runner script. Building needs a working `clang`.
 - **`server-runner.sh`** runs `npm --prefix web run dev` from the repo root
-  as its blocking child, in a login shell. It puts `~/.elan/bin` and
-  `/opt/homebrew/bin` at the front of `PATH`: a process started from the
-  Dock does not get the terminal's `PATH`, and without `lake` the proof
-  checker cannot start.
+  as its blocking child, in a login shell. A process started from the Dock
+  does not get the terminal's `PATH`, only what `~/.zprofile` sets. The
+  runner puts `~/.elan/bin` in front of it and Homebrew's directories
+  (`/opt/homebrew/bin`, `/usr/local/bin`) after it, so Lean's `lake` is
+  found and a node chosen in the profile is not overridden. (The server
+  also looks in those directories for `lake` itself.) The Tutor needs
+  `claude` on the profile's `PATH`.
 - **`icon.svg`** is the icon's source: the turnstile ⊢ leaning forward on an
   indigo tile, teal fact dots on its upright and an amber goal dot at the
-  end of its arm (the app's accent, fact and goal colours). `render-icon.sh`
+  end of its arm (the app's indigo, with the border colours of its fact
+  and goal cards). `render-icon.sh`
   turns it into `icon-1024.png` with `sips`; `build-app.sh` makes the
   `.icns` from the PNG. Flat fills only, because `sips` draws SVG without
   filters or text.
@@ -111,7 +115,8 @@ port:
 - If the server takes longer than 30 seconds to answer, the app gives up
   ownership so that it cannot kill a server that is still starting. Later
   clicks adopt it, and Quit leaves it; stop it by hand with
-  `pkill -f 'lean-into-it/web/node_modules/.bin/vite'`.
+  `pkill -f 'lean-into-it/web/node_modules/.bin/vite'` (with the checkout's
+  own directory name, if it is not `lean-into-it`).
 
 ## Repo path
 

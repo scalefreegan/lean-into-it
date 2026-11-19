@@ -33,10 +33,11 @@ if [ -f "$LOG" ]; then mv -f "$LOG" "$LOG.old"; fi
   # `dev` script is the same command): vite's cwd is web/, where
   # vite.config.ts pins port 38800.
   # A Dock-launched process does not get the terminal's PATH, and the login
-  # shell only has what ~/.zprofile adds. Lean's `lake` comes from elan
-  # (~/.elan/bin) or Homebrew: put both in front, so the checker starts
-  # whatever the profile does. (The server adds them again for `lake`
-  # itself, `leanEnv` in web/server/lean/lsp.ts; this covers node, npm and
-  # the Tutor's `claude` too.)
-  exec /bin/zsh -lc "export PATH=\"\$HOME/.elan/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH\"; cd ${(q)REPO} && exec npm --prefix web run dev"
+  # shell only has what ~/.zprofile adds. elan's directory goes in front, so
+  # Lean's `lake` is found whatever the profile does; Homebrew's go at the
+  # END, as a fallback for node and npm that never outranks a node the
+  # profile chose (nvm, volta). The server adds all three again for `lake`
+  # itself (`leanEnv` in web/server/lean/lsp.ts). The Tutor's `claude` is
+  # found only if the profile puts it on PATH.
+  exec /bin/zsh -lc "export PATH=\"\$HOME/.elan/bin:\$PATH:/opt/homebrew/bin:/usr/local/bin\"; cd ${(q)REPO} && exec npm --prefix web run dev"
 } >> "$LOG" 2>&1 < /dev/null
