@@ -41,14 +41,17 @@ export function Home() {
     }
   });
   const [folds, setFolds] = useState(readFolds);
-  const keepFolds = (next: Record<string, boolean>) => {
-    setFolds(next);
-    try {
-      localStorage.setItem(FOLD_KEY, JSON.stringify(next));
-    } catch {
-      // Not kept: the page starts from its own choice next time.
-    }
-  };
+  // Each change is made to the choices as they are then, not as they were when the page was last drawn.
+  const changeFolds = (change: (kept: Record<string, boolean>) => Record<string, boolean>) =>
+    setFolds((kept) => {
+      const next = change(kept);
+      try {
+        localStorage.setItem(FOLD_KEY, JSON.stringify(next));
+      } catch {
+        // Not kept: the page starts from its own choice next time.
+      }
+      return next;
+    });
   const firstRun = !placed && Object.keys(mastery.concepts).length === 0;
   useEffect(() => void reloadProgress(), [reloadProgress]);
   // The first lesson not done in an open level, passing over any the
@@ -129,16 +132,15 @@ export function Home() {
           type="button"
           data-levels-all
           className="rounded-lg px-3 py-1.5 text-sm font-semibold text-fg-2 hover:bg-raised"
-          onClick={() => keepFolds(Object.fromEntries(content.levels.map((l) => [l.id, !allUnfolded])))}
+          onClick={() => changeFolds(() => Object.fromEntries(content.levels.map((l) => [l.id, !allUnfolded])))}
         >
           {allUnfolded ? "Close all levels" : "Open all levels"}
         </button>
       </div>
 
-      {/* Two columns where there is room; levels read left to right, then down.
-          An unfolded level takes the whole row, with its lessons in two columns,
-          so the folded ones pair up beside each other and leave no hole. */}
-      <div className="grid items-start gap-4 xl:grid-cols-2">
+      {/* One level to a row, in order, so folding one never moves another
+          sideways. An unfolded level's lessons go in two columns where there is room. */}
+      <div className="flex flex-col gap-3">
         {content.levels.map((level) => (
           <LevelCard
             key={level.id}
@@ -147,7 +149,7 @@ export function Home() {
             lessons={content.lessons.filter((l) => l.level === level.id)}
             nextId={next?.id ?? null}
             unfolded={unfolded(level)}
-            onFold={(to) => keepFolds({ ...folds, [level.id]: to })}
+            onFold={(to) => changeFolds((kept) => ({ ...kept, [level.id]: to }))}
           />
         ))}
       </div>
@@ -182,7 +184,7 @@ function LevelCard({
       data-level={level.id}
       data-level-state={written ? (status?.state ?? "open") : "outline"}
       data-level-unfolded={unfolded}
-      className={cx("rounded-2xl border bg-panel", unfolded && "xl:col-span-2", lit ? "border-line-strong shadow-sm" : "border-line")}
+      className={cx("rounded-2xl border bg-panel", lit ? "border-line-strong shadow-sm" : "border-line")}
     >
       {/* The whole heading is the control. The h2 keeps the level in the page's outline. */}
       <h2>

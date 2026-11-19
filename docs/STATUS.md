@@ -201,9 +201,8 @@ Landed in the first PR, the foundation slice:
 - Levels fold on the Path (`lii-091`): a level's heading opens and closes
   it. Until the learner says otherwise, only the level with the next
   lesson in it is open; a closed one keeps its number, title, state and
-  count of lessons done. An open level takes the whole row, with its
-  lessons in two columns where there is room, and closed ones sit two to a
-  row. What is opened and closed is kept in the browser (`localStorage`),
+  count of lessons done. Levels are one to a row; an open one has its
+  lessons in two columns where there is room. What is opened and closed is kept in the browser (`localStorage`),
   and one control opens or closes them all.
 - Placement check (`lii-zjf.4`, `#/placement`, `web/shared/placement.ts`):
   offered on the Path at first run (nothing tried, no placement), and
