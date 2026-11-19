@@ -25,6 +25,17 @@
 // what Lean said (partner.ts labelReply). Nothing reaches the learner's
 // file unless they press Insert.
 //
+// Writing lessons (bead lii-2zo.2). An ordinary question (never a hint) may
+// also be a request to write lessons or exercises. When content/ is exactly
+// the last commit, such a turn runs in a git worktree of its own outside
+// the repository (turn.ts) with Edit and Write granted under that copy's
+// content/ alone. What it leaves is judged (author.ts): the loader, the ids
+// progress is keyed on, and Lean on every exercise it wrote, with its
+// reference solution. One repair turn; then a valid result is committed as
+// `agent: <summary>` and fast-forwarded into the branch, and anything else
+// is thrown away with the copy. When content/ has uncommitted work the turn
+// is read-only, in the repository, and says why.
+//
 // The context comes from the browser and goes into a prompt, so it is
 // rebuilt field by field (`sanitizeContext`): the lesson and exercise are
 // looked up by id in the content on disk, never taken from the page.
@@ -46,8 +57,11 @@ import { localHost } from "./origin.ts";
 import { labelReply, tryLean } from "./partner.ts";
 import { checkExercise, leanError } from "./check.ts";
 import { learnerId, rawDb } from "./db.ts";
+import { leanGate, remainingNote, repairAsk, turnProblems, type GateResult, type GateRun } from "./author.ts";
 import { leanServer, tutorLean } from "./lean/lsp.ts";
-import { loadContent } from "./loader.ts";
+import { contentDir, loadContent } from "./loader.ts";
+import { applyCommit, changedPaths, closeWorkspace, commitWorkspace, fileAt, foundHeldNote, gitRoot, heldNote, heldRefs, openWorkspace, readOnlyNote, strayWrites, sweepWorkspaces, writable, type NotReady, type Workspace } from "./turn.ts";
+import type { ContentProblem } from "../shared/content.ts";
 import { HttpError, INTERNAL_ERROR, methodNotAllowed, readJsonBody, sendJson } from "./sse.ts";
 
 /** Messages replayed into the prompt, and the bytes they may take. */
@@ -132,7 +146,35 @@ export const PARTNER_PROMPT = `Proof partner. The learner is in the Playground, 
   - suggest a next step, when asked: put their proof so far and your step in a scratch file, check it with goals_after_line on your step's line, and show the goals it leaves as Lean printed them.
 Never say that Lean accepts something unless lean_check accepted that exact text in this turn; anything else is a sketch, and you say so. Put Lean meant for their file in a fenced \`\`\`lean block, a whole \`example\` or \`theorem\` when you can: the app asks Lean about each block again and writes Lean's verdict under it, and the learner can insert a block into their file with a button. You cannot change their file; offer, and do not assume they took it. You cannot search the internet for lemmas (no Loogle, no LeanSearch), only Lean's own search. If lean_check is missing or fails, say that you could not ask Lean, and call every piece of Lean you give a sketch. Never write a line beginning "Lean:" yourself: those lines are the app's.`;
 
-export function systemPrompt(content: Content, partner = false): string {
+/** What a turn that may write is told on top. */
+export const AUTHOR_PROMPT = `Writing lessons. In this turn you can also write: when the learner asks you for new lessons or exercises, or to change one (and only then; a question is answered, not turned into a lesson), use Write and Edit on files under content/ in this copy of the repository. Nothing else can be written.
+  - Read docs/CONTENT.md first (the lesson file format), docs/CONTENT-REFERENCE.md (every widget, exercise kind and board move, with its fields), and a lesson next to the one you are writing as a model. Only content/curriculum.yaml and content/lessons/<track>/<name>.md are curriculum files.
+  - Never change or remove an existing lesson id, exercise id or concept id: the learner's progress is stored against them. Add new exercises under new ids.
+  - Every exercise needs a reference solution that Lean accepts, and Lean decides: after your turn the app loads content/ and gives every exercise you wrote or changed to Lean with its solution, exactly as it would check a learner's answer (a fill-the-gap choice that is not the solution must be refused by Lean). If the loader or Lean refuses anything you get one turn to repair it; if it is still refused, everything you wrote is thrown away.
+  - So try each statement with its solution in lean_check before you write it (\`theorem t <the statement> := by\` and the solution under it), when that tool is there. Lean content must be exactly right, not from memory.
+  - Lean you write into a lesson may not use #eval, IO, macros, notation, attributes beyond simp, set_option, axiom or anything else lean_check refuses: such a lesson is thrown away.
+  - What you learn from the learner's history is private to them: use it to choose what to write, never copy their attempts into a lesson.
+  - You have no shell and cannot run the checker yourself.
+  - If you edited files, end your reply with one line starting "Changed:" that says what you wrote in a few words (it becomes the commit message). If you edited nothing, write no such line. Tell the learner where the new work is (the lesson's title), in a sentence or two.`;
+
+/** Added to the prompt of a turn that may not write, so the Tutor can say why. */
+export function readOnlyBrief(why: NotReady): string {
+  return `This turn is read-only: you have no Write or Edit tool, because ${why.reason}. If the learner asked for something that needs writing (a new lesson, more exercises), do not attempt it and do not paste a lesson into the chat: say in a sentence or two that you cannot write right now and why, and that this will fix it: ${why.fix} Do not add a "Changed:" line.`;
+}
+
+export interface PromptOptions {
+  /** The folder the run reads: the repository, or the turn's own copy of it. */
+  root?: string;
+  /** The turn may write (true), or why it may not. Absent: it is not a turn that could (a hint). */
+  author?: true | NotReady;
+  /** The turn has the lean_check tool though it is not in the Playground. */
+  lean?: boolean;
+}
+
+export function systemPrompt(content: Content, partner = false, opts: PromptOptions = {}): string {
+  const root = opts.root ?? REPO_ROOT;
+  const author = opts.author === true ? AUTHOR_PROMPT : opts.author ? readOnlyBrief(opts.author) : "";
+  const leanToo = !partner && opts.lean ? "You have the lean_check tool in this turn: it checks a scratch Lean file of yours (under `import Mathlib`) with the app's Lean and returns Lean's messages. Never say Lean accepts something unless lean_check accepted that exact text in this turn." : "";
   const lessons = content.lessons.map((l) => `  - ${l.id} "${l.title}" (level ${l.level}): content/${l.file}`).join("\n");
   return `You are the Tutor inside Lean Into It, a visual app for learning mathematical proof with Lean 4 and Mathlib. You run headless; the learner talks to you from a drawer beside the page they have open and sees only your final reply.
 
@@ -140,7 +182,7 @@ The learner is an adult, curious, and new to proof and to Lean. Your job is to e
 
 You never grade. Lean decides whether a proof is accepted, and the app asks it; never tell the learner their proof "would be accepted" or "is correct". Explain what Lean said instead.
 
-You may Read, Glob and Grep this repository (${REPO_ROOT}) to look at the lessons (content/lessons/), the course outline (content/curriculum.yaml), docs/CONTENT-REFERENCE.md (every board move) and the app's code. You cannot write files, run commands or run Lean. When you name a file to the learner, give its path inside the repository.
+You may Read, Glob and Grep this repository (${root}) to look at the lessons (content/lessons/), the course outline (content/curriculum.yaml), docs/CONTENT-REFERENCE.md (every board move) and the app's code. ${opts.author === true ? "You cannot run commands." : "You cannot write files or run commands."}${partner || opts.lean ? "" : " You cannot run Lean."} When you name a file to the learner, give its path inside the repository.
 
 Lessons:
 ${lessons || "  (none)"}
@@ -155,7 +197,7 @@ Hints. When a message asks for a HINT at a rung, give exactly that rung and noth
   rung 3: the exact next line, with a sentence on why it works. If their proof has an error, the line is the one that should replace the first wrong line (it goes after the lines Lean accepts). End the reply with one final line of the form
     LINE: <the Lean line>
   and nothing after it. On the proof board the line must be one a board move writes (the moves on offer); in a fill-the-gap exercise it is what goes in the gap.
-When the learner asks an ordinary question about an exercise, explain, but do not hand over the next line: that is what the hint ladder is for.${partner ? `\n\n${PARTNER_PROMPT}` : ""}`;
+When the learner asks an ordinary question about an exercise, explain, but do not hand over the next line: that is what the hint ladder is for.${partner ? `\n\n${PARTNER_PROMPT}` : ""}${leanToo ? `\n\n${leanToo}` : ""}${author ? `\n\n${author}` : ""}`;
 }
 
 function render(m: Pick<ChatRow, "role" | "text" | "rung">): string {
@@ -268,7 +310,7 @@ const tutor = ((globalThis as { __leanIntoItTutor?: { running: boolean; leanToke
 export const tutorBusy = (): boolean => tutor.running;
 
 /** The agent, injectable so the tests can run a turn without spawning one. */
-export type Agent = (run: { prompt: string; systemPrompt: string; signal: AbortSignal; learner: string; lean: LeanAccess | null }) => Promise<string>;
+export type Agent = (run: { prompt: string; systemPrompt: string; signal: AbortSignal; learner: string; lean: LeanAccess | null; workspace: Workspace | null }) => Promise<string>;
 
 /** Where a Playground turn's Lean tool posts, and the token that lets it. */
 export interface LeanAccess {
@@ -340,18 +382,46 @@ function historyOrNone(learner: string) {
 const PARTNER_TURNS = 24;
 const PARTNER_SECONDS = 300;
 
-const claudeAgent: Agent = async ({ prompt, systemPrompt, signal, learner, lean }) => {
+/** A writing turn reads the format, a model lesson, tries its Lean, then writes: more turns and more time. */
+const AUTHOR_TURNS = 40;
+const AUTHOR_SECONDS = 600;
+
+const claudeAgent: Agent = async ({ prompt, systemPrompt, signal, learner, lean, workspace }) => {
   const history: { mcpServers?: Record<string, { command: string; args: string[]; env: Record<string, string> }>; mcpTools?: string[] } = historyOrNone(learner);
   const tool = lean ? leanTool(lean) : null;
   const mcpServers = { ...history.mcpServers, ...tool?.mcpServers };
   const mcpTools = [...(history.mcpTools ?? []), ...(tool?.mcpTools ?? [])];
-  return (await startClaude({ prompt, systemPrompt, model: DEFAULT_MODEL, cwd: REPO_ROOT, signal, mcpServers, mcpTools, ...(lean ? { maxTurns: PARTNER_TURNS, timeoutSec: PARTNER_SECONDS } : {}) }).result).text;
+  const limits = workspace ? { maxTurns: AUTHOR_TURNS, timeoutSec: AUTHOR_SECONDS } : lean ? { maxTurns: PARTNER_TURNS, timeoutSec: PARTNER_SECONDS } : {};
+  return (await startClaude({ prompt, systemPrompt, model: DEFAULT_MODEL, cwd: workspace?.dir ?? REPO_ROOT, signal, mcpServers, mcpTools, write: workspace ? { contentDir: workspace.content } : null, ...limits }).result).text;
 };
 let agent: Agent = claudeAgent;
 /** Tests only: null puts the real agent back. */
 export function setAgent(a: Agent | null): void {
   agent = a ?? claudeAgent;
 }
+
+/** Lean's verdict on what a turn wrote; injectable so a test can run a writing turn without Lean. */
+export type Gate = (run: GateRun) => Promise<GateResult>;
+const realGate: Gate = (run) => leanGate(tutorLean(), run);
+let gate: Gate = realGate;
+/** Tests only: null puts the real gate back. */
+export function setGate(g: Gate | null): void {
+  gate = g ?? realGate;
+}
+
+/**
+ * The repository a turn may write lessons into, or null when it may not try.
+ * Under the test runner that is only ever a repository the test names
+ * (LEAN_INTO_IT_REPO_ROOT): a test must never make a worktree of this one.
+ */
+export function authoringRoot(env: NodeJS.ProcessEnv = process.env): string | null {
+  if (env.LEAN_INTO_IT_AUTHORING === "off") return null;
+  if (env.NODE_TEST_CONTEXT && !env.LEAN_INTO_IT_REPO_ROOT) return null;
+  return gitRoot();
+}
+
+/** The read-only note is said once, not after every question: skipped while it is among the last messages. */
+const SAID_WITHIN = 20;
 
 const toMessage = (r: ChatRow): TutorMessage => ({ id: r.id, role: r.role, text: r.text, lessonId: r.lessonId, exerciseId: r.exerciseId, rung: r.rung, at: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt) });
 
@@ -381,19 +451,58 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
   if (tutor.running) throw new HttpError(409, "the Tutor is still answering; wait for it to finish");
   tutor.running = true;
   // The Playground: this turn may ask Lean. The token lives as long as the turn.
-  const lean = ctx.page === "playground" ? leanAccessFor(req.headers.host) : null;
+  let lean = ctx.page === "playground" ? leanAccessFor(req.headers.host) : null;
   tutor.leanToken = lean?.token ?? null;
+  let ws: Workspace | null = null;
+  // The commit, once it is on the branch: from then on the turn has changed content/, whatever fails after.
+  let landed: { hash: string; summary: string } | null = null;
   try {
     sweepRunDirs();
-    const prior = historyWindow(await chatFor(db, learner, HISTORY_WINDOW));
+    // May this turn write lessons? Never a hint; and only when the repository
+    // allows it. Then it gets a worktree of its own; else it runs read-only
+    // in the repository and says why.
+    const root = rung ? null : authoringRoot();
+    let readOnly: NotReady | null = null;
+    if (root) {
+      sweepWorkspaces({ root });
+      const ready = await writable(root, contentDir());
+      if (!ready.ok) readOnly = ready;
+      else {
+        try {
+          ws = await openWorkspace(ready);
+        } catch (e) {
+          console.error("[lean-into-it] tutor: could not make a worktree:", (e as Error)?.message || e);
+          readOnly = { ok: false, reason: "the app could not set up a separate working copy for it", fix: "Check `git worktree list` in a terminal and the app's log, then ask again." };
+        }
+      }
+    }
+    // A writing turn may ask Lean too, to try what it is about to write.
+    if (ws && !lean) {
+      lean = leanAccessFor(req.headers.host);
+      tutor.leanToken = lean?.token ?? null;
+    }
+    // What the turn starts from: its copy's content/ (the last commit) when it may write.
+    const before = ws ? loadContent(ws.content) : content;
+    const recent = await chatFor(db, learner, HISTORY_WINDOW);
+    const prior = historyWindow(recent);
     const ask = rung ? hintAsk(rung) : message;
     const tag = where.exercise && where.lesson ? { lessonId: where.lesson.id, exerciseId: where.exercise.id } : {};
     const added: ChatRow[] = [await appendChat(db, learner, { role: "user", text: ask, ...tag })];
-    const system = systemPrompt(content, lean !== null);
+    const tell = async (text: string) => void added.push(await appendChat(db, learner, { role: "note", text }));
+    if (readOnly) {
+      const text = readOnlyNote(readOnly);
+      if (!recent.slice(-SAID_WITHIN).some((m) => m.role === "note" && m.text === text)) await tell(text);
+    }
+    if (root) {
+      // A commit an earlier server kept under a name and stopped before saying so: said now, once.
+      for (const h of (await heldRefs(root, ws?.spec ?? "content")).held) if (!recent.some((m) => m.role === "note" && m.text.includes(h.ref))) await tell(foundHeldNote(h, ws?.spec ?? "content"));
+    }
+    const partner = ctx.page === "playground" && lean !== null;
+    const system = systemPrompt(before, partner, { root: ws?.dir ?? REPO_ROOT, ...(ws ? { author: true as const } : readOnly ? { author: readOnly } : {}), lean: lean !== null });
     const run = async (prompt: string) => {
       if (ctrl.signal.aborted) throw new TurnStopped("stopped");
       try {
-        return (await agent({ prompt, systemPrompt: system, signal: ctrl.signal, learner, lean })).trim();
+        return (await agent({ prompt, systemPrompt: system, signal: ctrl.signal, learner, lean, workspace: ws })).trim();
       } catch (e) {
         const msg = String((e as Error)?.message || e);
         throw new TurnStopped(failureHint(msg) || msg);
@@ -421,28 +530,85 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
         text = split.text;
         line = split.line;
       }
+      // What a writing turn left in its copy: judged, repaired once, then committed or thrown away.
+      const after: string[] = [];
+      if (ws) {
+        const copy = ws;
+        const stopped = () => ctrl.signal.aborted;
+        // The copy's files as the commit has them (the copy itself is being edited).
+        const beforeFile = (file: string) => fileAt(copy, file);
+        const verdict = async (): Promise<ContentProblem[]> => {
+          const changed = await changedPaths(copy);
+          if (!changed.length) return [];
+          const now = loadContent(copy.content);
+          const shape = [...turnProblems(before, now), ...strayWrites(copy, changed)];
+          // Lean is asked only about what the loader accepts.
+          if (shape.length) return shape;
+          const judged = await gate({ before, beforeFile, after: now, afterDir: copy.content, stopped });
+          return judged.problems;
+        };
+        let broken = await verdict();
+        if (broken.length && !stopped()) {
+          text = await run(turnPrompt([...prior, { role: "user", text: ask, rung: null }, { role: "assistant", text, rung: null }], repairAsk(broken), ctx, where, null));
+          broken = await verdict();
+        }
+        // Stop pressed after the agent's last call but before the commit is still a stop.
+        if (stopped()) throw new TurnStopped("stopped");
+        if (broken.length) after.push(remainingNote(broken));
+        else {
+          const made = await commitWorkspace(copy, text);
+          if ("error" in made) {
+            console.error("[lean-into-it] tutor: commit failed:", made.error);
+            after.push(`What the Tutor wrote passed the checks but could not be committed (${made.error}), so it was thrown away. It was written in a separate copy: content/ was not touched.`);
+          } else if ("hash" in made) {
+            const applied = await applyCommit(copy, made.hash, { cancelled: stopped });
+            if (!applied.applied && applied.cancelled) throw new TurnStopped("stopped");
+            if (applied.applied) {
+              landed = { hash: made.hash.slice(0, 7), summary: made.summary };
+              after.push(`Committed ${landed.hash}: ${landed.summary}. Lean accepted every exercise in it with its reference solution. \`git show ${landed.hash}\` shows what was written; \`git revert ${landed.hash}\` takes it out again.`);
+            } else if (!applied.cancelled) {
+              console.warn(`[lean-into-it] tutor: commit ${made.hash} kept as ${applied.ref}, not applied: ${applied.reason}`);
+              after.push(heldNote(copy, made.hash, made.summary, applied));
+            }
+          }
+        }
+      }
       // In the Playground, what stands under a snippet is Lean's word on it.
       // A verdict line is the app's to write: one the Tutor wrote is taken out, on any page.
       text = withoutLabels(text);
       if (ctx.page === "playground" && leanBlocks(text).length) text = await labelReply(tutorLean(), text, ctrl.signal);
       // Stopped while the reply was on its way: not given, not a rung reached.
-      if (ctrl.signal.aborted) throw new TurnStopped("stopped");
+      // (Once a commit has landed the turn is done, and is recorded.)
+      if (ctrl.signal.aborted && !landed) throw new TurnStopped("stopped");
       const shown = line ? `${text}\n\n\`${line}\`` : text;
       if (rung && where.lesson && where.exercise) await recordHint(db, learner, where.lesson.id, where.exercise.id, rung);
       added.push(await appendChat(db, learner, { role: "assistant", text: shown, ...tag, rung }));
-      sendJson(res, 200, { messages: added.map(toMessage), line } satisfies TutorReply);
+      for (const note of after) await tell(note);
+      if (!res.destroyed) sendJson(res, 200, { messages: added.map(toMessage), line, commit: landed } satisfies TutorReply);
     } catch (e) {
       const known = e instanceof TurnStopped;
       if (!known) console.error("[lean-into-it] tutor: a turn failed:", e);
-      const text = `The Tutor did not answer (${known ? (e as Error).message : INTERNAL_ERROR}).`;
+      let wrote = false;
+      if (ws && !landed) {
+        try {
+          wrote = (await changedPaths(ws)).length > 0;
+        } catch {
+          /* the copy is already gone */
+        }
+      }
+      const text = landed
+        ? `The Tutor's lessons were committed (${landed.hash}: ${landed.summary}), but the turn then failed before it could be recorded here (${known ? (e as Error).message : INTERNAL_ERROR}). The commit is on your branch: \`git show ${landed.hash}\`.`
+        : `The Tutor did not answer (${known ? (e as Error).message : INTERNAL_ERROR}).${wrote ? " What it had written so far was in a separate copy and has been thrown away: content/ was not touched and nothing was committed." : ""}`;
       try {
         added.push(await appendChat(db, learner, { role: "note", text }));
       } catch (storeError) {
         console.error("[lean-into-it] tutor: could not record a failed turn:", storeError);
       }
-      if (!res.destroyed) sendJson(res, 200, { messages: added.map(toMessage), line: null } satisfies TutorReply);
+      if (!res.destroyed) sendJson(res, 200, { messages: added.map(toMessage), line: null, commit: landed } satisfies TutorReply);
     }
   } finally {
+    // Committed and applied, kept under a name, or thrown away: the copy goes.
+    if (ws) closeWorkspace(ws);
     tutor.running = false;
     tutor.leanToken = null;
     res.off("close", onClose);

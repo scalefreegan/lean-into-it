@@ -42,7 +42,7 @@ export function TutorDrawer() {
         </Button>
       )
     : undefined;
-  const { content } = useApp();
+  const { content, reloadContent } = useApp();
   const [messages, setMessages] = useState<TutorMessage[] | null>(null);
   // Listen mode: a reply is read aloud as it arrives, the word sounding marked.
   const listen = useListen();
@@ -104,6 +104,8 @@ export function TutorDrawer() {
     try {
       const reply = await askTutor({ ...req, context: snapshot() }, ctrl.signal);
       setMessages((m) => [...(m ?? []), ...reply.messages]);
+      // The Tutor committed lessons: the pages show them without a reload.
+      if (reply.commit) reloadContent();
       const said = reply.messages.findLast((m) => m.role === "assistant");
       if (said && listenNow.current.on && listenNow.current.voiceId) readAloud(said);
       if (req.hint) {
@@ -179,7 +181,7 @@ export function TutorDrawer() {
       <div className="flex-1 overflow-y-auto px-4 py-3" aria-live="polite">
         {messages === null && !trouble && <p className="text-sm text-fg-3">Loading…</p>}
         {messages?.length === 0 && (
-          <p className="text-sm text-fg-3">Ask about anything on the page: why a move did what it did, what a goal means, what an error is saying. On an exercise, the hints below go one step at a time. It can also look at your past attempts: try “what do I keep getting wrong?”{insert ? " Here in the Playground it can try things in Lean itself: ask it to put a statement into Lean, to find a lemma, or for a next step. Nothing goes into your file unless you press Insert." : ""}</p>
+          <p className="text-sm text-fg-3">Ask about anything on the page: why a move did what it did, what a goal means, what an error is saying. On an exercise, the hints below go one step at a time. It can also look at your past attempts: try “what do I keep getting wrong?” And it can write for you: ask for more exercises on something, or a new lesson. Lean checks every exercise it writes before any of it is kept, and what is kept is a git commit.{insert ? " Here in the Playground it can try things in Lean itself: ask it to put a statement into Lean, to find a lemma, or for a next step. Nothing goes into your file unless you press Insert." : ""}</p>
         )}
         <ol className="flex flex-col gap-3">
           {messages?.map((m) => (

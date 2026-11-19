@@ -6,6 +6,7 @@ import { Readable } from "node:stream";
 import { after, before, test } from "node:test";
 import { attemptCount, attemptsFor, ensureLearner, recordHint, solvedFor } from "../../scripts/db/progress.ts";
 import { freshDb } from "../../scripts/tests/testdb.mjs";
+import { authorRepo, LESSON_FILE, withExercise } from "../../scripts/tests/authorrepo.mjs";
 import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { explain } from "../shared/explain.ts";
@@ -907,4 +908,68 @@ test("proof partner: a Playground reply's Lean is labelled with what Lean said, 
   setAgent(async () => "```lean\nexample : True := trivial\n```");
   const plain = await call<TutorReply>("/", { message: "show me", context: { page: "path" } });
   assert.ok(!plain.reply.messages.at(-1)!.text.includes("Lean:"));
+});
+
+test("lesson authoring: Lean is given every exercise the Tutor wrote; one whose reference solution fails never lands, and a good one is committed", { skip: skipSandbox }, async (t) => {
+  const { db } = await freshDb().then((f) => (t.after(f.close), setDb(f.db as unknown as Db), f));
+  const repo = authorRepo();
+  t.after(() => {
+    setAgent(null);
+    setDb(null);
+    repo.close();
+  });
+  await ensureLearner(db);
+  const ask = async (): Promise<TutorReply> => {
+    const req = Object.assign(Readable.from([Buffer.from(JSON.stringify({ message: "write more exercises on if-then", context: { page: "path" } }))]), { method: "POST", headers: { host: "localhost:38800" }, url: "/" }) as unknown as IncomingMessage;
+    let text = "";
+    const res = Object.assign(new (await import("node:events")).EventEmitter(), { destroyed: false, writeHead() { return this; }, end(c?: string) { text = c ?? ""; } }) as unknown as ServerResponse;
+    await handleTutor(req, res);
+    return JSON.parse(text) as TutorReply;
+  };
+  const notes = (r: TutorReply) => r.messages.filter((m) => m.role === "note").map((m) => m.text).join("\n");
+  const write = (content: string, ...exercises: Parameters<typeof withExercise>[1][]) => {
+    const file = path.join(content, LESSON_FILE);
+    fs.writeFileSync(file, exercises.reduce((raw, e) => withExercise(raw, e), fs.readFileSync(file, "utf8")));
+  };
+  const base = repo.git("rev-parse", "HEAD");
+
+  // A good exercise and a bad one (its "solution" does not prove the statement): the repair turn leaves it, so nothing lands.
+  let runs = 0;
+  let prompt2 = "";
+  setAgent(async ({ workspace, prompt }) => {
+    if (++runs === 1) write(workspace!.content, { id: "good-one" }, { id: "bad-one", solution: "exact hP" });
+    else prompt2 = prompt;
+    return "Two more exercises.\nChanged: two exercises on if-then";
+  });
+  let reply = await ask();
+  assert.equal(runs, 2);
+  assert.match(prompt2, /exercise "bad-one": the reference solution is not accepted: Lean says, at line 1 of the solution: /);
+  assert.ok(!prompt2.includes('exercise "good-one"'), "Lean accepted the good one");
+  assert.match(notes(reply), /could not accept one file the Tutor wrote[\s\S]*exercise "bad-one": the reference solution is not accepted/);
+  assert.equal(reply.commit, null);
+  assert.equal(repo.git("rev-parse", "HEAD"), base);
+  assert.equal(repo.git("status", "--porcelain"), "");
+
+  // Lean that would run a program is refused by name, before Lean is given it.
+  runs = 0;
+  setAgent(async ({ workspace }) => {
+    if (++runs === 1) write(workspace!.content, { id: "sly-one", given: '#eval IO.println "hi"' });
+    return "One more.\nChanged: an exercise";
+  });
+  reply = await ask();
+  assert.match(notes(reply), /exercise "sly-one": “#eval” is not run for the Tutor[\s\S]*A lesson the Tutor writes may not use it\./);
+  assert.equal(repo.git("rev-parse", "HEAD"), base);
+
+  // The good one alone: Lean accepts it, and it is committed.
+  setAgent(async ({ workspace }) => {
+    write(workspace!.content, { id: "good-one" });
+    return "One more exercise.\nChanged: one more exercise on if-then";
+  });
+  reply = await ask();
+  assert.match(notes(reply), /^Committed [0-9a-f]{7}: one more exercise on if-then\. Lean accepted every exercise in it/m);
+  assert.equal(repo.git("rev-parse", "HEAD^"), base);
+  assert.equal(repo.git("diff-tree", "-r", "--name-only", "HEAD^", "HEAD"), `content/${LESSON_FILE}`);
+  const landed = loadContent(repo.content).lessons.find((l) => l.id === "logic-1-if-then")!.exercises.find((e) => e.id === "good-one")!;
+  // And it is solvable in the app, by the learner's own Lean.
+  assert.equal((await checkExercise(leanServer(), landed, landed.solution)).solved, true);
 });

@@ -363,7 +363,41 @@ Landed in the first PR, the foundation slice:
   the learner's Lean inside an exercise's brackets; and a block the
   learner chooses to Insert, which goes to their own Playground and so to
   their own Lean (only the word filter stands before that button).
-- Tests: 404, including every reference solution checked by the real Lean,
+- The Tutor writes lessons and exercises (`lii-2zo.2`). An ordinary
+  question to the Tutor (never a hint) may ask for new exercises or a
+  lesson. When `content/` is exactly the last commit, that turn runs in a
+  git worktree of its own outside the repository (`web/server/turn.ts`,
+  taken from Fret Not), with Edit and Write granted only under that copy's
+  `content/`, and with the sandboxed `lean_check` tool to try its Lean
+  first. What it leaves is judged before anything is committed
+  (`web/server/author.ts`): the loader must accept it; no lesson, exercise
+  or concept id may have gone; no file but `curriculum.yaml` and
+  `lessons/<track>/<name>.md` may have been written; and Lean, the
+  sandboxed one, is given every exercise the turn wrote or changed with
+  its reference solution exactly as a learner's answer would be checked
+  (a fill-the-gap choice that is not the solution must be refused), and
+  the Lean snippets of a lesson it touched. What is refused goes back to
+  the Tutor for one repair turn. A valid result is committed as
+  `agent: <summary>` and fast-forwarded into the branch with plumbing
+  (no hooks, no signing, never `git worktree prune`); the chat says
+  `Committed <hash>` and the pages show the new lessons without a reload.
+  Anything else is thrown away with the copy, and the chat says what
+  failed. With uncommitted work in `content/` (or a detached HEAD, a
+  merge in progress, a symbolic link) the turn is read-only, in the
+  repository, and a note says why and what to do. Before Lean sees a
+  lesson the Tutor touched, the word filter reads its Lean: no `#eval`,
+  `IO`, macros or anything else `lean_check` refuses may be added, since
+  once a lesson lands, opening it gives its Lean to the learner's own
+  Lean, which is not sandboxed. That filter is not a sandbox; the commit
+  is the record, and it is the owner's to read. Tested with a stand-in
+  agent: in throwaway repositories (never this one: under the test runner
+  a turn may only write into a repository the test names), and against
+  the real Lean with a good exercise and one whose solution fails. Not
+  tried: a real Tutor turn that writes (it would commit to this
+  repository). Not built: progress while it works (a writing turn can
+  take ten minutes or more behind one waiting request; Stop works); a
+  fatal signal mid-turn leaves the worktree for the next turn's sweep.
+- Tests: 455, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -394,7 +428,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-25 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+24 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -447,7 +481,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-2zo.2` | Tutor lesson authoring with a Lean compile gate and worktree commits | 2 | `lii-2zo.1` |
 | `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |
 
 ### Curriculum (epic `lii-dvy`)

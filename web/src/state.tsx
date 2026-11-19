@@ -29,6 +29,8 @@ interface AppData {
   lean: LeanStatus;
   markSolved: (lessonId: string, exerciseId: string, solution: string) => void;
   reloadLean: () => void;
+  /** Read content/ again: the Tutor has committed lessons. Progress follows, since levels and reviews are counted from the lessons. */
+  reloadContent: () => void;
   /** Stop Lean and start it again; resolves when its new state is known. */
   restartLean: () => Promise<void>;
 }
@@ -136,6 +138,13 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
     };
   }, [reloadProgress]);
 
+  const reloadContent = useCallback(() => {
+    getContent().then((c) => {
+      setContent(c);
+      void reloadProgress();
+    }, () => {});
+  }, [reloadProgress]);
+
   const reloadLean = useCallback(() => {
     getLean().then(setLean, () => {});
   }, []);
@@ -156,8 +165,8 @@ export function AppProvider({ children, fallback }: { children: ReactNode; fallb
   }, [state, installed, reloadLean]);
 
   const value = useMemo(
-    () => (content && solved && mastery && lean ? { content, solved, mastery, review, reloadProgress, levels, openLevel, placed, place, lean, markSolved, reloadLean, restartLean } : null),
-    [content, solved, mastery, review, reloadProgress, levels, openLevel, placed, place, lean, markSolved, reloadLean, restartLean],
+    () => (content && solved && mastery && lean ? { content, solved, mastery, review, reloadProgress, levels, openLevel, placed, place, lean, markSolved, reloadLean, restartLean, reloadContent } : null),
+    [content, solved, mastery, review, reloadProgress, levels, openLevel, placed, place, lean, markSolved, reloadLean, restartLean, reloadContent],
   );
   if (!value) return <>{fallback({ error })}</>;
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

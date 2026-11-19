@@ -672,7 +672,8 @@ let shut: LeanServer | null = null;
 /** The Lean for text the Tutor's model wrote: a process of its own under
  *  the OS sandbox (sandbox.ts), one document. Started on first use. */
 export function tutorLean(): LeanServer {
-  shut ??= new LeanServer({ sandboxed: true, maxDocs: 1 });
+  // Two documents: its scratch file, and the exercises it wrote (author.ts).
+  shut ??= new LeanServer({ sandboxed: true, maxDocs: 2 });
   return shut;
 }
 
