@@ -250,26 +250,48 @@ export const tutorBusy = (): boolean => tutor.running;
 /** The agent, injectable so the tests can run a turn without spawning one. */
 export type Agent = (run: { prompt: string; systemPrompt: string; signal: AbortSignal; learner: string }) => Promise<string>;
 
+/** What a Postgres client reads from its environment: who is connecting
+ *  (pg takes the user's name from USER, ~/.pgpass from HOME) and libpq's
+ *  own settings. */
+const CONNECTION_ENV = ["USER", "LOGNAME", "HOME", "PGHOST", "PGPORT", "PGUSER", "PGPASSWORD", "PGPASSFILE", "PGSSLMODE", "PGSSLROOTCERT", "PGSSLCERT", "PGSSLKEY"];
+
 /**
  * The history server for one run (scripts/history-mcp.mjs): its learner is
  * fixed here, in the environment the run's MCP config gives it, never in
- * anything the model says. It gets the database URL and the read-only
- * role's name and nothing else of this server's environment.
+ * anything the model says. Of this server's environment it is given the
+ * database URL, the read-only role's name and what a Postgres connection
+ * reads (CONNECTION_ENV), no key of any other kind.
+ * Whether the CLI adds its own environment on top is the CLI's business;
+ * nothing here relies on it.
  */
 export function historyAccess(learner: string, env: NodeJS.ProcessEnv = process.env) {
+  const connection: Record<string, string> = {};
+  for (const k of CONNECTION_ENV) if (env[k]) connection[k] = env[k];
   return {
     mcpServers: {
       [SERVER_NAME]: {
         command: process.execPath,
         args: [path.join(REPO_ROOT, "scripts", "history-mcp.mjs")],
-        env: { DATABASE_URL: databaseUrl(env), LEAN_INTO_IT_READER_ROLE: readerRole(env), LII_HISTORY_LEARNER_ID: learner, PATH: env.PATH ?? "", NODE_NO_WARNINGS: "1" },
+        env: { ...connection, DATABASE_URL: databaseUrl(env), LEAN_INTO_IT_READER_ROLE: readerRole(env), LII_HISTORY_LEARNER_ID: learner, PATH: env.PATH ?? "", NODE_NO_WARNINGS: "1" },
       },
     },
     mcpTools: MCP_TOOLS,
   };
 }
 
-const claudeAgent: Agent = async ({ prompt, systemPrompt, signal, learner }) => (await startClaude({ prompt, systemPrompt, model: DEFAULT_MODEL, cwd: REPO_ROOT, signal, ...historyAccess(learner) }).result).text;
+/** The history tools, or none when they cannot be set up (a bad role name
+ *  in .env.local, say): the Tutor still answers, and says it could not
+ *  read the history if asked to. */
+function historyOrNone(learner: string) {
+  try {
+    return historyAccess(learner);
+  } catch (e) {
+    console.error("[lean-into-it] tutor: the history tools are off for this turn:", (e as Error)?.message || e);
+    return {};
+  }
+}
+
+const claudeAgent: Agent = async ({ prompt, systemPrompt, signal, learner }) => (await startClaude({ prompt, systemPrompt, model: DEFAULT_MODEL, cwd: REPO_ROOT, signal, ...historyOrNone(learner) }).result).text;
 let agent: Agent = claudeAgent;
 /** Tests only: null puts the real agent back. */
 export function setAgent(a: Agent | null): void {

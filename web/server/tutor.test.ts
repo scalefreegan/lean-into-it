@@ -138,11 +138,13 @@ test("the history server is pointed at the turn's learner by its environment, an
   const { learner } = await withDb(t, async (run) => ((got = run.learner), "ok"));
   await call<TutorReply>("POST", "/", { message: "what do I keep getting wrong?", context: { page: "path" } });
   assert.equal(got, learner);
-  const access = historyAccess(learner, { DATABASE_URL: "postgres://localhost/scratch", PATH: "/bin", ELEVENLABS_API_KEY: "k", ANTHROPIC_API_KEY: "k" });
+  // What a Postgres connection reads goes along (pg takes the user's name from USER); no key does.
+  const access = historyAccess(learner, { DATABASE_URL: "postgres://localhost/scratch", PATH: "/bin", USER: "me", HOME: "/h", PGPORT: "5433", ELEVENLABS_API_KEY: "k", ANTHROPIC_API_KEY: "k", PGLITE: "x", SECRET: "s" });
   assert.deepEqual(Object.keys(access.mcpServers), ["history"]);
   const server = access.mcpServers.history;
   assert.match(server.args[0], /scripts\/history-mcp\.mjs$/);
-  assert.deepEqual(server.env, { DATABASE_URL: "postgres://localhost/scratch", LEAN_INTO_IT_READER_ROLE: "lean_tutor_ro", LII_HISTORY_LEARNER_ID: learner, PATH: "/bin", NODE_NO_WARNINGS: "1" });
+  assert.deepEqual(server.env, { USER: "me", HOME: "/h", PGPORT: "5433", DATABASE_URL: "postgres://localhost/scratch", LEAN_INTO_IT_READER_ROLE: "lean_tutor_ro", LII_HISTORY_LEARNER_ID: learner, PATH: "/bin", NODE_NO_WARNINGS: "1" });
+  assert.throws(() => historyAccess(learner, { LEAN_INTO_IT_READER_ROLE: "postgres", DATABASE_URL: "postgres://localhost/scratch" }), /must look like/);
   assert.deepEqual(access.mcpTools, ["mcp__history__recent_attempts", "mcp__history__trouble", "mcp__history__progress"]);
   const prompt = systemPrompt({ lessons: [] } as unknown as Parameters<typeof systemPrompt>[0]);
   assert.match(prompt, /recent_attempts[\s\S]*trouble[\s\S]*progress/);

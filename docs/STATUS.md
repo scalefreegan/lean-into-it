@@ -303,13 +303,15 @@ Landed in the first PR, the foundation slice:
   `0005_tutor_reader`: SELECT on `attempts`, `solved_exercises`, `hints`,
   `level_opens` and `concept_credits`, nothing else, no login), inside a
   read-only transaction; the tests show every write through it failing, on
-  PGlite. The role belongs to the whole Postgres server, so a scratch
+  PGlite. A role of that name with more than those grants is refused, by
+  the migration and again before each read. The queries are the `reader…`
+  functions of `scripts/db/progress.ts`. The role belongs to the whole Postgres server, so a scratch
   database names its own with `LEAN_INTO_IT_READER_ROLE`
   (`lean_tutor_ro_scratch`). The drawer says the Tutor can read the
   attempts. Checked against a real Postgres 17 over stdio; not yet tried
   in a real Tutor turn (that spends a `claude` call), so whether the CLI
   hands the tools to the run under `--restricted` is unproven.
-- Tests: 375, including every reference solution checked by the real Lean,
+- Tests: 382, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

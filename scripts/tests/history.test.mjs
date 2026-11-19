@@ -5,6 +5,11 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { READER_ROLE, READER_TABLES, readerRole } from "../db/config.mjs";
 import { ensureLearner, recordAttempt, recordHint } from "../db/progress.ts";
 import { CAPS, MCP_TOOLS, TOOL_NAMES, configFromEnv, createHistoryServer, fit, historyReader } from "../history-mcp.mjs";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { PGlite } from "@electric-sql/pglite";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { applyMigrations } from "../db/migrations.mjs";
 import { freshDb } from "./testdb.mjs";
 
 // The Tutor's read-only history tools on PGlite with the real migrations:
@@ -22,6 +27,8 @@ const content = () => ({
         { id: "e2", title: "Suppose", concept: "intro-implication", mode: "board" },
       ],
     },
+    // A lesson id that is also a built-in property of every object.
+    { id: "constructor", title: "Typed", level: 1, exercises: [{ id: "t1", title: "Type it", concept: "typed-proof", mode: "typed" }] },
   ],
 });
 
@@ -121,6 +128,107 @@ test("trouble: failed checks by concept and by the move on the refused line, wit
   assert.deepEqual(r.byConcept[0].exercises, ["implies/e1"]);
   // `intro h` was accepted; the refused line is the last one.
   assert.deepEqual(r.byMove.map((m) => [m.move, m.failedChecks, m.checks]), [["exact", 3, 4], ["apply", 1, 1]]);
+});
+
+test("trouble counts a move as mastery does: a refused board proof's last line of code, a refused typed proof none; removed exercises apart", async (t) => {
+  const { db, learner, reader } = await setup(t);
+  await recordAttempt(db, learner, { lessonId: "implies", exerciseId: "e1", body: "apply h\n-- exact h", solved: false, error: "no" });
+  await recordAttempt(db, learner, { lessonId: "constructor", exerciseId: "t1", body: "intro h\napply h", solved: false, error: "no" });
+  await recordAttempt(db, learner, { lessonId: "gone", exerciseId: "x", body: "exact h", solved: false, error: "no" });
+  const r = await reader.trouble();
+  assert.deepEqual([r.checks, r.failedChecks, r.checksOfRemovedExercises], [2, 2, 1]);
+  assert.deepEqual(r.byMove.map((m) => [m.move, m.failedChecks]), [["apply", 1]]);
+  assert.deepEqual(r.byMove.map((m) => m.move), (await reader.progress()).moves.map((m) => m.move));
+  assert.deepEqual(r.byConcept.map((c) => c.concept), ["exact-fact", "typed-proof"]);
+});
+
+test("progress reads a lesson called `constructor` as a lesson, and leaves Object alone", async (t) => {
+  const { db, learner, reader } = await setup(t);
+  await recordAttempt(db, learner, { lessonId: "constructor", exerciseId: "t1", body: "exact h", solved: true });
+  const before = Object.keys(Object);
+  const p = await reader.progress();
+  assert.deepEqual(p.lessonsWorkedOn, [{ lesson: "constructor", title: "Typed", level: 1, solved: 1, exercises: 1 }]);
+  assert.deepEqual(Object.keys(Object), before);
+  assert.equal(p.note, undefined);
+});
+
+/** A database migrated from nothing, with `before` run first and the role named `role`. */
+async function migrated(t, { role, before = [], as } = {}) {
+  const pg = await PGlite.create();
+  t.after(() => pg.close());
+  const query = async (text, params) => (await pg.query(text, params)).rows;
+  for (const sql of before) await query(sql);
+  if (as) await query(`set session authorization "${as}"`);
+  if (role) await query("select set_config('lii.reader_role', $1, false)", [role]);
+  return { query, done: applyMigrations(query) };
+}
+
+test("the migration takes the role's name from lii.reader_role, and refuses a name that is not a reader's", async (t) => {
+  const named = await migrated(t, { role: "lean_tutor_ro_scratch" });
+  await named.done;
+  assert.deepEqual((await named.query("select rolname from pg_roles where rolname like 'lean_tutor%'")).map((r) => r.rolname), ["lean_tutor_ro_scratch"]);
+  const bad = await migrated(t, { role: "postgres" });
+  await assert.rejects(bad.done, /must look like lean_tutor_ro/);
+});
+
+test("a role of that name found already there is not trusted: its attributes are reset, and one with a membership is refused", async (t) => {
+  const loose = await migrated(t, { before: ["create role lean_tutor_ro login createdb createrole inherit"] });
+  await loose.done;
+  assert.deepEqual((await loose.query("select rolcanlogin, rolcreatedb, rolcreaterole, rolinherit from pg_roles where rolname = 'lean_tutor_ro'"))[0], { rolcanlogin: false, rolcreatedb: false, rolcreaterole: false, rolinherit: false });
+  const member = await migrated(t, { before: ["create role lean_tutor_ro", "grant pg_read_all_data to lean_tutor_ro"] });
+  await assert.rejects(member.done, /member of another role/);
+});
+
+test("a reader that can see more than its grants is refused before anything is read", async (t) => {
+  const { query, db, learner } = await setup(t);
+  await recordAttempt(db, learner, { lessonId: "implies", exerciseId: "e1", body: "exact hP", solved: true });
+  await query("grant select on chat_messages to lean_tutor_ro");
+  const reads = [];
+  const spy = async (text, params) => (/from attempts/.test(text) && reads.push(text), query(text, params));
+  await assert.rejects(historyReader({ query: spy, learnerId: learner, content }).recentAttempts(), /more than its grants: true/);
+  assert.equal(reads.length, 0);
+  await query("revoke select on chat_messages from lean_tutor_ro");
+  // A membership it inherits from gives it every table.
+  await query("grant pg_read_all_data to lean_tutor_ro with inherit true");
+  await assert.rejects(historyReader({ query, learnerId: learner, content }).progress(), /more than its grants/);
+});
+
+test("migrated by a role that is not a superuser, the reader can still be entered, and still cannot write", async (t) => {
+  const { query, done } = await migrated(t, {
+    before: ["create role app login createrole nosuperuser", "grant all on database postgres to app", "grant all on schema public to app"],
+    as: "app",
+  });
+  await done;
+  assert.deepEqual((await query("select current_user as u, (select rolsuper from pg_roles where rolname = current_user) as su"))[0], { u: "app", su: false });
+  const [{ id: learner }] = await query("insert into learners (name) values ('L') returning id");
+  await query("insert into attempts (learner_id, lesson_id, exercise_id, body, solved) values ($1, 'implies', 'e1', 'exact hP', true)", [learner]);
+  const { attempts } = await historyReader({ query, learnerId: learner, content }).recentAttempts();
+  assert.equal(attempts.length, 1);
+  await query("begin");
+  await query("set local role lean_tutor_ro");
+  await assert.rejects(query("delete from attempts"), /permission denied/);
+  await query("rollback");
+  // Membership lets `app` become the reader; it inherits nothing from it.
+  assert.deepEqual((await query("select bool_or(inherit_option) as inherit_option, bool_or(set_option) as set_option from pg_auth_members m join pg_roles r on r.oid = m.roleid where r.rolname = 'lean_tutor_ro'"))[0], { inherit_option: false, set_option: true });
+});
+
+test("the real process over stdio: it lists its tools, fails in plain words with no database, and ends with its stdin", async (t) => {
+  const script = fileURLToPath(new URL("../history-mcp.mjs", import.meta.url));
+  const env = { PATH: process.env.PATH ?? "", NODE_NO_WARNINGS: "1", DATABASE_URL: "postgres://127.0.0.1:1/nothing", LII_HISTORY_LEARNER_ID: "0b0e7b5e-1111-4222-8333-444455556666" };
+  const client = new Client({ name: "test", version: "1" });
+  await client.connect(new StdioClientTransport({ command: process.execPath, args: [script], env, stderr: "ignore" }));
+  assert.deepEqual((await client.listTools()).tools.map((x) => x.name).sort(), [...TOOL_NAMES].sort());
+  const r = await client.callTool({ name: "progress", arguments: {} });
+  assert.equal(r.isError, true);
+  assert.equal(r.content[0].text, "The learner's history could not be read just now.");
+  await client.close();
+  // Started with no learner, it refuses to start at all.
+  const child = spawn(process.execPath, [script], { env: { ...env, LII_HISTORY_LEARNER_ID: "" }, stdio: ["ignore", "ignore", "pipe"] });
+  let err = "";
+  child.stderr.on("data", (d) => (err += d));
+  const code = await new Promise((done) => child.on("exit", done));
+  assert.equal(code, 1);
+  assert.match(err, /LII_HISTORY_LEARNER_ID must be a uuid/);
 });
 
 test("trouble looks back only as far as asked", async (t) => {

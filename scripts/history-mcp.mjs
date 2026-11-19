@@ -15,16 +15,20 @@
 // The learner is fixed when the process starts, from the environment the
 // app wrote into the MCP config (LII_HISTORY_LEARNER_ID), never from a tool
 // argument. Three layers keep it to reading that learner's history:
-//   1. Every query here is fixed SQL with bind parameters (no SQL from the
-//      model) and names the learner in its WHERE.
+//   1. Every query is fixed SQL with bind parameters (no SQL from the
+//      model) and names the learner in its WHERE. The queries are the
+//      `reader…` functions of scripts/db/progress.ts, with every other
+//      read of the personal tables.
 //   2. Every tool call is one READ ONLY transaction on one connection,
 //      inside which it does SET LOCAL ROLE to the reader role
 //      (lean_tutor_ro, migration 0005). That role may SELECT the attempt
 //      and progress tables only: not the chat, not a setting, and it can
 //      write nothing.
 //   3. Before reading, the transaction checks it really is that role,
-//      read-only, and not a superuser; and each connection is read-only by
-//      default, checked when it opens.
+//      read-only, not a superuser, and that the role cannot in fact read
+//      the chat or the learner row or write an attempt (a role of that
+//      name with more than migration 0005 gives it is refused); and each
+//      connection is read-only by default, checked when it opens.
 // What the layers do not cover: the connection's own role is the app's, and
 // the reader is entered with SET ROLE, so arbitrary SQL could RESET ROLE.
 // Layer 1 rules that out: this file never runs SQL it did not write.
@@ -41,7 +45,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { READER_ROLE, READER_ROLE_RE } from "./db/config.mjs";
-import { isDue, levelOpen, levelStatuses, masteryFrom, reviewSession, tacticsIn, tacticsOf } from "../web/shared/progress.ts";
+import { readerAttempts, readerAttemptsForMastery, readerCredits, readerLevelOpens, readerSolved } from "./db/progress.ts";
+import { isDue, lastLine, levelOpen, levelStatuses, masteryFrom, reviewSession, solvedOf, tacticsIn, tacticsOf } from "../web/shared/progress.ts";
 
 /* ---------------------------------- caps ---------------------------------- */
 
@@ -58,9 +63,12 @@ export const CAPS = {
   /** trouble: concepts, moves and example errors listed. */
   troubleList: 15,
   examples: 3,
-  /** Every attempt there is, for mastery: a learner has a few thousand. */
+  /** progress: the newest checks mastery is worked out from (a learner
+   *  has a few thousand); past this the result says so. */
   allScan: 50_000,
-  /** UTF-8 bytes of any tool's result. */
+  /** UTF-8 bytes of a result: recent_attempts drops attempts, and
+   *  progress concepts, from the end of the list to fit. trouble's lists
+   *  are short by count (troubleList, examples). */
   resultBytes: 60_000,
 };
 
@@ -127,8 +135,13 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
       try {
         await q(`set local role "${role}"`);
         await q("select set_config('statement_timeout', $1, true)", [String(TIMEOUT_MS)]);
-        const [who] = await q("select current_user as role, current_setting('transaction_read_only') as ro, r.rolsuper as su from pg_roles r where r.rolname = current_user");
-        if (!who || who.role !== role || who.ro !== "on" || who.su) throw new Error(`history reader: refusing to read as ${who?.role} (read only: ${who?.ro}, superuser: ${who?.su})`);
+        const [who] = await q(
+          `select current_user as role, current_setting('transaction_read_only') as ro, r.rolsuper or r.rolbypassrls as su,
+                  has_table_privilege('public.chat_messages', 'select') or has_table_privilege('public.learners', 'select')
+                    or has_table_privilege('public.attempts', 'insert, update, delete, truncate') as more
+             from pg_roles r where r.rolname = current_user`,
+        );
+        if (!who || who.role !== role || who.ro !== "on" || who.su || who.more) throw new Error(`history reader: refusing to read as ${who?.role} (read only: ${who?.ro}, superuser: ${who?.su}, more than its grants: ${who?.more})`);
         return await fn(q);
       } finally {
         await q("rollback").catch(() => {});
@@ -151,28 +164,11 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
     ...(found ? { lessonTitle: found.lesson.title, exerciseTitle: found.exercise.title, concept: found.exercise.concept, level: found.lesson.level } : { removed: true }),
   });
 
-  const everyAttempt = (q) =>
-    q(
-      `select lesson_id as "lessonId", exercise_id as "exerciseId", body, solved, assisted, created_at as "createdAt"
-         from attempts where learner_id = $1 order by created_at asc, id asc limit $2`,
-      [learnerId, CAPS.allScan],
-    );
-
   return {
     /** Checks of exercises, newest first. */
     recentAttempts: ({ limit = CAPS.recentDefault, lesson, exercise, failedOnly = false } = {}) =>
       inScope(async (q) => {
-        const rows = await q(
-          `select lesson_id, exercise_id, body, solved, error, rung, assisted, created_at
-             from attempts
-            where learner_id = $1
-              and ($2::text is null or lesson_id = $2)
-              and ($3::text is null or exercise_id = $3)
-              and (not $4::boolean or not solved)
-            order by created_at desc, id desc
-            limit $5`,
-          [learnerId, lesson ?? null, exercise ?? null, failedOnly, Math.min(Math.max(1, limit), CAPS.recentMax)],
-        );
+        const rows = await readerAttempts(q, learnerId, { lesson, exercise, failedOnly, limit: Math.min(Math.max(1, limit), CAPS.recentMax) });
         const { find } = index();
         return fit(
           {
@@ -191,19 +187,16 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
       }),
 
     /** What goes wrong: failed checks in the last `days`, by concept and by
-     *  move (the moves on the last line of a refused proof, which is where
-     *  a proof built a line at a time fails), with the commonest errors. */
+     *  move, with the commonest errors. A move is counted as mastery counts
+     *  it (web/shared/progress.ts masteryFrom), so this and `progress`
+     *  agree: every move of an accepted proof, and for a refused one on
+     *  the proof board the move on its last line (the board refuses a
+     *  proof at the line just added). A refused typed proof names no move.
+     *  Checks of exercises the content no longer has are counted apart. */
     trouble: ({ days = CAPS.daysDefault } = {}) =>
       inScope(async (q) => {
         const span = Math.min(Math.max(1, days), CAPS.daysMax);
-        const rows = await q(
-          `select lesson_id, exercise_id, body, solved, error, created_at
-             from attempts
-            where learner_id = $1 and created_at > $2
-            order by created_at desc, id desc
-            limit $3`,
-          [learnerId, new Date(now().getTime() - span * 86_400_000), CAPS.troubleScan],
-        );
+        const rows = await readerAttempts(q, learnerId, { since: new Date(now().getTime() - span * 86_400_000), limit: CAPS.troubleScan });
         const { c, find } = index();
         const moves = tacticsOf(c);
         const tally = () => new Map();
@@ -220,14 +213,20 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
           }
           map.set(key, t);
         };
+        let checks = 0;
         let failed = 0;
+        let removed = 0;
         for (const r of rows) {
           const found = find(r.lesson_id, r.exercise_id);
-          if (!found) continue;
+          if (!found) {
+            removed++;
+            continue;
+          }
+          checks++;
           if (!r.solved) failed++;
           bump(byConcept, found.exercise.concept, r, !r.solved);
-          const lines = String(r.body).split("\n").filter((l) => l.trim());
-          for (const move of tacticsIn(r.solved ? r.body : (lines.at(-1) ?? ""), moves)) bump(byMove, move, r, !r.solved);
+          const used = r.solved ? tacticsIn(String(r.body), moves) : found.exercise.mode === "board" ? tacticsIn(lastLine(String(r.body)), moves) : [];
+          for (const move of used) bump(byMove, move, r, !r.solved);
         }
         const listed = (map, name) =>
           [...map.entries()]
@@ -243,8 +242,9 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
             }));
         return {
           days: span,
-          checks: rows.length,
+          checks,
           failedChecks: failed,
+          ...(removed ? { checksOfRemovedExercises: removed } : {}),
           ...(rows.length === CAPS.troubleScan ? { note: `only the newest ${CAPS.troubleScan} checks were read` } : {}),
           byConcept: listed(byConcept, "concept"),
           byMove: listed(byMove, "move"),
@@ -255,14 +255,18 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
      *  same working-out as the Path and the Review page (web/shared/progress.ts). */
     progress: () =>
       inScope(async (q) => {
-        const rows = await everyAttempt(q);
-        const credits = await q(`select concept, credited_at as "creditedAt", due_at as "dueAt" from concept_credits where learner_id = $1`, [learnerId]);
-        const opened = await q(`select level, how, opened_at as "openedAt" from level_opens where learner_id = $1`, [learnerId]);
-        const solvedRows = await q(`select lesson_id, exercise_id, solved_at from solved_exercises where learner_id = $1`, [learnerId]);
+        const rows = await readerAttemptsForMastery(q, learnerId, CAPS.allScan);
+        const credits = await readerCredits(q, learnerId);
+        const opened = await readerLevelOpens(q, learnerId);
+        const solvedRows = await readerSolved(q, learnerId);
         const { c } = index();
         const map = masteryFrom(c, rows, credits);
-        const solved = {};
-        for (const s of solvedRows) (solved[s.lesson_id] ??= {})[s.exercise_id] = { solvedAt: iso(s.solved_at), solution: "" };
+        // No prototype: a lesson may be called `constructor`.
+        const solved = Object.create(null);
+        for (const s of solvedRows) {
+          if (!Object.hasOwn(solved, s.lesson_id)) solved[s.lesson_id] = Object.create(null);
+          solved[s.lesson_id][s.exercise_id] = true;
+        }
         const levels = levelStatuses(c, map, opened, rows, solved);
         const at = now();
         const score = (kind) =>
@@ -278,15 +282,16 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
               ...(m.creditedAt ? { creditedByPlacement: true } : {}),
             }))
             .sort((a, b) => a.mastery - b.mastery);
-        const lessons = c.lessons.map((l) => ({ lesson: l.id, title: l.title, level: l.level, solved: l.exercises.filter((e) => solved[l.id]?.[e.id]).length, exercises: l.exercises.length })).filter((l) => l.solved > 0);
-        return {
+        const lessons = c.lessons.map((l) => ({ lesson: l.id, title: l.title, level: l.level, solved: l.exercises.filter((e) => solvedOf(solved, l.id, e.id)).length, exercises: l.exercises.length })).filter((l) => l.solved > 0);
+        return fit({
           checksOnRecord: rows.length,
+          ...(rows.length === CAPS.allScan ? { note: `only the newest ${CAPS.allScan} checks were read; older ones are not in these figures` } : {}),
           concepts: score("concepts"),
           moves: score("tactics"),
           dueForReviewToday: reviewSession(c, map, rows, at, (level) => levelOpen(levels, level)).map((r) => ({ lesson: r.lessonId, exercise: r.exerciseId, concept: r.concept })),
           lessonsWorkedOn: lessons,
           levels: levels.map((s) => ({ level: s.level, state: s.state })),
-        };
+        }, "concepts");
       }),
   };
 }
@@ -334,7 +339,7 @@ export function createHistoryServer(reader) {
     "trouble",
     {
       title: "What goes wrong",
-      description: `Where the learner's checks fail: over the last days, the concepts and the moves (tactics) with the most refused checks, the exercises they were on, and Lean's commonest first error lines. A move is counted from the last line of a refused proof. ${DATA_NOTE}`,
+      description: `Where the learner's checks fail: over the last days, the concepts and the moves (tactics) with the most refused checks, the exercises they were on, and Lean's commonest first error lines. A move is counted as the Moves page counts it: every move of an accepted proof, and for a refused proof on the proof board the move on its last line (a refused typed proof names no move; read it with recent_attempts). ${DATA_NOTE}`,
       inputSchema: { days: z.number().int().min(1).max(CAPS.daysMax).optional().describe(`how far back (default ${CAPS.daysDefault} days)`) },
       annotations: readOnly,
     },
