@@ -46,7 +46,8 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   and no agent, grades. The learner's body must not be able to decide for
   Lean: it sits in brackets inside the `by` block, may not close them or
   name a way to run a program (`escapesIn`), and Lean's axiom report after
-  the theorem must arrive and be clean. Read the notes at the top of
+  the theorem must arrive and be clean, and so must the kernel replay under
+  it (`#lii_replay`, `lean/LeanIntoIt/Replay.lean`). Read the notes at the top of
   `proof.ts` before changing how the source is assembled.
 - The statement comes from the exercise file, never from the browser: the
   client sends a proof body and the server assembles the source.

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { assemble, axiomsOf, isBlank, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Diagnostic, gapPosition, fillBody, fillProblem, GAP, gapLine } from "./proof.ts";
+import { assemble, axiomsOf, replayOf, isBlank, bodyLines, endOfBody, escapesIn, forbiddenIn, isLinterRemark, judge as judgeWith, lex, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Diagnostic, gapPosition, fillBody, fillProblem, GAP, gapLine } from "./proof.ts";
 
-/** judge with nothing forbidden and Lean's report that no axiom is used, unless said otherwise. */
-const judge = (diagnostics: BodyDiagnostic[], body: string, forbid: string[] = [], axioms: string[] | null = []) => judgeWith(diagnostics, body, forbid, axioms);
+/** judge with nothing forbidden, Lean's report that no axiom is used, and the kernel replay's "ok", unless said otherwise. */
+const judge = (diagnostics: BodyDiagnostic[], body: string, forbid: string[] = [], axioms: string[] | null = [], replay: string | null = "ok") => judgeWith(diagnostics, body, forbid, axioms, replay);
 
 const at = (line: number, message: string, severity: Diagnostic["severity"] = "error"): Diagnostic => ({
   severity,
@@ -15,12 +15,12 @@ const at = (line: number, message: string, severity: Diagnostic["severity"] = "e
 test("the source is the statement as a named theorem, the body in brackets under by, then the axiom report", () => {
   assert.equal(
     assemble("(P : Prop)  (hP : P) :\n P", "exact hP\n\n"),
-    "import Mathlib\n\ntheorem lii_exercise (P : Prop) (hP : P) : P := by\n  (\n    exact hP\n  )\n\n#print axioms lii_exercise\n",
+    "import Mathlib import LeanIntoIt.Replay\n\ntheorem lii_exercise (P : Prop) (hP : P) : P := by\n  (\n    exact hP\n  )\n\n#print axioms lii_exercise\n#lii_replay\n",
   );
 });
 
 test("an empty body is sent as a tactic that does nothing, so Lean reports the opening goal", () => {
-  assert.equal(assemble("(P : Prop) : P → P", "  \n"), "import Mathlib\n\ntheorem lii_exercise (P : Prop) : P → P := by\n  (\n    skip\n  )\n\n#print axioms lii_exercise\n");
+  assert.equal(assemble("(P : Prop) : P → P", "  \n"), "import Mathlib import LeanIntoIt.Replay\n\ntheorem lii_exercise (P : Prop) : P → P := by\n  (\n    skip\n  )\n\n#print axioms lii_exercise\n#lii_replay\n");
   assert.deepEqual(toSource(endOfBody("")), { line: 4, character: 8 });
 });
 
@@ -253,7 +253,7 @@ test("something left open is blamed on the line that opened it, with the message
   assert.equal(blamed("apply hPQ\nexact hP +", 5, "unexpected token ')'; expected term"), 1);
   assert.equal(blamed("intro h\nexact h\n-- note", 9, "unexpected token '#print'; expected term"), 1);
   // A comment never closed is blamed on the line where it starts.
-  assert.equal(blamed("apply hPQ\n/- never closed\nexact hP", 10, "unterminated comment"), 1);
+  assert.equal(blamed("apply hPQ\n/- never closed\nexact hP", 11, "unterminated comment"), 1);
   // An ordinary error is left on its own line.
   assert.equal(blamed("apply (hPQ)\nexact hPQ", 5, "Type mismatch"), 1);
 });
@@ -274,7 +274,7 @@ test("a forbidden name without a dot is found after one; a tactic's relatives ar
 test("an exercise's own definitions sit between the import and the theorem, and every line number moves with them", () => {
   const given = "def twice (n : ℕ) : ℕ := n + n\n\ndef thrice (n : ℕ) : ℕ := n + n + n\n";
   const source = assemble(": twice 2 = 4", "rfl", given).split("\n");
-  assert.deepEqual(source.slice(0, 8), ["import Mathlib", "", "def twice (n : ℕ) : ℕ := n + n", "", "def thrice (n : ℕ) : ℕ := n + n + n", "", "theorem lii_exercise : twice 2 = 4 := by", "  ("]);
+  assert.deepEqual(source.slice(0, 8), ["import Mathlib import LeanIntoIt.Replay", "", "def twice (n : ℕ) : ℕ := n + n", "", "def thrice (n : ℕ) : ℕ := n + n + n", "", "theorem lii_exercise : twice 2 = 4 := by", "  ("]);
   // Three lines of definitions and a blank: the body starts four lines further down.
   assert.deepEqual(toSource({ line: 0, character: 0 }, given), { line: 8, character: 4 });
   assert.equal(source[8], "    rfl");
@@ -301,13 +301,13 @@ test("a ring that left its goal open is an error in a proof Lean has not accepte
   // The goal it ran on is still there afterwards, rewritten: the move failed.
   const open = after([ring, unsolved], [["⊢ A"], ["⊢ A'"]]);
   assert.deepEqual(open[0], { severity: "error", message: "The `ring` tactic failed to close the goal.", line: 0 });
-  assert.equal(judgeWith(open, "ring", [], []).error?.message, "The `ring` tactic failed to close the goal.");
+  assert.equal(judgeWith(open, "ring", [], [], "ok").error?.message, "The `ring` tactic failed to close the goal.");
   assert.equal(after([ring, unsolved], [[left, right], [left, right]])[0].severity, "error");
 
   // One goal fewer afterwards: its standard form closed the goal, and the error is about something else.
   assert.equal(after([ring, unsolved], [[left, right], [right]])[0].severity, "info");
   assert.equal(after([ring, unsolved], [["⊢ A"], []])[0].severity, "info");
-  assert.equal(judgeWith(after([ring, unsolved], [["⊢ A"], []]), "ring", [], []).error, null);
+  assert.equal(judgeWith(after([ring, unsolved], [["⊢ A"], []]), "ring", [], [], "ok").error, null);
   // Lean could not say what the goals were: nothing is called wrong on a guess.
   assert.equal(after([ring, unsolved], [null, null])[0].severity, "info");
   assert.equal(after([ring, unsolved], [])[0].severity, "info");
@@ -346,11 +346,34 @@ test("a fill is one line that stays in its gap", () => {
 test("in a fill-the-gap exercise the forbid list is about the fill, not the proof around it", () => {
   const body = "rw [abs_lt] at h\nlinarith";
   const axioms = ["propext"];
-  assert.equal(judgeWith([], body, ["linarith"], axioms).solved, false, "a whole proof may not use it");
-  assert.deepEqual(judgeWith([], body, ["linarith"], axioms, "abs_lt").forbidden, []);
-  assert.equal(judgeWith([], body, ["linarith"], axioms, "abs_lt").solved, true);
+  assert.equal(judgeWith([], body, ["linarith"], axioms, "ok").solved, false, "a whole proof may not use it");
+  assert.deepEqual(judgeWith([], body, ["linarith"], axioms, "ok", "abs_lt").forbidden, []);
+  assert.equal(judgeWith([], body, ["linarith"], axioms, "ok", "abs_lt").solved, true);
   assert.deepEqual(judgeWith([], body, ["abs_lt"], axioms, "abs_lt").forbidden, ["abs_lt"]);
   // Everything else is still judged on the whole body.
   assert.match(judgeWith([], "rw [abs_lt] at h\nrun_tac foo", [], axioms, "abs_lt").refusal ?? "", /run_tac/);
   assert.equal(judgeWith([], body, [], null, "abs_lt").solved, false);
+});
+
+test("solved needs the kernel replay's ok on its own line; a refusal or no report is not solved", () => {
+  const body = "exact hP";
+  const source = assemble("(P : Prop) (hP : P) : P", body).split("\n");
+  const line = source.indexOf("#lii_replay");
+  assert.equal(source[line - 1], "#print axioms lii_exercise");
+  const ok = at(line, "lii-replay: ok, 1 constants", "info");
+  assert.equal(replayOf([ok], body), "ok");
+  assert.equal(replayOf([], body), null, "no report");
+  assert.equal(replayOf([{ ...ok, start: { line: 4, character: 4 }, end: { line: 4, character: 9 } }], body), null, "an ok from the body's lines does not count");
+  assert.match(replayOf([ok, at(line, "lii-replay: the kernel refused this: …")], body) ?? "", /refused/, "a refusal beats an ok");
+  assert.equal(judge([], body, [], [], "ok").solved, true);
+  const missing = judge([], body, [], [], null);
+  assert.equal(missing.solved, false);
+  assert.match(missing.refusal ?? "", /a second time/);
+  const refused = judge([], body, [], [], "lii-replay: the kernel refused this");
+  assert.equal(refused.solved, false);
+  assert.match(refused.refusal ?? "", /refused part of it/);
+  // The replay's own messages never reach the learner's lines.
+  assert.deepEqual(toBody([ok, at(line, "lii-replay: the kernel refused this")], body), []);
+  // Any other message on that line is Lean's about the proof, and stays.
+  assert.equal(toBody([at(line, "unterminated comment")], body).length, 1);
 });
