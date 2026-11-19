@@ -232,7 +232,14 @@ Landed in the first PR, the foundation slice:
   kernel's own check is heavy (it is done twice: 75 ms measured for a
   `decide`-heavy proof). It runs in the same Lean process, so it is a
   second layer under the word list, not a replacement for it.
-- Tests: 295, including every reference solution checked by the real Lean,
+- The Lean editor is CodeMirror 6 (`lii-8wq.3`), in typed exercises and
+  the Playground, behind the same props: Lean's colours, backslash symbol
+  names, Tab as two spaces, completion of tactic names and of the names in
+  the current goal, a wavy underline under the exact span Lean pointed at
+  (`BodyDiagnostic.range`, in the body's own columns) and Lean's message
+  on hover. What it knows without asking Lean is pure and tested
+  (`web/shared/leaneditor.ts`).
+- Tests: 302, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -252,7 +259,7 @@ until it is added.
 
 ## Remaining
 
-33 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+33 beads in 12 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -269,8 +276,13 @@ land first.
 |---|---|---|---|
 | `lii-8wq.1` | Ladder fading: the move palette fades into typed Lean | 2 | |
 | `lii-8wq.2` | Live proof map | 2 | `lii-1ou.3` |
-| `lii-8wq.3` | Lean editor: syntax colouring, completion and inline error marks | 2 | |
 | `lii-8wq.6` | obtain on a fact that is not an and, or, iff or exists | 3 | |
+
+### App shell
+
+| Bead | Title | P | Needs |
+|---|---|---|---|
+| `lii-h1d` | The top navigation is wider than a phone screen | 3 | |
 
 ### Widgets (epic `lii-53v`)
 

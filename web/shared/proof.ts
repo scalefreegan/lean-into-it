@@ -53,6 +53,9 @@ export interface BodyDiagnostic {
   /** 0-based line in the learner's body; null when Lean pointed at the
    *  statement (as it does for "unsolved goals"). */
   line: number | null;
+  /** Where in the body Lean pointed, for an editor to underline. Only when
+   *  `line` is the line Lean named (not one the blame was moved to). */
+  range?: { start: Position; end: Position };
 }
 
 /** One line, so that adding the replay's import moved no line number. */
@@ -437,10 +440,25 @@ export function toBody(diagnostics: Diagnostic[], body: string, given = ""): Bod
   // The axiom report and the replay are the server's questions, judged on their own (judge).
   return diagnostics
     .filter((d) => !isLinterRemark(d) && !(d.severity === "info" && d.start.line === audit) && !(d.start.line === replay && /^lii-replay: /.test(d.message)))
-    .map((d) => {
+    .map((d): BodyDiagnostic => {
       const line = d.start.line - first;
-      return { severity: d.severity, message: d.message, line: line < 0 ? null : blame(d.message, line, body) };
+      const at = line < 0 ? null : blame(d.message, line, body);
+      const range = at !== null && at === line ? bodyRange(d, first, body) : null;
+      return { severity: d.severity, message: d.message, line: at, ...(range ? { range } : {}) };
     });
+}
+
+/** A diagnostic's span in the body's own lines and columns, cut off at the body's end. */
+function bodyRange(d: Diagnostic, first: number, body: string): { start: Position; end: Position } | null {
+  const lines = bodyLines(body);
+  const line = d.start.line - first;
+  if (line >= lines.length) return null;
+  const column = (c: number) => Math.max(0, c - INDENT.length);
+  const start = { line, character: Math.min(column(d.start.character), lines[line].length) };
+  const last = d.end.line - first;
+  const end = last >= lines.length ? { line: lines.length - 1, character: lines[lines.length - 1].length } : { line: last, character: Math.min(column(d.end.character), lines[last].length) };
+  if (end.line < start.line || (end.line === start.line && end.character < start.character)) return null;
+  return { start, end };
 }
 
 /*

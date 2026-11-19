@@ -54,6 +54,11 @@ export function Playground() {
   const diagnostics = live.reply?.diagnostics ?? [];
   const errors = diagnostics.filter((d) => d.severity === "error");
   const goals = live.reply?.cursorGoals ?? null;
+  // Names to complete: those of the goal at the caret, or of the last goal
+  // there was (just after a line Lean refused it reports no goal at all).
+  const here = (goals ?? []).flatMap((g) => g.hypotheses.flatMap((h) => h.names));
+  const [names, setNames] = useState<string[]>([]);
+  if (here.length && here.join(" ") !== names.join(" ")) setNames(here);
 
   return (
     <div className="mx-auto flex max-w-[2400px] flex-col gap-4">
@@ -69,7 +74,7 @@ export function Playground() {
 
       <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
         <div className="flex min-w-0 flex-col gap-2">
-          <LeanEditor label="Lean playground" value={source} rows={18} errorLines={errors.map((d) => d.line)} onChange={change} onCaret={setCaret} />
+          <LeanEditor label="Lean playground" value={source} rows={18} errorLines={errors.map((d) => d.line)} marks={diagnostics} stale={live.checking} names={names} onChange={change} onCaret={setCaret} />
           <SymbolHelp />
         </div>
 
