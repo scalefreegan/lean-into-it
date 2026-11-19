@@ -7,6 +7,7 @@ import { parseGoals } from "../shared/goals.ts";
 import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
+import { bareAnswer, COUNTER_PREFIX, counterBody, negation, readAnswer, splitStatement, valuesProblem, wrongSide } from "../shared/truefalse.ts";
 import { hintRung, recordAttempt, solvedSince } from "../../scripts/db/progress.ts";
 import { startOfDay } from "../shared/progress.ts";
 import { learnerId, rawDb } from "./db.ts";
@@ -48,8 +49,8 @@ export function leanError(e: unknown): unknown {
  * the body is the exercise's own proof with it put there.
  */
 export async function checkExercise(lean: LeanServer, exercise: Exercise, answer: string, cursor?: Position): Promise<CheckReply> {
+  if (exercise.kind === "truefalse") return checkTrueFalse(lean, exercise, answer, cursor);
   if (exercise.kind !== "fill") return checkBody(lean, exercise, answer, answer, cursor);
-  const refuse = (refusal: string | null): CheckReply => ({ solved: false, goals: [], cursorGoals: null, error: null, diagnostics: [], forbidden: [], refusal });
   const fill = answer.trim();
   // What the missing step has to prove is the state where the gap starts.
   // Where the gap is part of a term Lean has no state there, and the state
@@ -67,6 +68,41 @@ export async function checkExercise(lean: LeanServer, exercise: Exercise, answer
   if (wrong) return refuse(wrong);
   if (exercise.options.length && !exercise.options.includes(fill)) return refuse("That is not one of the choices.");
   return checkBody(lean, exercise, fillBody(exercise.proof, fill), fill, gap, lineStart);
+}
+
+const refuse = (refusal: string | null): CheckReply => ({ solved: false, goals: [], cursorGoals: null, error: null, diagnostics: [], forbidden: [], refusal });
+
+/**
+ * Kind `truefalse` (web/shared/truefalse.ts). The true side is a proof of
+ * the statement, checked as for `prove`. The false side is a proof of the
+ * claim's negation that the server writes around the learner's values (and
+ * their proof lines, with `witness: proof`); what Lean says is moved back
+ * onto the learner's own lines. The side Lean has not backed up is refused
+ * with the exercise's `why`, before Lean is asked anything.
+ */
+async function checkTrueFalse(lean: LeanServer, exercise: Exercise, text: string, cursor?: Position): Promise<CheckReply> {
+  const tf = exercise.truefalse!;
+  const answer = readAnswer(text);
+  if (typeof answer === "string") return refuse(answer);
+  if ((answer.side === "true") !== tf.truth) return refuse(wrongSide(tf.truth, tf.why));
+  if (answer.side === "true") return checkBody(lean, exercise, answer.body, answer.body, cursor);
+  if (!answer.values.length) return refuse(null);
+  const wrong = valuesProblem(answer.values, tf.names);
+  if (wrong) return refuse(wrong);
+  const split = splitStatement(exercise.statement);
+  if (!split) return refuse("This exercise's statement cannot be read.");
+  const written = tf.witness === "proof" ? answer.body : answer.values.join(", ");
+  const negated = { ...exercise, statement: negation(split).replace(/^:\s*/, ": ") };
+  const shift = (p?: Position) => (p ? { line: p.line + COUNTER_PREFIX, character: p.character } : undefined);
+  const reply = await checkBody(lean, negated, counterBody(answer.values, tf.close, tf.witness, answer.body), written, tf.witness === "proof" ? shift(cursor) : undefined);
+  // Lines the server wrote are not the learner's: what Lean says about them is said about the values.
+  const back = <T extends { line: number | null }>(d: T): T => ({ ...d, line: tf.witness === "proof" && d.line !== null && d.line >= COUNTER_PREFIX ? d.line - COUNTER_PREFIX : null });
+  const diagnostics = reply.diagnostics.map(back);
+  if (tf.witness === "values" && !reply.solved && !reply.refusal && !reply.forbidden.length) {
+    const said = reply.error?.message.split("\n")[0] ?? "it leaves something unproved";
+    return { ...reply, error: null, diagnostics, refusal: `Lean could not show that the claim fails at ${tf.names.map((n, i) => `${n} = ${answer.values[i]}`).join(", ")}: these values may not be a counterexample. (Lean says: ${said})` };
+  }
+  return { ...reply, diagnostics, error: reply.error ? back(reply.error) : null };
 }
 
 /**
@@ -132,8 +168,11 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
   // A fill is kept as it was checked, without the spaces around it.
   const body = exercise.kind === "fill" ? input.body.trim() : input.body;
   const reply = await withLean((lean) => checkExercise(lean, exercise, body, cursor));
-  // Looking at an empty gap is not an attempt at it.
-  if (exercise.kind !== "fill" || body) await keep(lesson.id, exercise.id, body, reply, input.record);
+  // Looking at an empty gap is not an attempt at it, nor is choosing the
+  // right side of a true-or-false before writing anything (the wrong side is).
+  const tf = exercise.kind === "truefalse" ? readAnswer(body) : null;
+  const bare = (exercise.kind === "fill" && !body) || (tf !== null && (typeof tf === "string" || (bareAnswer(tf, exercise.truefalse!.witness) && reply.refusal === null)));
+  if (!bare) await keep(lesson.id, exercise.id, body, reply, input.record);
   sendJson(res, 200, reply);
 }
 

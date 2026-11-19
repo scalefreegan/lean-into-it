@@ -3,6 +3,7 @@ import { stateBlocks } from "./goals.ts";
 import { isMove } from "./moves.ts";
 import { readInterval, readPoint } from "./numberline.ts";
 import { escapesIn, fillBody, fillProblem, GAP, lex } from "./proof.ts";
+import { splitStatement, valuesProblem } from "./truefalse.ts";
 
 // The catalogue of widgets a lesson may embed and exercise kinds it may
 // declare, with the parameters each accepts. This file is the single source
@@ -186,7 +187,7 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
   },
 };
 
-export type ExerciseKind = "prove" | "fill";
+export type ExerciseKind = "prove" | "fill" | "truefalse";
 
 /** What is wrong with a statement and its definitions, whatever the kind. */
 function statementProblems(p: Params): string[] {
@@ -282,6 +283,71 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
         if (new Set(options).size !== options.length) out.push("`options` lists the same choice twice");
         if (typeof p.solution === "string" && !options.includes(p.solution.trim())) out.push("`options` must include the `solution`");
       }
+      return out;
+    },
+  },
+  truefalse: {
+    doc: "A claim to decide. The learner says whether it is true or false, then backs that up: a proof when it is true, a counterexample when it is false (a value for each variable of the statement, which Lean checks by proving the claim's negation). Picking the side Lean has not backed up is answered at once with `why`. Lean decides either way.",
+    label: "True or false",
+    params: {
+      says: { type: "string", required: true, doc: "The claim in plain English, as a mathematician would say it. Shown above the exercise." },
+      statement: { type: "text", required: true, doc: "The claim in Lean: binder groups, a colon, the claim. A false claim's conditions go in the claim (`n > 0 → …`), not in binders: a counterexample gives a value for every `( )` binder." },
+      given: { type: "text", doc: "Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`." },
+      truth: { type: "boolean", required: true, doc: "Whether the claim holds. `npm test` checks the reference answer on that side against the real Lean." },
+      why: { type: "text", required: true, doc: "Said to a learner who picks the other side: why the claim is true, or where it fails, in a sentence or two." },
+      solution: { type: "text", doc: "The reference proof: required when `truth` is true (a proof of the statement), and with `witness: proof` (a proof of False from hc, the claim at the counterexample's values)." },
+      counterexample: { type: "string", doc: "Required when `truth` is false: a value for each variable, in order, separated by commas, like `1` or `2, 3`. Numbers only." },
+      close: { type: "string", doc: "With `witness: values`: the tactic that shows the claim fails at the values given. Default norm_num; decide for small cases." },
+      witness: { type: "enum:values|proof", doc: "What a counterexample takes from the learner: only the values (default; `close` does the rest), or the values and the proof that they work." },
+      forbid: { type: "string[]", doc: "Names that may not appear in what the learner writes." },
+    },
+    examples: [
+      {
+        says: "For every natural number n, n² is at least 2n.",
+        statement: "(n : ℕ) : n ^ 2 ≥ 2 * n",
+        truth: false,
+        why: "At n = 1, n² is 1 and 2n is 2. (From n = 2 on it does hold.)",
+        counterexample: "1",
+      },
+      {
+        says: "For every natural number n, n² + n is even.",
+        statement: "(n : ℕ) : Even (n ^ 2 + n)",
+        truth: true,
+        why: "n² + n = n(n + 1), and one of two numbers in a row is even.",
+        solution: "have h : n ^ 2 + n = n * (n + 1) := by ring\nrw [h]\nexact Nat.even_mul_succ_self n",
+      },
+      {
+        says: "For all whole numbers a and b, (a + b)² = a² + b².",
+        statement: "(a b : ℤ) : (a + b) ^ 2 = a ^ 2 + b ^ 2",
+        truth: false,
+        why: "(a + b)² = a² + 2ab + b², so it fails whenever ab is not 0: at a = b = 1 the left side is 4 and the right side 2.",
+        counterexample: "1, 1",
+        witness: "proof",
+        solution: "norm_num at hc",
+      },
+    ],
+    check: (p) => {
+      const out = statementProblems(p);
+      const statement = typeof p.statement === "string" ? p.statement : "";
+      const split = statement ? splitStatement(statement) : null;
+      if (statement && !split) out.push("the `statement` must be binder groups like `(n : ℕ)`, then a colon, then the claim");
+      const witness = p.witness === "proof" ? "proof" : "values";
+      const solution = typeof p.solution === "string" ? p.solution.trim() : "";
+      if (p.truth === true) {
+        if (!solution) out.push("a true claim needs a `solution`: the proof of the statement");
+        if (p.counterexample !== undefined) out.push("a true claim has no `counterexample`");
+      }
+      if (p.truth === false) {
+        if (typeof p.counterexample !== "string") out.push("a false claim needs a `counterexample`: a value for each variable");
+        else if (split) {
+          if (!split.names.length) out.push("a false claim needs variables in `( )` binders for a counterexample to give values to");
+          const wrong = valuesProblem(p.counterexample.split(",").map((v) => v.trim()), split.names);
+          if (split.names.length && wrong) out.push(`\`counterexample\`: ${wrong}`);
+        }
+        if (witness === "proof" && !solution) out.push("with `witness: proof` a `solution` is needed: the proof of False from hc");
+        if (witness === "values" && solution) out.push("with `witness: values` there is no `solution`: `close` shows the values work");
+      }
+      if (typeof p.close === "string" && (p.truth !== false || witness === "proof")) out.push("`close` is only for a false claim with `witness: values`");
       return out;
     },
   },

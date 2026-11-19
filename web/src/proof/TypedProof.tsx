@@ -20,9 +20,14 @@ interface Props {
   exercise: Exercise;
   solution?: string;
   onSolved: (body: string) => void;
+  /** The answer sent for these proof lines, when it is more than the lines
+   *  (a true-or-false answer names its side first). Default: the lines. */
+  encode?: (body: string) => string;
+  /** The line above the editor. Default: `example <statement> := by`. */
+  header?: string;
 }
 
-export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
+export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b) => b, header }: Props) {
   const [body, setBody] = useState(solution ?? "");
   const [caret, setCaret] = useState<Position>({ line: 0, character: 0 });
   const [submitted, setSubmitted] = useState<{ body: string; reply: CheckReply } | null>(null);
@@ -33,7 +38,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   // Re-checking the stored solution the exercise opened with is not an attempt.
   const opening = useRef(solution);
   const live = useLive({ body, caret }, (k, signal) =>
-    check({ lessonId, exerciseId: exercise.id, body: k.body, cursor: k.caret, ...(k.body === opening.current ? {} : { record: "live" as const }) }, signal),
+    check({ lessonId, exerciseId: exercise.id, body: encode(k.body), cursor: k.caret, ...(k.body === opening.current ? {} : { record: "live" as const }) }, signal),
   );
   const reply = live.reply;
 
@@ -41,19 +46,19 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   useEffect(() => {
     if (reply?.solved && !live.checking && !told.current) {
       told.current = true;
-      onSolved(body);
+      onSolved(encode(body));
     }
-  }, [reply, live.checking, body, onSolved]);
+  }, [reply, live.checking, body, onSolved, encode]);
 
   async function submit() {
     setSubmitting(true);
     setTrouble(null);
     try {
-      const r = await check({ lessonId, exerciseId: exercise.id, body, record: "submitted" });
+      const r = await check({ lessonId, exerciseId: exercise.id, body: encode(body), record: "submitted" });
       setSubmitted({ body, reply: r });
       if (r.solved && !told.current) {
         told.current = true;
-        onSolved(body);
+        onSolved(encode(body));
       }
     } catch (e) {
       setTrouble(e instanceof ApiError ? e.message : String(e));
@@ -86,7 +91,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
         <div className="flex min-w-0 flex-col gap-2">
           <LeanEditor
             label={`Proof of: ${exercise.says}`}
-            header={`example ${exercise.statement} := by`}
+            header={header ?? `example ${exercise.statement} := by`}
             value={body}
             rows={7}
             errorLines={errors.map((d) => d.line as number)}

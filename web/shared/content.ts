@@ -3,6 +3,7 @@
 // docs/CONTENT.md.
 
 import type { ExerciseKind, WidgetType } from "./registry.ts";
+import type { Witness } from "./truefalse.ts";
 
 export interface Track {
   id: string; // "logic", "math", "lean", "programs"
@@ -52,9 +53,25 @@ export interface Exercise {
   /** Kind `fill`: the choices on offer, when the gap is filled by choosing
    *  and not by typing. Lean judges the one chosen; no answer key is kept. */
   options: string[];
-  /** An answer Lean accepts (a proof body, or a fill); the tests check that it does. */
+  /** An answer Lean accepts (a proof body, a fill, or for `truefalse` the
+   *  side and its backing, web/shared/truefalse.ts); the tests check that it does. */
   solution: string;
   concept: string;
+  /** Kind `truefalse` only. */
+  truefalse?: TrueFalse;
+}
+
+/** What a `truefalse` exercise says beyond its statement. */
+export interface TrueFalse {
+  /** Which side Lean has backed up with the reference answer. */
+  truth: boolean;
+  /** Shown to a learner who picks the other side: why it cannot be backed up. */
+  why: string;
+  /** The tactic that shows the claim fails at the values given (`witness: values`). */
+  close: string;
+  witness: Witness;
+  /** The statement's explicit variables, in order: a counterexample gives a value for each. */
+  names: string[];
 }
 
 /** A lesson's body in order: prose, the place of an exercise, or a widget

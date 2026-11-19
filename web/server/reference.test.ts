@@ -3,6 +3,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import type { Exercise } from "../shared/content.ts";
+import { readAnswer } from "../shared/truefalse.ts";
 import { parse as parseYaml } from "yaml";
 import { lineShape, moveLine, MOVES, readLine } from "../shared/moves.ts";
 import { kindOf, reference, shown } from "../shared/reference.ts";
@@ -43,6 +45,17 @@ test("the reference has every widget, exercise kind, parameter and move, and no 
   assert.equal(shown("intro h (the board chooses the name)"), "`intro h` (the board chooses the name)");
 });
 
+/** What an exercise holds for a key of its block. A true-or-false keeps its
+ *  own fields apart, and its reference answer as an answer is written. */
+function fieldOf(exercise: Exercise, key: string): unknown {
+  const tf = exercise.truefalse;
+  if (tf && ["truth", "why", "witness", "close"].includes(key)) return (tf as unknown as Record<string, unknown>)[key];
+  const answer = tf ? readAnswer(exercise.solution) : null;
+  if (answer && typeof answer !== "string" && key === "counterexample") return answer.values.join(", ");
+  if (answer && typeof answer !== "string" && key === "solution") return answer.body;
+  return (exercise as unknown as Record<string, unknown>)[key];
+}
+
 test("every exercise example passes its kind's checks and loads from the block the reference prints", () => {
   const blocks: string[] = [];
   const want: Record<string, Record<string, unknown>> = {};
@@ -65,7 +78,7 @@ test("every exercise example passes its kind's checks and loads from the block t
     assert.equal(loaded.length, Object.keys(want).length);
     for (const exercise of loaded) {
       for (const [key, value] of Object.entries(want[exercise.id]!)) {
-        const got = (exercise as unknown as Record<string, unknown>)[key];
+        const got = fieldOf(exercise, key);
         assert.deepEqual(typeof got === "string" ? got.trimEnd() : got, value, `${exercise.id}.${key}`);
       }
     }

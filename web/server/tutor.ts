@@ -124,10 +124,14 @@ export function contextNote(ctx: TutorContext, where: Where): string {
   const { lesson, exercise } = where;
   if (lesson) lines.push(`Lesson: ${lesson.id} "${lesson.title}", file content/${lesson.file}. Read it before answering about it.`);
   if (exercise) {
-    lines.push(`Exercise: ${exercise.id} "${exercise.title}" (${exercise.kind === "fill" ? "fill the gap" : exercise.mode === "board" ? "proof board: the learner clicks moves" : "typed proof"}, concept ${exercise.concept}).`);
+    lines.push(`Exercise: ${exercise.id} "${exercise.title}" (${exercise.kind === "truefalse" ? "true or false: the learner decides whether the claim holds, then proves it or gives a counterexample" : exercise.kind === "fill" ? "fill the gap" : exercise.mode === "board" ? "proof board: the learner clicks moves" : "typed proof"}, concept ${exercise.concept}).`);
     lines.push(`It says: ${exercise.says}`);
     lines.push(`Lean statement: theorem _ ${exercise.statement} := by`);
     if (exercise.kind === "fill") lines.push(`The proof, with the step the learner fills marked <gap>:\n${fence(exercise.proof)}`);
+    if (exercise.truefalse) {
+      const tf = exercise.truefalse;
+      lines.push(`The claim is ${tf.truth ? "TRUE" : "FALSE"} (Lean has checked the reference answer): ${tf.why} Do not say which before a hint at rung 2 or a direct question; at rung 1 nudge them to try small cases or to look for why it might hold. ${tf.truth ? "They prove it as a typed proof." : `A counterexample is a value for each of ${tf.names.join(", ")}, ${tf.witness === "proof" ? "then lines proving False from hc, the claim at those values" : "and the app proves the claim fails there"}.`} At rung 3 the LINE is ${tf.truth ? "the next line of the proof" : tf.witness === "values" ? "the values, separated by commas, like `1, 2`" : "not given: give the values in words instead, and no LINE: line"}.`);
+    }
     if (exercise.mode === "board" && exercise.kind !== "fill") lines.push(`Moves on offer: ${exercise.moves.join(", ")}.`);
     if (exercise.forbid.length) lines.push(`Not allowed in the answer: ${exercise.forbid.join(", ")}.`);
     lines.push(ctx.body?.trim() ? `${exercise.kind === "fill" ? "Their fill so far" : "Their proof so far"}:\n${fence(ctx.body)}` : "They have written nothing yet.");
@@ -261,6 +265,15 @@ export function splitLine(reply: string): { text: string; line: string | null } 
 export async function lineProblem(exercise: Exercise, body: string, line: string): Promise<string | null> {
   const lean = leanServer();
   try {
+    const tf = exercise.truefalse;
+    if (tf && !tf.truth) {
+      // The line is the counterexample's values; with `witness: proof` none is given.
+      if (tf.witness === "proof") return "a line is not given for this counterexample";
+      const r = await checkExercise(lean, exercise, `false: ${line.replace(/^false\s*:?\s*/, "")}`);
+      return r.solved ? null : (r.refusal ?? r.error?.message ?? "these values are not a counterexample");
+    }
+    // A true claim: the line goes after the proof so far, as for `prove`.
+    if (tf) exercise = { ...exercise, kind: "prove", truefalse: undefined };
     if (exercise.kind === "fill") {
       const r = await checkExercise(lean, exercise, line);
       return r.solved ? null : (r.error?.message ?? r.refusal ?? (r.forbidden.length ? `it uses ${r.forbidden.join(", ")}, which this exercise does not allow` : "it does not finish the proof"));
@@ -291,6 +304,11 @@ export async function lineProblem(exercise: Exercise, body: string, line: string
  */
 export async function acceptedPart(exercise: Exercise, body: string): Promise<string> {
   if (exercise.kind === "fill" || !body.trim()) return "";
+  // A true-or-false: only a true claim's proof has lines to build on (the page sends the proof lines alone).
+  if (exercise.truefalse) {
+    if (!exercise.truefalse.truth) return "";
+    exercise = { ...exercise, kind: "prove", truefalse: undefined };
+  }
   try {
     const r = await checkExercise(leanServer(), exercise, body);
     if (!r.error || r.error.line === null) return r.refusal ? "" : body.replace(/\s+$/, "");

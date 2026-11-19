@@ -1,6 +1,7 @@
 import type { ExerciseKind } from "../../shared/registry.ts";
 import { FillGap } from "./FillGap.tsx";
 import { ProveIt } from "./ProveIt.tsx";
+import { TrueOrFalse } from "./TrueOrFalse.tsx";
 import type { ExerciseComponent } from "./types.ts";
 
 // Exercise kind (an exercise's `kind:` in a lesson's frontmatter) →
@@ -9,4 +10,5 @@ import type { ExerciseComponent } from "./types.ts";
 export const EXERCISE_COMPONENTS: Record<ExerciseKind, ExerciseComponent> = {
   prove: ProveIt,
   fill: FillGap,
+  truefalse: TrueOrFalse,
 };
