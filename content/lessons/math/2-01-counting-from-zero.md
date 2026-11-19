@@ -67,7 +67,7 @@ You have known these numbers all your life, so it is fair to ask what there is t
 
 That is the whole definition. "The one after" is called the *successor*, and Lean writes it `Nat.succ`. So 1 is `Nat.succ 0`, 2 is `Nat.succ (Nat.succ 0)`, and so on. The numerals 1, 2, 3 are shorthand.
 
-Lean has a second way of writing the same thing, and it is the one you will see on the board: `x.succ` means `Nat.succ x`. So `(Nat.succ 0).succ` is `Nat.succ (Nat.succ 0)`.
+Lean has a second way of writing the same thing, and it is the one you will see on the board: `x.succ` means `Nat.succ x`. So `(Nat.succ 0).succ`{say: nat suck of 0, dot suck} is `Nat.succ (Nat.succ 0)`.
 
 Lean knows that shorthand. An equation whose two sides are the same number written two ways is settled by **rfl**, the move from Level 0 that finishes an equation whose sides work out to the same thing.
 

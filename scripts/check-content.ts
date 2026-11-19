@@ -11,7 +11,7 @@
 // code says only what the structure check found, unless --lean was given.
 // It starts a Lean of its own and touches neither the app nor the database.
 
-import { checkWithLean, coverage } from "../web/server/contentcheck.ts";
+import { checkWithLean, coverage, spokenCoverage } from "../web/server/contentcheck.ts";
 import { LeanServer, leanProblem } from "../web/server/lean/lsp.ts";
 import { contentDir, loadContent } from "../web/server/loader.ts";
 
@@ -98,7 +98,9 @@ if (flags.has("--gaps")) {
   list("Moves a level says it introduces that no exercise up to that level uses:", gaps.unexercised.map((g) => `level ${g.level}: ${g.moves.join(", ")}`));
   list("Levels with no lesson yet:", gaps.empty.map(String));
   list("Topics still to be written:", gaps.topics.map((t) => `level ${t.level}: ${t.topic}`));
-  console.log("Formulas with no spoken form: not applicable yet. Lessons have no spoken forms until Listen mode (lii-1gs.1).");
+  const spoken = spokenCoverage(content);
+  list("Formulas with no spoken form that Listen mode is not sure how to say (write `code`{say: …}; shown with what is said now):", spoken.formulas.map((f) => `${f.lesson}: \`${f.code}\` is said "${f.said}"`));
+  list("Symbols in running text that Listen mode has no word for (web/shared/tts/say.ts):", spoken.symbols.map((s) => `${s.lesson}: ${s.symbols.join(" ")}`));
 }
 
 console.log(failed ? `\n${failed} problem${failed === 1 ? "" : "s"}.` : "\nNo problems.");

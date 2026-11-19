@@ -6,6 +6,7 @@
 // Solutions are judged exactly as a learner's answer is (checkExercise), so
 // "the reference solution passes" means the exercise can be solved in the app.
 
+import { spokenGaps, unsaidSymbols } from "../shared/tts/speakable.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
@@ -357,6 +358,29 @@ export interface Coverage {
   empty: number[];
   /** Topics the curriculum still lists as to be written. */
   topics: { level: number; topic: string }[];
+}
+
+/** What Listen mode cannot say well yet (web/shared/tts/say.ts): the `code`
+ *  spans of each lesson's prose with no written spoken form that the tables
+ *  are not sure of, and the symbols in its prose, titles and claims that no
+ *  table has. Never a failure: a list to write from. */
+export function spokenCoverage(content: Content): { formulas: { lesson: string; code: string; said: string }[]; symbols: { lesson: string; symbols: string[] }[] } {
+  const formulas: { lesson: string; code: string; said: string }[] = [];
+  const symbols: { lesson: string; symbols: string[] }[] = [];
+  for (const lesson of content.lessons) {
+    const read = [...lesson.blocks.flatMap((b) => (b.type === "prose" ? [b.markdown] : [])), ...lesson.exercises.flatMap((e) => [e.title, e.says])];
+    const seen = new Set<string>();
+    for (const text of read) {
+      for (const gap of spokenGaps(text)) {
+        if (seen.has(gap.code)) continue;
+        seen.add(gap.code);
+        formulas.push({ lesson: lesson.id, ...gap });
+      }
+    }
+    const unsaid = [...new Set(read.flatMap(unsaidSymbols))];
+    if (unsaid.length) symbols.push({ lesson: lesson.id, symbols: unsaid });
+  }
+  return { formulas, symbols };
 }
 
 /** What the curriculum promises and does not yet deliver. Never a failure: a list to write from. */

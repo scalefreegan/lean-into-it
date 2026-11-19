@@ -278,8 +278,21 @@ Landed in the first PR, the foundation slice:
   boot check); the speed is the browser's. The alignment, speakable-text
   and transport logic is pure and tested (`web/shared/tts/`); the server
   tests stand in for ElevenLabs. Not yet checked against the real
-  ElevenLabs from this repo, and maths is read as written (`lii-1gs.2`).
-- Tests: 345, including every reference solution checked by the real Lean,
+  ElevenLabs from this repo.
+- Spoken forms for Listen mode (`lii-1gs.2`): a `code` span is said from the
+  form its author wrote, `` `code`{say: …} ``, or failing that from the
+  tables in `web/shared/tts/say.ts` (names by their pieces, tactic lines,
+  simple formulas, `n : ℕ` as "n, a natural number"), and is marked as one
+  unit however many words are said for it. Symbols in running text and in
+  exercise claims are said as words (a², ≤, ×). A fenced block is still
+  not read; with `say: …` on its opening line that summary is said while
+  the block is marked. Every ` ```lean ` block in the lessons has a
+  summary, and the eleven spans the tables were not sure of have written
+  forms. `check:content --gaps` lists spans with no form that the tables
+  are not sure of, and symbols no table has; both lists are empty now.
+  `docs/CONTENT.md` "Spoken forms" has the syntax. How the forms sound in
+  a real voice has not been heard: nothing was sent to ElevenLabs.
+- Tests: 359, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -310,7 +323,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-28 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+27 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -367,12 +380,6 @@ land first.
 | `lii-2zo.3` | Tutor as proof partner in the Playground | 2 | `lii-2zo.1` |
 | `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |
 | `lii-2zo.5` | Tutor read-only access to attempt history | 2 | `lii-2zo.1`, `lii-zjf.1` |
-
-### Listen (epic `lii-1gs`)
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-1gs.2` | Listen mode: spoken forms for maths, skip Lean code | 2 | |
 
 ### Curriculum (epic `lii-dvy`)
 

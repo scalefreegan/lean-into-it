@@ -120,7 +120,7 @@ id: len-app
 
 Typed, an induction on a list has the same form as one on a number, with the two cases named `nil` and `cons`:
 
-```lean
+```lean say: Induction on x's, with a line for the nil case, and under the cons case, for x, x's and the hypothesis I H, the lines of its proof.
 induction xs with
 | nil => …
 | cons x xs ih =>
@@ -142,7 +142,7 @@ id: total-app
 
 Here is a function that reverses a list. To reverse `x :: xs`, reverse the rest, then put x at the end.
 
-```lean
+```lean say: A definition of rev, from lists to lists, in two cases. The empty list gives the empty list. And x followed by x's gives app of rev x's and the list x.
 def rev : List ℕ → List ℕ
   | [] => []
   | x :: xs => app (rev xs) [x]

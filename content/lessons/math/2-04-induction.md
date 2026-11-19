@@ -101,7 +101,7 @@ id: at-least-one
 
 Typed Lean writes an induction with one line for each case:
 
-```lean
+```lean say: Induction on n, with two cases. The zero case is closed by refl. The successor case, for k with the induction hypothesis I H, is closed by rewriting with h and I H.
 induction n with
 | zero => rfl
 | succ k ih => rw [h, ih]
@@ -113,7 +113,7 @@ The board writes the short form `induction' n with n ih`, which gives the same t
 
 Now the debt from the last lesson. `0 + n = n` is not true by definition, because addition is defined by what the *second* number is. Induction is on that second number, so in each case Lean can at last see which line of the definition applies. `simp` is switched off here, and so is `Nat.add_comm`, because the proof that a + b = b + a rests on the very fact you are about to prove.
 
-For the step you will need `Nat.add_succ`: a + (b + 1) = (a + b) + 1. After that rewrite Lean shows the left side as `(0 + k).succ`, which is its way of writing "the one after 0 + k". It is the same number as `0 + k + 1`.
+For the step you will need `Nat.add_succ`: a + (b + 1) = (a + b) + 1. After that rewrite Lean shows the left side as `(0 + k).succ`{say: 0 plus k, dot suck}, which is its way of writing "the one after 0 + k". It is the same number as `0 + k + 1`.
 
 ```exercise
 id: zero-add

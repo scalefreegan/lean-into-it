@@ -345,6 +345,50 @@ moves: [apply, exact]
 
 `npm test` loads this very example and gives its solutions to Lean.
 
+## Spoken forms
+
+Listen mode reads a lesson aloud. Running text is read as written, with
+symbols said as words (a² is "a squared", ≤ is "is at most"). Lean and
+formulas need more care, and there are two things an author can write.
+
+**A code span's spoken form.** Put `{say: …}` straight after the closing
+backtick. It is said in place of the code and never shown; the code is
+marked as one unit while it is said.
+
+```text
+Lean prints that as `∀ m < n, P m`{say: for every m less than n, P of m}.
+```
+
+Without one, the span is said from the tables in `web/shared/tts/say.ts`:
+names by their pieces (`Nat.add_comm` is "nat add comm", `rfl` is "refl",
+`h1` is "h 1"), tactic lines as typed (`rw [h] at h2` is "rewrite h at h
+2"), simple formulas in words (`A ∧ B` is "A and B", `n : ℕ` is "n, a
+natural number"). The tables say whether they are sure. A span they are not
+sure of is still said as well as they can, and `npm run check:content --
+--gaps` lists it with what is said now, so write a form for it. `{say:}`
+with nothing in it says nothing: the span is passed over. A form cannot
+contain `}` or a backtick.
+
+**A code block's summary.** A fenced block is shown and not read. To have
+something said in its place, put `say: …` at the end of the opening line;
+the block is marked while it is said.
+
+````text
+```lean say: A calc with two links. a equals b plus 1, by h 1. And that equals 2 times c plus 1, by rewriting with h 2.
+calc a = b + 1 := h1
+  _ = 2 * c + 1 := by rw [h2]
+```
+````
+
+Say what the code does, in the words you would use reading it to someone,
+and write names the way the tables say them ("h 1", "x's", "I H"). The
+block is still checked by Lean as before: only the first word of the
+opening line decides that. A block with no summary is passed over in
+silence, which suits a block the prose around it already describes.
+
+A new name or symbol that is said badly everywhere belongs in the tables
+(`NAMES`, `SYMBOLS` in `say.ts`), not in a form on every use.
+
 ## Writing a lesson
 
 - Say the argument the way a mathematician would before showing the Lean.
@@ -408,7 +452,7 @@ given to Lean. Read a lesson from elsewhere before checking it.
 | `--no-lean` | Structure only. Fast; nothing is checked against Lean. |
 | `--lean` | Fail where Lean is not installed. Without it the Lean pass is skipped there, with a line saying nothing was checked. |
 | `--lesson <id>` | The Lean pass for that lesson only. May be repeated. |
-| `--gaps` | Also list concepts no exercise tests, moves a level introduces that no exercise uses, levels with no lesson, and topics still to write. Never a failure. |
+| `--gaps` | Also list concepts no exercise tests, moves a level introduces that no exercise uses, levels with no lesson, topics still to write, and formulas Listen mode is not sure how to say (see "Spoken forms"). Never a failure. |
 
 `npm test` checks the same solutions and more (that each board solution is
 what the board's clicks write); `check:content` is the quicker one to run

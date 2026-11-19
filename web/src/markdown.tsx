@@ -1,23 +1,24 @@
 import type { ReactNode } from "react";
-import { spokenBlocks, type SpokenBlock } from "../shared/tts/speakable.ts";
+import { INLINE, isSounding, spokenBlocks, type SpokenBlock } from "../shared/tts/speakable.ts";
 import { cx } from "./ui.tsx";
 
 // The small markdown subset lessons are written in (docs/CONTENT.md):
 // ## and ### headings, paragraphs, **bold**, *italic*, `code`, bulleted and
 // numbered lists, fenced code blocks, and > block quotes (shown as a "key
-// idea" box). Rendered to React elements directly: lesson text never
+// idea" box). A code span's spoken form, `code`{say: …}, is for Listen mode
+// and is not shown. Rendered to React elements directly: lesson text never
 // becomes raw HTML. Ported from Fret Not, plus code fences.
 
 function inline(text: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = [];
-  const re = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*\s][^*]*\*)/g;
+  const re = new RegExp(INLINE.source, "g");
   let last = 0;
   let n = 0;
   for (let m = re.exec(text); m; m = re.exec(text)) {
     if (m.index > last) out.push(text.slice(last, m.index));
     const tok = m[0];
     const key = `${keyBase}-${n++}`;
-    if (tok.startsWith("`")) out.push(<code key={key}>{tok.slice(1, -1)}</code>);
+    if (tok.startsWith("`")) out.push(<code key={key}>{tok.slice(1, tok.indexOf("`", 1))}</code>);
     else if (tok.startsWith("**")) out.push(<strong key={key}>{inline(tok.slice(2, -2), key)}</strong>);
     else out.push(<em key={key}>{inline(tok.slice(1, -1), key)}</em>);
     last = m.index + tok.length;
@@ -81,14 +82,16 @@ export function Markdown({ source }: { source: string }) {
 /* ------------------------------- Listen mode ------------------------------ */
 
 const WORD_ON = "rounded-sm bg-accent-soft text-fg";
+/** Code has a background of its own: the one being said gets a ring, which takes no room. */
+const CODE_ON = "text-fg outline-2 outline-accent";
 
 /** A block's words in order, drawn as Markdown draws the same text (so
  *  nothing moves when a block starts being read): each word is cut where
- *  its marking changes, and one `code` span is one piece of code, across
- *  words and the spaces between them. Every piece of a word carries
- *  data-word; the pieces of the word sounding are marked. */
+ *  its marking changes, and a `code` span is one piece of code. Every piece
+ *  of a word carries data-word (its first spoken word); the pieces of the
+ *  word being said are marked, a whole formula at once. */
 function renderWords(block: SpokenBlock, activeWord: number | null | undefined, keyBase: string): ReactNode[] {
-  const pieces: { node: ReactNode; code: number | null }[] = [];
+  const out: ReactNode[] = [];
   const styled = (node: ReactNode, mark: { bold: boolean; italic: boolean }, key: string): ReactNode => {
     const em = mark.italic ? <em key={key}>{node}</em> : node;
     return mark.bold ? <strong key={key}>{em}</strong> : em;
@@ -96,31 +99,29 @@ function renderWords(block: SpokenBlock, activeWord: number | null | undefined, 
   block.words.forEach((w, j) => {
     if (j > 0) {
       const gap = block.gaps[j - 1];
-      pieces.push({ node: gap.bold || gap.italic ? styled(" ", gap, `${keyBase}-g${j}`) : " ", code: gap.code });
+      out.push(gap.bold || gap.italic ? styled(" ", gap, `${keyBase}-g${j}`) : " ");
     }
+    const on = isSounding(w, activeWord);
     w.parts.forEach((p, n) => {
       const key = `${keyBase}-${j}-${n}`;
-      const on = w.index === activeWord;
-      const span = (
-        <span key={key} data-word={w.index} data-reading={on || undefined} className={cx(on && WORD_ON)}>
-          {p.text}
-        </span>
+      const mark = { "data-word": w.index, "data-reading": on || undefined };
+      out.push(
+        styled(
+          p.code ? (
+            <code key={key} {...mark} className={cx(on && CODE_ON)}>
+              {p.text}
+            </code>
+          ) : (
+            <span key={key} {...mark} className={cx(on && WORD_ON)}>
+              {p.text}
+            </span>
+          ),
+          p,
+          key,
+        ),
       );
-      pieces.push({ node: styled(span, p, key), code: p.code });
     });
   });
-  const out: ReactNode[] = [];
-  for (let i = 0; i < pieces.length; ) {
-    const { code } = pieces[i];
-    if (code === null) {
-      out.push(pieces[i++].node);
-      continue;
-    }
-    const start = i;
-    const run: ReactNode[] = [];
-    while (i < pieces.length && pieces[i].code === code) run.push(pieces[i++].node);
-    out.push(<code key={`${keyBase}-c${start}`}>{run}</code>);
-  }
   return out;
 }
 
@@ -145,7 +146,15 @@ export function SpokenMarkdown({ source, activeWord }: { source: string; activeW
       out.push(b.kind === "number" ? <ol key={key}>{lis}</ol> : <ul key={key}>{lis}</ul>);
       continue;
     }
-    if (b.kind === "code") out.push(<pre key={key}>{b.code}</pre>);
+    if (b.kind === "code") {
+      // With a summary to say, the block is one word of the passage, marked while the summary is said.
+      const on = b.words.length > 0 && isSounding(b.words[0], activeWord);
+      out.push(
+        <pre key={key} {...(b.words.length ? { "data-word": b.words[0].index, "data-reading": on || undefined } : {})} className={cx(on && CODE_ON)}>
+          {b.code}
+        </pre>,
+      );
+    }
     else {
       const words = renderWords(b, activeWord, key);
       if (b.kind === "h2") out.push(<h2 key={key}>{words}</h2>);
