@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { spokenBlocks, type SpeakableWord } from "../shared/tts/speakable.ts";
+import { cx } from "./ui.tsx";
 
 // The small markdown subset lessons are written in (docs/CONTENT.md):
 // ## and ### headings, paragraphs, **bold**, *italic*, `code`, bulleted and
@@ -72,6 +74,77 @@ export function Markdown({ source }: { source: string }) {
       while (i < lines.length && lines[i].trim() && !/^(#{1,3}\s|>\s?|```)/.test(lines[i]) && !isBullet(lines[i]) && !isNumber(lines[i])) buf.push(lines[i++].trim());
       out.push(<p key={key}>{inline(buf.join(" "), key)}</p>);
     }
+  }
+  return <div className="prose-lesson">{out}</div>;
+}
+
+/* ------------------------------- Listen mode ------------------------------ */
+
+const WORD_ON = "rounded-sm bg-accent-soft text-fg outline-2 outline-accent-soft";
+
+/** One word as its own element, so the one being read can be marked. */
+function word(w: SpeakableWord, activeWord: number | null | undefined, key: string): ReactNode {
+  const span = (
+    <span key={key} data-word={w.index} data-reading={w.index === activeWord || undefined} className={cx(w.index === activeWord && WORD_ON)}>
+      {w.text}
+    </span>
+  );
+  const em = w.italic ? <em key={key}>{span}</em> : span;
+  return w.bold ? <strong key={key}>{em}</strong> : em;
+}
+
+/** A block's words in order; the words of one `code` span are drawn as one piece of code. */
+function renderWords(words: SpeakableWord[], activeWord: number | null | undefined, keyBase: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  for (let j = 0; j < words.length; ) {
+    if (j > 0) out.push(" ");
+    const w = words[j];
+    if (w.code === null) {
+      out.push(word(w, activeWord, `${keyBase}-${j}`));
+      j++;
+      continue;
+    }
+    const run: ReactNode[] = [];
+    const start = j;
+    for (; j < words.length && words[j].code === w.code; j++) {
+      if (j > start) run.push(" ");
+      run.push(word(words[j], activeWord, `${keyBase}-${j}`));
+    }
+    out.push(<code key={`${keyBase}-c${start}`}>{run}</code>);
+  }
+  return out;
+}
+
+/** The same subset as Markdown, for a passage being read aloud: each word
+ *  is its own element (from shared/tts/speakable.ts spokenBlocks, which
+ *  splits blocks as Markdown does), so `activeWord`, the index of the word
+ *  sounding, can be marked. Code blocks are shown and not read. A second
+ *  component and not a prop: only the passage being read pays for the
+ *  per-word elements. */
+export function SpokenMarkdown({ source, activeWord }: { source: string; activeWord?: number | null }) {
+  const blocks = spokenBlocks(source);
+  const out: ReactNode[] = [];
+  let i = 0;
+  let k = 0;
+  while (i < blocks.length) {
+    const b = blocks[i];
+    const key = `s${k++}`;
+    if (b.kind === "bullet" || b.kind === "number") {
+      const items: typeof blocks = [];
+      while (i < blocks.length && blocks[i].kind === b.kind) items.push(blocks[i++]);
+      const lis = items.map((it, j) => <li key={j}>{renderWords(it.words, activeWord, `${key}-${j}`)}</li>);
+      out.push(b.kind === "number" ? <ol key={key}>{lis}</ol> : <ul key={key}>{lis}</ul>);
+      continue;
+    }
+    if (b.kind === "code") out.push(<pre key={key}>{b.code}</pre>);
+    else {
+      const words = renderWords(b.words, activeWord, key);
+      if (b.kind === "h2") out.push(<h2 key={key}>{words}</h2>);
+      else if (b.kind === "h3") out.push(<h3 key={key}>{words}</h3>);
+      else if (b.kind === "quote") out.push(<blockquote key={key}>{words}</blockquote>);
+      else out.push(<p key={key}>{words}</p>);
+    }
+    i++;
   }
   return <div className="prose-lesson">{out}</div>;
 }

@@ -14,6 +14,9 @@ import { TutorDrawer } from "./tutor/Drawer.tsx";
 import { TutorProvider } from "./tutor/TutorProvider.tsx";
 import { useTutor } from "./tutor/store.ts";
 import { Button, cx, Notice } from "./ui.tsx";
+import { ListenProvider } from "./listen/ListenProvider.tsx";
+import { ListenToggle } from "./listen/ListenToggle.tsx";
+import { ListenTransport } from "./listen/ListenTransport.tsx";
 
 export function App() {
   return (
@@ -23,7 +26,9 @@ export function App() {
       )}
     >
       <TutorProvider>
-        <Shell />
+        <ListenProvider>
+          <Shell />
+        </ListenProvider>
       </TutorProvider>
     </AppProvider>
   );
@@ -41,7 +46,7 @@ function Shell() {
     { name: "playground", label: "Playground", active: route.name === "playground" },
   ];
   return (
-    <div className={cx("min-h-dvh", open && "lg:pr-[28rem]")}>
+    <div className={cx("flex min-h-dvh flex-col", open && "lg:pr-[28rem]")}>
       <header className="sticky top-0 z-10 border-b border-line bg-panel/95 px-4 backdrop-blur sm:px-6">
         <div className="mx-auto flex max-w-[2400px] items-center gap-6 py-3">
           <a href={href("home")} className="flex items-center gap-2.5">
@@ -66,9 +71,10 @@ function Shell() {
               </a>
             ))}
           </nav>
+          <ListenToggle />
         </div>
       </header>
-      <main className="px-4 py-8 sm:px-6">
+      <main className="flex-1 px-4 py-8 sm:px-6">
         <LeanBanner />
         <ErrorBoundary label={route.name} key={`${route.name}/${route.arg ?? ""}`}>
           {route.name === "lesson" && route.arg ? (
@@ -90,6 +96,7 @@ function Shell() {
           )}
         </ErrorBoundary>
       </main>
+      <ListenTransport />
       <TutorDrawer />
     </div>
   );

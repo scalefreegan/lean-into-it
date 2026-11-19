@@ -259,7 +259,26 @@ Landed in the first PR, the foundation slice:
   bead: truth tables and induction dominoes (`lii-53v.5`), limits
   (`lii-53v.2`), the proof map (`lii-8wq.2`), the program stepper
   (`lii-53v.4`), the Famous Proofs gallery (`lii-kqz.2`).
-- Tests: 307, including every reference solution checked by the real Lean,
+- Listen mode (`lii-1gs.1`), ported from Fret Not: a Listen button in the
+  header opens the switch, the voice and the quality; with it on and a
+  voice chosen, play controls sit at the foot of the page (back, −5 s,
+  play/pause, +5 s, skip, stop, speed). Play reads the open lesson block by
+  block with the word sounding marked; it reads an exercise's title and
+  claim and then waits there, as it does at a widget, until Play or Skip.
+  Nothing starts by itself. A Tutor reply is read as it arrives. Fenced
+  code is shown and not read. The text goes to ElevenLabs
+  (`web/server/tts.ts`, behind `wrap()`) the first time it is heard; the
+  audio and word timings are then kept under `data/tts-cache/`, so a second
+  listen makes no call. The key is `ELEVENLABS_API_KEY` in the gitignored
+  `.env.local`, read on the server and sent only in a header; with no key
+  the panel says how to add one and nothing else changes. Voice, quality
+  and the switch are columns on the learner (migration `0004_listen`: run
+  `npm run db:setup` once after pulling, or the dev server stops at its
+  boot check); the speed is the browser's. The alignment, speakable-text
+  and transport logic is pure and tested (`web/shared/tts/`); the server
+  tests stand in for ElevenLabs. Not yet checked against the real
+  ElevenLabs from this repo, and maths is read as written (`lii-1gs.2`).
+- Tests: 341, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -290,7 +309,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-29 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+28 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -352,8 +371,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-1gs.1` | Listen mode: ElevenLabs read-aloud with word highlighting | 2 | |
-| `lii-1gs.2` | Listen mode: spoken forms for maths, skip Lean code | 2 | `lii-1gs.1` |
+| `lii-1gs.2` | Listen mode: spoken forms for maths, skip Lean code | 2 | |
 
 ### Curriculum (epic `lii-dvy`)
 
