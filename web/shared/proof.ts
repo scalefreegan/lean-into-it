@@ -450,6 +450,8 @@ export function toBody(diagnostics: Diagnostic[], body: string, given = ""): Bod
 
 /** A diagnostic's span in the body's own lines and columns, cut off at the body's end. */
 function bodyRange(d: Diagnostic, first: number, body: string): { start: Position; end: Position } | null {
+  // A body with no tactic is sent behind a placeholder, so its columns are not the learner's.
+  if (isBlank(body)) return null;
   const lines = bodyLines(body);
   const line = d.start.line - first;
   if (line >= lines.length) return null;

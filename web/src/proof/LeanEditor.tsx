@@ -6,7 +6,7 @@ import { Decoration, EditorView, GutterMarker, gutterLineClass, hoverTooltip, ke
 import { tags } from "@lezer/highlight";
 import { useEffect, useRef } from "react";
 import { expandAt } from "../../shared/abbrev.ts";
-import { changeBetween, completionsFor, nextToken, type LexState } from "../../shared/leaneditor.ts";
+import { changeBetween, completionsFor, depthAfter, nextToken, type LexState } from "../../shared/leaneditor.ts";
 import type { Position } from "../../shared/proof.ts";
 
 // The editor for Lean: CodeMirror 6 with Lean's colours, backslash names
@@ -154,7 +154,7 @@ const hover = hoverTooltip((view, pos) => {
     create() {
       const dom = document.createElement("div");
       dom.className = "lean-hover";
-      dom.textContent = found.map((s) => s.message.trim()).join("\n\n");
+      dom.textContent = [...new Set(found.map((s) => s.message.trim()))].join("\n\n");
       return { dom };
     },
   };
@@ -187,7 +187,8 @@ export function LeanEditor({ value, onChange, onCaret, errorLines = [], marks = 
   useEffect(() => {
     const complete = (context: CompletionContext): CompletionResult | null => {
       const line = context.state.doc.lineAt(context.pos);
-      const found = completionsFor(line.text.slice(0, context.pos - line.from), latest.current.names);
+      const depth = depthAfter(context.state.doc.sliceString(0, line.from).split("\n"));
+      const found = completionsFor(line.text.slice(0, context.pos - line.from), latest.current.names, depth);
       if (!found) return null;
       return {
         from: line.from + found.from,
@@ -202,7 +203,9 @@ export function LeanEditor({ value, onChange, onCaret, errorLines = [], marks = 
       syntaxHighlighting(colours),
       marked,
       hover,
-      autocompletion({ override: [complete], icons: false }),
+      // Nothing is chosen until the learner chooses (arrow keys, or a click): Enter
+      // after `simp` ends the line, and does not turn it into `simp_all`.
+      autocompletion({ override: [complete], icons: false, selectOnOpen: false }),
       keymap.of([
         // A symbol's name, then a space or Tab: the symbol, and the key is used up (as in Lean's own editors).
         { key: "Space", run: expand },
@@ -236,8 +239,10 @@ export function LeanEditor({ value, onChange, onCaret, errorLines = [], marks = 
     if (!v) return;
     const text = v.state.doc.toString();
     if (text === value) return;
-    const change = changeBetween(text, value);
-    v.dispatch({ changes: change, selection: { anchor: Math.min(v.state.selection.main.head, value.length) }, annotations: fromOutside.of(true) });
+    // The caret moves with the text around it, and the page is told where it
+    // ended up: what the page shows for "the caret" is then the editor's own.
+    v.dispatch({ changes: changeBetween(text, value), annotations: fromOutside.of(true) });
+    latest.current.onCaret(positionOf(v.state));
   }, [value]);
 
   const key = JSON.stringify([marks, errorLines]);

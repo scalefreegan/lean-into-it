@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { changeBetween, completionsFor, nextToken, TACTICS, tokens } from "./leaneditor.ts";
+import { changeBetween, completionsFor, depthAfter, nextToken, TACTICS, tokens } from "./leaneditor.ts";
 import { MOVES } from "./moves.ts";
 
 test("a line of Lean is coloured: tactics, keywords, types, numbers, strings, comments, sorry", () => {
@@ -51,7 +51,12 @@ test("completion: tactics where a tactic starts, the goal's names anywhere, noth
   assert.deepEqual(labels("exact h"), ["hP", "hPQ"]);
   assert.deepEqual(completionsFor("exact h", names), { from: 6, options: [{ label: "hP", kind: "name" }, { label: "hPQ", kind: "name" }] });
   // A name at the start of a line comes before the tactics; the same word is offered once.
-  assert.deepEqual(labels("n"), ["n", "next", "nlinarith", "norm_cast", "norm_num", "nth_rw"]);
+  assert.deepEqual(labels("n"), ["next", "nlinarith", "norm_cast", "norm_num", "nth_rw"]);
+  // The word already typed is never offered: Enter after `simp` or `exact hP` must end the line.
+  assert.deepEqual(labels("simp"), ["simp_all"]);
+  assert.deepEqual(labels("exact hP"), ["hPQ"]);
+  assert.deepEqual(labels("exact"), ["exact?"]);
+  assert.equal(labels("linarith"), null);
   // Nothing to offer: no word, the word is already whole, a comment, a string, an abbreviation.
   assert.equal(labels("exact "), null);
   assert.equal(labels("exact hPQ"), null);
@@ -59,6 +64,11 @@ test("completion: tactics where a tactic starts, the goal's names anywhere, noth
   assert.equal(labels('have s := "in'), null);
   assert.equal(labels("\\in"), null);
   assert.equal(labels("exact zz"), null);
+  // A block comment begun on an earlier line: nothing inside it, tactics again after it closes.
+  assert.equal(depthAfter(["intro h", "/- a note", "still /- nested -/"]), 1);
+  assert.equal(depthAfter(["/- closed -/", "intro h"]), 0);
+  assert.equal(completionsFor("in", names, 1), null);
+  assert.deepEqual(completionsFor("done -/ in", names, 1)?.options.map((o) => o.label), ["induction", "intro"]);
 });
 
 test("the smallest change between two texts", () => {

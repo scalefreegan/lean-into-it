@@ -88,6 +88,16 @@ export function nextToken(text: string, pos: number, state: LexState): { end: nu
   return { end: pos + (text.codePointAt(pos)! > 0xffff ? 2 : 1), kind: null };
 }
 
+/** How deep in block comments the line after `lines` starts. */
+export function depthAfter(lines: string[]): number {
+  const state = { depth: 0 };
+  for (const line of lines) {
+    let pos = 0;
+    while (pos < line.length) pos = nextToken(line, pos, state).end;
+  }
+  return state.depth;
+}
+
 /** A whole line's tokens, for tests: [text, kind] for every token that has a kind. */
 export function tokens(line: string, state: LexState = { depth: 0 }): [string, TokenKind][] {
   const out: [string, TokenKind][] = [];
@@ -113,35 +123,41 @@ const TACTIC_PLACE = /(^\s*(·\s*)*|[;(]\s*|<;>\s*|\bby\s+|=>\s*)$/u;
 /**
  * What to offer for the word being typed at the end of `before` (the line up
  * to the caret): tactic names where a tactic can start, and the goal's names
- * anywhere. Only what starts with what is typed, and never the word itself
- * alone. Null when there is nothing to offer. `from` is the word's column.
+ * anywhere. Only what starts with what is typed and is longer: the word
+ * itself is never offered (accepting it would use up the Enter that was
+ * meant to end the line). Null when there is nothing to offer. `from` is the
+ * word's column; `depth` is how deep in block comments the line starts.
  */
-export function completionsFor(before: string, names: string[]): { from: number; options: Completion[] } | null {
+export function completionsFor(before: string, names: string[], depth = 0): { from: number; options: Completion[] } | null {
   const m = WORD_END.exec(before);
   if (!m) return null;
   const word = m[0];
   const from = before.length - word.length;
-  // Inside a comment or a string nothing is offered.
-  const state = { depth: 0 };
+  // Inside a comment or a string nothing is offered; a comment before the word counts as space.
+  const state = { depth };
   let pos = 0;
+  let code = "";
   while (pos < from) {
     const t = nextToken(before, pos, state);
     if ((t.kind === "comment" || t.kind === "string") && t.end > from) return null;
+    code += t.kind === "comment" ? " ".repeat(t.end - pos) : before.slice(pos, t.end);
     pos = t.end;
   }
+  // Still inside a block comment where the word starts.
+  if (state.depth > 0) return null;
   // A backslash name is an abbreviation, not a word to complete.
   if (before[from - 1] === "\\") return null;
-  const tactics = TACTIC_PLACE.test(before.slice(0, from)) ? TACTICS.filter((t) => t.startsWith(word)) : [];
+  const tactics = TACTIC_PLACE.test(code) ? TACTICS.filter((t) => t.startsWith(word)) : [];
   const seen = new Set<string>();
   const options: Completion[] = [];
   const offer = (label: string, kind: Completion["kind"]) => {
-    if (seen.has(label)) return;
+    if (seen.has(label) || label === word) return;
     seen.add(label);
     options.push({ label, kind });
   };
   for (const label of names) if (label.startsWith(word) && !label.includes("✝")) offer(label, "name");
   for (const label of tactics) offer(label, "tactic");
-  if (!options.length || (options.length === 1 && options[0].label === word)) return null;
+  if (!options.length) return null;
   return { from, options };
 }
 

@@ -90,8 +90,12 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
             value={body}
             rows={7}
             errorLines={errors.map((d) => d.line as number)}
-            stale={live.checking}
-            marks={(reply?.diagnostics ?? []).flatMap((d) => (d.range && (d.severity !== "error" || errors.includes(d)) ? [{ severity: d.severity, message: d.message, range: d.range }] : []))}
+            stale={live.checking || !!live.trouble}
+            // A line a search proposes ("Try this") is never a mark: where the exercise
+            // allows searching it is shown below, and where it does not it stays unsaid.
+            marks={(reply?.diagnostics ?? []).flatMap((d) =>
+              d.range && (d.severity === "error" ? errors.includes(d) : !/^Try this/m.test(d.message)) ? [{ severity: d.severity, message: d.message, range: d.range }] : [],
+            )}
             names={(goals ?? []).flatMap((g) => g.hypotheses.flatMap((h) => h.names))}
             onChange={(text, c) => {
               setBody(text);

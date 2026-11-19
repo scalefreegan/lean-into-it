@@ -74,7 +74,7 @@ export function Playground() {
 
       <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
         <div className="flex min-w-0 flex-col gap-2">
-          <LeanEditor label="Lean playground" value={source} rows={18} errorLines={errors.map((d) => d.line)} marks={diagnostics} stale={live.checking} names={names} onChange={change} onCaret={setCaret} />
+          <LeanEditor label="Lean playground" value={source} rows={18} errorLines={errors.map((d) => d.line)} marks={diagnostics} stale={live.checking || !!live.trouble} names={names} onChange={change} onCaret={setCaret} />
           <SymbolHelp />
         </div>
 
