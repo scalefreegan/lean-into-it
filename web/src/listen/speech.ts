@@ -31,6 +31,8 @@ export interface NarrateOptions {
   onEnd?: () => void;
   /** The request failed, or the browser could not play the audio. */
   onError?: (e: Error) => void;
+  /** stop() was called: something else is to be read, or reading was turned off. (Not after an end or a failure.) */
+  onStop?: () => void;
   /** Called on every change of `state`. */
   onState?: (state: NarrationState) => void;
   /** The speed to start at. Default 1. */
@@ -61,19 +63,32 @@ export function narrate(text: string, opts: NarrateOptions = {}): NarrationHandl
       opts.onWord?.(i);
     }
   };
-  const finish = () => {
+  const onAudioError = () => fail(new Error("the audio could not be played"));
+  /** Let go of the audio element: no listeners, nothing held or still loading. */
+  const release = () => {
+    if (!audio) return;
+    audio.pause();
+    audio.removeEventListener("timeupdate", onTimeUpdate);
+    audio.removeEventListener("ended", finish);
+    audio.removeEventListener("error", onAudioError);
+    audio.removeAttribute("src");
+    audio.load();
+    audio = null;
+  };
+  function finish() {
     if (stopped) return;
     stopped = true;
+    release();
     setState("done");
     opts.onEnd?.();
-  };
-  const fail = (e: unknown) => {
+  }
+  function fail(e: unknown) {
     if (stopped) return;
     stopped = true;
-    audio?.pause();
+    release();
     setState("done");
     opts.onError?.(e instanceof Error ? e : new Error(String(e)));
-  };
+  }
 
   const handle: NarrationHandle = {
     pause() {
@@ -90,9 +105,9 @@ export function narrate(text: string, opts: NarrateOptions = {}): NarrationHandl
       if (stopped) return;
       stopped = true;
       request.abort();
-      audio?.pause();
-      audio?.removeEventListener("timeupdate", onTimeUpdate);
+      release();
       setState("done");
+      opts.onStop?.();
     },
     seek(deltaSeconds: number) {
       if (stopped || !audio) return;
@@ -119,7 +134,7 @@ export function narrate(text: string, opts: NarrateOptions = {}): NarrationHandl
       audio.playbackRate = rate;
       audio.addEventListener("timeupdate", onTimeUpdate);
       audio.addEventListener("ended", finish);
-      audio.addEventListener("error", () => fail(new Error("the audio could not be played")));
+      audio.addEventListener("error", onAudioError);
       setState("playing");
       void audio.play().catch(fail);
     },

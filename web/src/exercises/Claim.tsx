@@ -1,4 +1,5 @@
 import type { Exercise } from "../../shared/content.ts";
+import { speakableText } from "../../shared/tts/speakable.ts";
 import { useReadingLine } from "../listen/data.ts";
 import { cx } from "../ui.tsx";
 
@@ -7,7 +8,8 @@ import { cx } from "../ui.tsx";
 export function Claim({ exercise }: { exercise: Exercise }) {
   // Listen mode reading this claim: its words one by one, the one sounding marked.
   const reading = useReadingLine(exercise.id);
-  const words = reading ? exercise.says.split(/\s+/).filter(Boolean) : null;
+  // The words are those that were sent to be spoken, so the count is the audio's.
+  const words = reading ? speakableText(exercise.says).text.split(" ").filter(Boolean) : null;
   return (
     // The lesson page spaces its parts by 0.75rem; the claim sits closer to the title above it.
     <div className="-mt-2">
@@ -16,7 +18,7 @@ export function Claim({ exercise }: { exercise: Exercise }) {
           ? words.map((w, i) => (
               <span key={i}>
                 {i > 0 && " "}
-                <span data-reading={i === reading!.word || undefined} className={cx(i === reading!.word && "rounded-sm bg-accent-soft text-fg outline-2 outline-accent-soft")}>
+                <span data-reading={i === reading!.word || undefined} className={cx(i === reading!.word && "rounded-sm bg-accent-soft text-fg")}>
                   {w}
                 </span>
               </span>

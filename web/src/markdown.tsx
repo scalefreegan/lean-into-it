@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { spokenBlocks, type SpeakableWord } from "../shared/tts/speakable.ts";
+import { spokenBlocks, type SpokenBlock } from "../shared/tts/speakable.ts";
 import { cx } from "./ui.tsx";
 
 // The small markdown subset lessons are written in (docs/CONTENT.md):
@@ -80,36 +80,45 @@ export function Markdown({ source }: { source: string }) {
 
 /* ------------------------------- Listen mode ------------------------------ */
 
-const WORD_ON = "rounded-sm bg-accent-soft text-fg outline-2 outline-accent-soft";
+const WORD_ON = "rounded-sm bg-accent-soft text-fg";
 
-/** One word as its own element, so the one being read can be marked. */
-function word(w: SpeakableWord, activeWord: number | null | undefined, key: string): ReactNode {
-  const span = (
-    <span key={key} data-word={w.index} data-reading={w.index === activeWord || undefined} className={cx(w.index === activeWord && WORD_ON)}>
-      {w.text}
-    </span>
-  );
-  const em = w.italic ? <em key={key}>{span}</em> : span;
-  return w.bold ? <strong key={key}>{em}</strong> : em;
-}
-
-/** A block's words in order; the words of one `code` span are drawn as one piece of code. */
-function renderWords(words: SpeakableWord[], activeWord: number | null | undefined, keyBase: string): ReactNode[] {
+/** A block's words in order, drawn as Markdown draws the same text (so
+ *  nothing moves when a block starts being read): each word is cut where
+ *  its marking changes, and one `code` span is one piece of code, across
+ *  words and the spaces between them. Every piece of a word carries
+ *  data-word; the pieces of the word sounding are marked. */
+function renderWords(block: SpokenBlock, activeWord: number | null | undefined, keyBase: string): ReactNode[] {
+  const pieces: { node: ReactNode; code: number | null }[] = [];
+  const styled = (node: ReactNode, mark: { bold: boolean; italic: boolean }, key: string): ReactNode => {
+    const em = mark.italic ? <em key={key}>{node}</em> : node;
+    return mark.bold ? <strong key={key}>{em}</strong> : em;
+  };
+  block.words.forEach((w, j) => {
+    if (j > 0) {
+      const gap = block.gaps[j - 1];
+      pieces.push({ node: gap.bold || gap.italic ? styled(" ", gap, `${keyBase}-g${j}`) : " ", code: gap.code });
+    }
+    w.parts.forEach((p, n) => {
+      const key = `${keyBase}-${j}-${n}`;
+      const on = w.index === activeWord;
+      const span = (
+        <span key={key} data-word={w.index} data-reading={on || undefined} className={cx(on && WORD_ON)}>
+          {p.text}
+        </span>
+      );
+      pieces.push({ node: styled(span, p, key), code: p.code });
+    });
+  });
   const out: ReactNode[] = [];
-  for (let j = 0; j < words.length; ) {
-    if (j > 0) out.push(" ");
-    const w = words[j];
-    if (w.code === null) {
-      out.push(word(w, activeWord, `${keyBase}-${j}`));
-      j++;
+  for (let i = 0; i < pieces.length; ) {
+    const { code } = pieces[i];
+    if (code === null) {
+      out.push(pieces[i++].node);
       continue;
     }
+    const start = i;
     const run: ReactNode[] = [];
-    const start = j;
-    for (; j < words.length && words[j].code === w.code; j++) {
-      if (j > start) run.push(" ");
-      run.push(word(words[j], activeWord, `${keyBase}-${j}`));
-    }
+    while (i < pieces.length && pieces[i].code === code) run.push(pieces[i++].node);
     out.push(<code key={`${keyBase}-c${start}`}>{run}</code>);
   }
   return out;
@@ -131,14 +140,14 @@ export function SpokenMarkdown({ source, activeWord }: { source: string; activeW
     const key = `s${k++}`;
     if (b.kind === "bullet" || b.kind === "number") {
       const items: typeof blocks = [];
-      while (i < blocks.length && blocks[i].kind === b.kind) items.push(blocks[i++]);
-      const lis = items.map((it, j) => <li key={j}>{renderWords(it.words, activeWord, `${key}-${j}`)}</li>);
+      while (i < blocks.length && blocks[i].kind === b.kind && blocks[i].list === b.list) items.push(blocks[i++]);
+      const lis = items.map((it, j) => <li key={j}>{renderWords(it, activeWord, `${key}-${j}`)}</li>);
       out.push(b.kind === "number" ? <ol key={key}>{lis}</ol> : <ul key={key}>{lis}</ul>);
       continue;
     }
     if (b.kind === "code") out.push(<pre key={key}>{b.code}</pre>);
     else {
-      const words = renderWords(b.words, activeWord, key);
+      const words = renderWords(b, activeWord, key);
       if (b.kind === "h2") out.push(<h2 key={key}>{words}</h2>);
       else if (b.kind === "h3") out.push(<h3 key={key}>{words}</h3>);
       else if (b.kind === "quote") out.push(<blockquote key={key}>{words}</blockquote>);

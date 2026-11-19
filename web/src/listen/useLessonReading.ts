@@ -3,6 +3,7 @@ import type { Lesson } from "../../shared/content.ts";
 import { speakableText } from "../../shared/tts/speakable.ts";
 import { backTarget, nextStop, skipTarget, type StopKind } from "../../shared/tts/transport.ts";
 import { useListen } from "./data.ts";
+import type { NarrationHandle } from "./speech.ts";
 
 // A lesson read aloud, block by block, in the order of the file. Prose is
 // read and the reading goes on; an exercise's title and claim are read and
@@ -31,13 +32,19 @@ export function exerciseSpeech(title: string, says: string): { text: string; tit
 }
 
 export function useLessonReading(lesson: Lesson | undefined, allowed: boolean): LessonReading {
-  const { on, voiceId, speak, stop, registerSequence } = useListen();
+  const { on, voiceId, speak, registerSequence } = useListen();
   const enabled = Boolean(lesson) && allowed && on && voiceId !== null;
   const [active, setActive] = useState<LessonReading["active"]>(null);
   const [waitingAt, setWaitingAt] = useState<number | null>(null);
   /** The block last read or waited at, and whether the reading is waiting there. */
   const place = useRef<number | null>(null);
   const waiting = useRef(false);
+  /** The passage of this lesson being read. Only it is ever stopped from here: a Tutor reply is not this page's to stop. */
+  const mine = useRef<NarrationHandle | null>(null);
+  const stopMine = useCallback(() => {
+    mine.current?.stop();
+    mine.current = null;
+  }, []);
 
   const spoken = useMemo(
     () =>
@@ -64,7 +71,7 @@ export function useLessonReading(lesson: Lesson | undefined, allowed: boolean): 
     (from: number | null) => {
       const idx = from === null ? null : nextStop(kinds, from);
       if (idx === null || !lesson) {
-        stop();
+        stopMine();
         clear();
         return;
       }
@@ -76,21 +83,25 @@ export function useLessonReading(lesson: Lesson | undefined, allowed: boolean): 
         setActive(null);
       };
       if (block.type === "widget") {
-        stop();
+        stopMine();
         wait();
         return;
       }
       waiting.current = false;
       setWaitingAt(null);
-      setActive({ block: idx, word: null });
-      speak(spoken[idx], {
+      // No longer read (stopped for something else, or failed): unmark it. The
+      // place is kept, so Play reads this block again.
+      const unmark = () => setActive((a) => (a?.block === idx ? null : a));
+      const handle = speak(spoken[idx], {
         onWord: (word) => setActive({ block: idx, word }),
         onEnd: () => (block.type === "exercise" ? wait() : next.current(idx + 1)),
-        // The transport says what went wrong. The place is kept, so Play tries this block again.
-        onError: () => setActive(null),
+        onError: unmark, // the transport says what went wrong
+        onStop: unmark,
       });
+      mine.current = handle;
+      if (handle) setActive({ block: idx, word: null });
     },
-    [lesson, kinds, spoken, speak, stop, clear],
+    [lesson, kinds, spoken, speak, stopMine, clear],
   );
 
   useEffect(() => {
@@ -107,10 +118,10 @@ export function useLessonReading(lesson: Lesson | undefined, allowed: boolean): 
     });
     return () => {
       unregister();
-      stop();
+      stopMine();
       clear();
     };
-  }, [enabled, goTo, kinds, registerSequence, stop, clear]);
+  }, [enabled, goTo, kinds, registerSequence, stopMine, clear]);
 
   // Keep what is being read in view.
   const at = active?.block ?? waitingAt;

@@ -153,14 +153,28 @@ async function upstreamReason(res: Response): Promise<string> {
   }
 }
 
-/** Speak `text` in the stored voice and model: from the cache, else from ElevenLabs once. */
+/** Requests to ElevenLabs under way, by cache key: a second ask for the same passage waits for the first. */
+const inFlight = new Map<string, Promise<TtsSpeakReply>>();
+
+/** Speak `text` in the stored voice and model: from the cache, else from
+ *  ElevenLabs once. A request the browser gave up on (Skip) is still
+ *  finished and kept: it is paid for either way, and the passage is then
+ *  there when it is wanted. */
 async function speak(text: string): Promise<TtsSpeakReply> {
   const { voiceId, modelId } = await settingsReply();
   if (!voiceId) throw new HttpError(400, "Choose a voice before using Listen mode.", "tts_no_voice");
   const hash = cacheKey(text, voiceId, modelId);
   const cached = readCache(hash);
   if (cached) return { audioUrl: `/api/tts/audio/${hash}.mp3`, words: cached.words };
+  let asked = inFlight.get(hash);
+  if (!asked) {
+    asked = fromElevenLabs(text, voiceId, modelId, hash).finally(() => inFlight.delete(hash));
+    inFlight.set(hash, asked);
+  }
+  return asked;
+}
 
+async function fromElevenLabs(text: string, voiceId: string, modelId: string, hash: string): Promise<TtsSpeakReply> {
   const { url, init } = speakRequest({ key: requireKey(), voiceId, text, modelId });
   let res: Response;
   try {
@@ -197,18 +211,48 @@ async function voices(): Promise<TtsVoicesReply> {
 
 const AUDIO_RE = /^audio\/([0-9a-f]{64})\.mp3$/;
 
+/** A cached passage's audio. Byte ranges are honoured: without them a browser cannot seek in it. */
+function sendAudio(req: IncomingMessage, res: ServerResponse, file: string): void {
+  let size: number;
+  try {
+    size = fs.statSync(file).size;
+  } catch {
+    return sendJson(res, 404, { error: "no such cached audio" });
+  }
+  // The name is a hash of what the bytes are, so they can be kept for good.
+  const headers = { "Content-Type": "audio/mpeg", "Accept-Ranges": "bytes", "Cache-Control": "private, max-age=31536000, immutable" };
+  let start = 0;
+  let end = size - 1;
+  let status = 200;
+  const range = req.headers.range;
+  if (range) {
+    const m = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+    if (m && (m[1] || m[2])) {
+      if (m[1]) {
+        start = Number(m[1]);
+        if (m[2]) end = Math.min(Number(m[2]), size - 1);
+      } else start = Math.max(0, size - Number(m[2])); // the last n bytes
+      if (start > end || start >= size) {
+        res.writeHead(416, { "Content-Range": `bytes */${size}` });
+        res.end();
+        return;
+      }
+      status = 206;
+    } // anything else (several ranges, another unit): the whole file, as the standard allows
+  }
+  res.writeHead(status, { ...headers, "Content-Length": end - start + 1, ...(status === 206 ? { "Content-Range": `bytes ${start}-${end}/${size}` } : {}) });
+  if (size === 0) return void res.end();
+  // A file that goes away mid-read ends this reply, not the server.
+  fs.createReadStream(file, { start, end }).on("error", () => res.destroy()).pipe(res);
+}
+
 /** /api/tts/settings, /voices, /speak and /audio/<hash>.mp3. */
 export async function handleTts(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const seg = subPath(req);
   const audio = AUDIO_RE.exec(seg);
   if (audio) {
     if (req.method !== "GET") return methodNotAllowed(res, "GET");
-    const file = cachePaths(audio[1]).audio;
-    if (!fs.existsSync(file)) return sendJson(res, 404, { error: "no such cached audio" });
-    // The name is a hash of what the bytes are, so they can be kept for good.
-    res.writeHead(200, { "Content-Type": "audio/mpeg", "Content-Length": fs.statSync(file).size, "Cache-Control": "private, max-age=31536000, immutable" });
-    fs.createReadStream(file).pipe(res);
-    return;
+    return sendAudio(req, res, cachePaths(audio[1]).audio);
   }
   if (seg === "settings") {
     if (req.method === "GET") return sendJson(res, 200, await settingsReply());

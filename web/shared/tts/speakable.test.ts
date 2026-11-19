@@ -90,12 +90,34 @@ test("inline code and italics keep their marks, and a star inside code is not em
   const [block] = spokenBlocks("Use `intro h` and *then* `a * b` **with `rw`**.");
   assert.deepEqual(block.words.map((w) => w.text), ["Use", "intro", "h", "and", "then", "a", "*", "b", "with", "rw."]);
   // Each word knows which code span it is in: `intro h` is one, `a * b` the next.
-  assert.deepEqual(block.words.map((w) => w.code), [null, 0, 0, null, null, 1, 1, 1, null, 2]);
-  assert.deepEqual(block.words.filter((w) => w.italic).map((w) => w.text), ["then"]);
+  assert.deepEqual(block.words.map((w) => w.parts[0].code), [null, 0, 0, null, null, 1, 1, 1, null, 2]);
+  assert.deepEqual(block.words.filter((w) => w.parts[0].italic).map((w) => w.text), ["then"]);
   assert.deepEqual(block.words.filter((w) => w.bold).map((w) => w.text), ["with", "rw."]);
+  // The space inside a code span is code; the one inside the bold is bold; the others are plain.
+  assert.deepEqual(block.gaps.map((g) => g.code), [null, 0, null, null, null, 1, 1, null, null]);
+  assert.deepEqual(block.gaps.map((g) => g.bold), [false, false, false, false, false, false, false, false, true]);
+  // "rw." is bold code, then a full stop that is neither.
+  assert.deepEqual(block.words[9].parts, [{ text: "rw", bold: true, italic: false, code: 2 }, { text: ".", bold: false, italic: false, code: null }]);
 });
 
 test("a passage with nothing to say is empty text", () => {
   assert.equal(speakableText("```\ncode only\n```").text, "");
   assert.equal(speakableText("\n\n").text, "");
+});
+
+test("a word is cut where its marking changes, so punctuation beside code or bold keeps its own look", () => {
+  const [block] = spokenBlocks("Name it `h`, as **P**s are; `a`+`b` too.");
+  const parts = (text: string) => block.words.find((w) => w.text === text)!.parts.map((p) => [p.text, p.code !== null, p.bold]);
+  assert.deepEqual(parts("h,"), [["h", true, false], [",", false, false]]);
+  assert.deepEqual(parts("Ps"), [["P", false, true], ["s", false, false]]);
+  // Two code spans in one word stay two.
+  assert.deepEqual(block.words.find((w) => w.text === "a+b")!.parts.map((p) => p.code), [1, null, 2]);
+  // Every word's parts spell the word.
+  for (const w of block.words) assert.equal(w.parts.map((p) => p.text).join(""), w.text);
+});
+
+test("two lists with a blank line between them stay two lists", () => {
+  const blocks = spokenBlocks("- one\n- two\n\n- three\n\n1. four");
+  assert.deepEqual(blocks.map((b) => [b.kind, b.list]), [["bullet", 0], ["bullet", 0], ["bullet", 1], ["number", 2]]);
+  assert.equal(spokenBlocks("A paragraph.")[0].list, undefined);
 });

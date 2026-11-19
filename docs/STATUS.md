@@ -265,7 +265,8 @@ Landed in the first PR, the foundation slice:
   play/pause, +5 s, skip, stop, speed). Play reads the open lesson block by
   block with the word sounding marked; it reads an exercise's title and
   claim and then waits there, as it does at a widget, until Play or Skip.
-  Nothing starts by itself. A Tutor reply is read as it arrives. Fenced
+  Nothing starts by itself. A Tutor reply is read as it arrives (Back and
+  Skip then act on the reply, and the lesson keeps its place). Fenced
   code is shown and not read. The text goes to ElevenLabs
   (`web/server/tts.ts`, behind `wrap()`) the first time it is heard; the
   audio and word timings are then kept under `data/tts-cache/`, so a second
@@ -278,7 +279,7 @@ Landed in the first PR, the foundation slice:
   and transport logic is pure and tested (`web/shared/tts/`); the server
   tests stand in for ElevenLabs. Not yet checked against the real
   ElevenLabs from this repo, and maths is read as written (`lii-1gs.2`).
-- Tests: 341, including every reference solution checked by the real Lean,
+- Tests: 345, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

@@ -24,10 +24,19 @@ export interface Speakable {
 export interface SpeakableWord {
   text: string;
   index: number;
+  /** Whether any of it was **bold**. */
+  bold: boolean;
+  /** The word cut where its marking changes ("`h`," is code, then a plain
+   *  comma), so it can be drawn exactly as markdown.tsx draws it. */
+  parts: WordPart[];
+}
+
+export interface WordPart {
+  text: string;
   bold: boolean;
   italic: boolean;
-  /** Which `code` span of its block the word is in (0, 1, …), so the words
-   *  of one span can be drawn as one; null outside code. */
+  /** Which `code` span of its block this is in (0, 1, …), so one span is
+   *  drawn as one piece even across words; null outside code. */
   code: number | null;
 }
 
@@ -39,6 +48,10 @@ export interface SpokenBlock {
   words: SpeakableWord[];
   /** A code block's text, as written. */
   code?: string;
+  /** A list item's list (0, 1, … through the passage): items of one list share it. */
+  list?: number;
+  /** How the space after each word but the last is marked: as both its neighbours are. */
+  gaps: Omit<WordPart, "text">[];
 }
 
 interface Plain {
@@ -86,10 +99,11 @@ const closes = (l: string, opener: string) => new RegExp(`^\`{${/^`+/.exec(opene
 /** The source split into blocks, each still raw markdown. The one place
  *  here that walks the block grammar; keep it in step with markdown.tsx's
  *  Markdown(). */
-function segmentBlocks(source: string): { kind: SpokenBlock["kind"]; raw: string }[] {
+function segmentBlocks(source: string): { kind: SpokenBlock["kind"]; raw: string; list?: number }[] {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
-  const segments: { kind: SpokenBlock["kind"]; raw: string }[] = [];
+  const segments: { kind: SpokenBlock["kind"]; raw: string; list?: number }[] = [];
   let i = 0;
+  let lists = 0;
   while (i < lines.length) {
     const line = lines[i];
     if (!line.trim()) {
@@ -114,10 +128,11 @@ function segmentBlocks(source: string): { kind: SpokenBlock["kind"]; raw: string
       const ordered = isNumber(line);
       const kind: SpokenBlock["kind"] = ordered ? "number" : "bullet";
       let items = 0;
+      const list = lists++;
       while (i < lines.length && (ordered ? isNumber(lines[i]) : isBullet(lines[i]) || (/^\s{2,}\S/.test(lines[i]) && items > 0))) {
         if (/^\s{2,}\S/.test(lines[i]) && !isBullet(lines[i]) && !isNumber(lines[i])) segments[segments.length - 1].raw += ` ${lines[i].trim()}`;
         else {
-          segments.push({ kind, raw: lines[i].replace(/^\s*(?:[-*]|\d+[.)])\s+/, "") });
+          segments.push({ kind, list, raw: lines[i].replace(/^\s*(?:[-*]|\d+[.)])\s+/, "") });
           items++;
         }
         i++;
@@ -155,22 +170,39 @@ export function speakableText(source: string): Speakable {
 export function spokenBlocks(source: string): SpokenBlock[] {
   const out: SpokenBlock[] = [];
   let index = 0;
-  for (const { kind, raw } of segmentBlocks(source)) {
+  for (const { kind, raw, list } of segmentBlocks(source)) {
     if (kind === "code") {
-      out.push({ kind, words: [], code: raw });
+      out.push({ kind, words: [], gaps: [], code: raw });
       continue;
     }
     const plain = inlinePlain(raw);
+    /** How the character at `at` is marked. */
+    const markAt = (at: number): Omit<WordPart, "text"> => {
+      const within = (ranges: Range[]) => ranges.findIndex(([s, e]) => at >= s && at < e);
+      const code = within(plain.code);
+      return { bold: within(plain.bold) >= 0, italic: within(plain.italic) >= 0, code: code < 0 ? null : code };
+    };
+    const same = (a: Omit<WordPart, "text">, b: Omit<WordPart, "text">) => a.bold === b.bold && a.italic === b.italic && a.code === b.code;
     const words: SpeakableWord[] = [];
+    const gaps: SpokenBlock["gaps"] = [];
     const re = /\S+/g;
     for (let m = re.exec(plain.text); m; m = re.exec(plain.text)) {
-      const start = m.index;
-      const end = start + m[0].length;
-      const within = (ranges: Range[]) => ranges.findIndex(([s, e]) => start < e && end > s);
-      const code = within(plain.code);
-      words.push({ text: m[0], index: index++, bold: within(plain.bold) >= 0, italic: within(plain.italic) >= 0, code: code < 0 ? null : code });
+      const parts: WordPart[] = [];
+      for (let at = m.index; at < m.index + m[0].length; at++) {
+        const mark = markAt(at);
+        const last = parts[parts.length - 1];
+        if (last && same(last, mark)) last.text += plain.text[at];
+        else parts.push({ text: plain.text[at], ...mark });
+      }
+      if (words.length) {
+        // The space before this word is marked as the characters either side of it both are.
+        const before = words[words.length - 1].parts.at(-1)!;
+        const after = parts[0];
+        gaps.push({ bold: before.bold && after.bold, italic: before.italic && after.italic, code: before.code === after.code ? before.code : null });
+      }
+      words.push({ text: m[0], index: index++, bold: parts.some((p) => p.bold), parts });
     }
-    if (words.length) out.push({ kind, words });
+    if (words.length) out.push({ kind, words, gaps, ...(list === undefined ? {} : { list }) });
   }
   return out;
 }

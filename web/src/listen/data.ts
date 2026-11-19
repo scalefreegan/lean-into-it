@@ -2,6 +2,10 @@ import { createContext, useContext } from "react";
 import type { TtsModel, TtsVoice } from "../../shared/wire.ts";
 import type { NarrateOptions, NarrationHandle } from "./speech.ts";
 
+/** `aside`: a passage that is not part of the page's run of blocks (a Tutor
+ *  reply). While one is read, Back and Skip act on it, not on the lesson. */
+export type SpeakOptions = NarrateOptions & { aside?: boolean };
+
 // Listen mode's shared state: the types, the context and the hooks that read
 // it. The provider is ListenProvider.tsx.
 
@@ -46,8 +50,8 @@ export interface ListenState {
   loadVoices: () => void;
   rate: number;
   setRate: (rate: number) => void;
-  /** Speak `text`, first stopping whatever was being read: one passage at a time. Null (and onError) when there is no voice. */
-  speak: (text: string, opts?: NarrateOptions) => NarrationHandle | null;
+  /** Speak `text`, first stopping whatever was being read (its onStop says so): one passage at a time. Null (and onError) when there is no voice. */
+  speak: (text: string, opts?: SpeakOptions) => NarrationHandle | null;
   /** Stop whatever is being read. */
   stop: () => void;
   transport: TransportState;

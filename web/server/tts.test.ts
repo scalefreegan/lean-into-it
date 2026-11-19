@@ -197,6 +197,31 @@ test("a passage is sent to ElevenLabs once: the second listen is the cache, and 
   assert.ok(fs.existsSync(path.join(tmp, "data", "tts-cache", `${cacheKey("hi there", "v1", "eleven_v4")}.mp3`)));
 });
 
+test("two asks for a passage at the same moment are one request to ElevenLabs", async () => {
+  upstream = [];
+  const [a, b] = await Promise.all([call<TtsSpeakReply>("POST", "/speak", { text: "said twice at once" }), call<TtsSpeakReply>("POST", "/speak", { text: "said twice at once" })]);
+  assert.deepEqual([a.status, b.status], [200, 200]);
+  assert.deepEqual(a.json, b.json);
+  assert.equal(upstream.length, 1);
+});
+
+test("the audio can be asked for in byte ranges, which is what lets a browser seek in it", async () => {
+  const url = `${base}/api/tts/audio/${cacheKey("hi there", "v1", "eleven_v4")}.mp3`;
+  const whole = await realFetch(url);
+  assert.equal(whole.headers.get("accept-ranges"), "bytes");
+  const ask = async (range: string) => {
+    const res = await realFetch(url, { headers: { Range: range } });
+    return [res.status, res.headers.get("content-range"), Buffer.from(await res.arrayBuffer()).toString()];
+  };
+  // The file is "fake mp3 bytes": 14 bytes.
+  assert.deepEqual(await ask("bytes=5-7"), [206, "bytes 5-7/14", "mp3"]);
+  assert.deepEqual(await ask("bytes=9-"), [206, "bytes 9-13/14", "bytes"]);
+  assert.deepEqual(await ask("bytes=-4"), [206, "bytes 10-13/14", "ytes"]);
+  assert.deepEqual(await ask("bytes=5-999"), [206, "bytes 5-13/14", "mp3 bytes"]);
+  assert.deepEqual(await ask("bytes=20-"), [416, "bytes */14", ""]);
+  assert.deepEqual(await ask("lines=1-2"), [200, null, "fake mp3 bytes"]);
+});
+
 test("a cached passage still plays with no key at all", async () => {
   fs.writeFileSync(envPath(), "");
   try {

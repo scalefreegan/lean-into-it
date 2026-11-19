@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ListenSettings, ListenSettingsPatch, TtsVoice } from "../../shared/wire.ts";
 import { listenSettings, putListenSettings, ttsVoices } from "../api/client.ts";
-import { ListenContext, RATES, type ListenSequence, type ListenState, type TransportState } from "./data.ts";
-import { narrate, type NarrateOptions, type NarrationHandle } from "./speech.ts";
+import { ListenContext, RATES, type ListenSequence, type ListenState, type SpeakOptions, type TransportState } from "./data.ts";
+import { narrate, type NarrationHandle } from "./speech.ts";
 
 // Listen mode's state and its one voice: only one passage is read at a
 // time, whoever asked. The settings are the learner's (the server keeps
@@ -32,6 +32,8 @@ export function ListenProvider({ children }: { children: ReactNode }) {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const current = useRef<NarrationHandle | null>(null);
+  /** Whether what is being read is an aside (a Tutor reply), not the page's run of blocks. */
+  const aside = useRef(false);
   /** The last single passage spoken, for Start and Back when no page has a run of blocks. */
   const last = useRef<string | null>(null);
   const sequence = useRef<ListenSequence | null>(null);
@@ -45,6 +47,8 @@ export function ListenProvider({ children }: { children: ReactNode }) {
   }, []);
   useEffect(recheck, [recheck]);
 
+  // Stopping a passage, here or by its own handle, tells whoever asked for
+  // it (onStop), so no page is left showing a word as being read.
   const stop = useCallback(() => {
     last.current = null;
     current.current?.stop();
@@ -113,9 +117,10 @@ export function ListenProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const speak = useCallback(
-    (text: string, opts: NarrateOptions = {}): NarrationHandle | null => {
+    (text: string, opts: SpeakOptions = {}): NarrationHandle | null => {
       current.current?.stop();
       current.current = null;
+      aside.current = false;
       if (!voiceId) {
         const e = new Error("Choose a voice first: the Listen button in the header has the list.");
         setSpeechError(e.message);
@@ -148,8 +153,13 @@ export function ListenProvider({ children }: { children: ReactNode }) {
           setSpeechError(`Could not read this aloud. ${e.message}`);
           opts.onError?.(e);
         },
+        onStop: () => {
+          done();
+          opts.onStop?.();
+        },
       });
       current.current = made;
+      aside.current = opts.aside === true;
       setTransport("loading");
       return made;
     },
@@ -178,12 +188,15 @@ export function ListenProvider({ children }: { children: ReactNode }) {
   }, [speak]);
   const pause = useCallback(() => current.current?.pause(), []);
   const seek = useCallback((d: number) => current.current?.seek(d), []);
+  // While an aside is read, Back is its start and Skip is its end; the lesson's place is left alone.
   const back = useCallback(() => {
-    if (sequence.current) sequence.current.back(current.current?.currentTime ?? 0);
+    if (current.current && aside.current) current.current.seek(-Infinity);
+    else if (sequence.current) sequence.current.back(current.current?.currentTime ?? 0);
     else if (last.current) speak(last.current);
   }, [speak]);
   const skip = useCallback(() => {
-    if (sequence.current) sequence.current.skip();
+    if (current.current && aside.current) stop();
+    else if (sequence.current) sequence.current.skip();
     else stop();
   }, [stop]);
   const stopAll = useCallback(() => {
