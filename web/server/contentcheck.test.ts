@@ -464,11 +464,15 @@ test("what Listen mode cannot say well is listed per lesson: unsure formulas wit
   const content = {
     lessons: [
       lesson("one", "See `∀ m < n, P m` twice: `∀ m < n, P m`. But `rfl` and `∑ i ∈ s, f i`{say: the sum of f over s} are fine.", "Suppose a ≤ b. Then a ⊕ b."),
-      lesson("two", "Nothing here but `A ∧ B` and a².", "For any a, a × 0 = 0."),
+      lesson("two", "Nothing here but `A ∧ B`, |x| and a².", "For any a, a × 0 = 0, and `∀ m < n, Q m`."),
     ],
   } as unknown as Content;
   assert.deepEqual(spokenCoverage(content), {
-    formulas: [{ lesson: "one", code: "∀ m < n, P m", said: "for every m is less than n, P m" }],
+    formulas: [
+      { lesson: "one", code: "∀ m < n, P m", said: "for every m is less than n, P m" },
+      // In a claim a form would be shown, so it is marked for rewording.
+      { lesson: "two", code: "∀ m < n, Q m", said: "for every m is less than n, Q m", claim: true },
+    ],
     symbols: [{ lesson: "one", symbols: ["⊕"] }],
   });
 });

@@ -364,19 +364,22 @@ export interface Coverage {
  *  spans of each lesson's prose with no written spoken form that the tables
  *  are not sure of, and the symbols in its prose, titles and claims that no
  *  table has. Never a failure: a list to write from. */
-export function spokenCoverage(content: Content): { formulas: { lesson: string; code: string; said: string }[]; symbols: { lesson: string; symbols: string[] }[] } {
-  const formulas: { lesson: string; code: string; said: string }[] = [];
+export function spokenCoverage(content: Content): { formulas: { lesson: string; code: string; said: string; claim?: true }[]; symbols: { lesson: string; symbols: string[] }[] } {
+  const formulas: { lesson: string; code: string; said: string; claim?: true }[] = [];
   const symbols: { lesson: string; symbols: string[] }[] = [];
   for (const lesson of content.lessons) {
-    const read = [...lesson.blocks.flatMap((b) => (b.type === "prose" ? [b.markdown] : [])), ...lesson.exercises.flatMap((e) => [e.title, e.says])];
+    const prose = lesson.blocks.flatMap((b) => (b.type === "prose" ? [b.markdown] : []));
+    // A title or a claim is shown as written, so a form there would be seen: `claim` says to reword it instead.
+    const claims = lesson.exercises.flatMap((e) => [e.title, e.says]);
+    const read = [...prose, ...claims];
     const seen = new Set<string>();
-    for (const text of read) {
+    read.forEach((text, n) => {
       for (const gap of spokenGaps(text)) {
         if (seen.has(gap.code)) continue;
         seen.add(gap.code);
-        formulas.push({ lesson: lesson.id, ...gap });
+        formulas.push({ lesson: lesson.id, ...gap, ...(n >= prose.length ? { claim: true as const } : {}) });
       }
-    }
+    });
     const unsaid = [...new Set(read.flatMap(unsaidSymbols))];
     if (unsaid.length) symbols.push({ lesson: lesson.id, symbols: unsaid });
   }

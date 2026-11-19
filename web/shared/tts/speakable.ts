@@ -16,7 +16,7 @@
 //
 // Pure: no DOM, no network.
 
-import { sayCode, sayText } from "./say.ts";
+import { isTactic, sayCode, sayName, sayText } from "./say.ts";
 
 type Range = [number, number];
 
@@ -127,23 +127,32 @@ function wordsOf(source: string, firstIndex: number): { words: SpeakableWord[]; 
     parts = [];
     say = "";
   };
+  // A code span is said apart from letters it touches ("x`h`y" is "x h y");
+  // punctuation stays against it ("(rev x's)," is one breath), and so do two
+  // pieces of plain text that differ only in marking ("**P**s" is "Ps").
+  let lastCode = false;
+  const add = (said: string, code: boolean) => {
+    say += (code || lastCode) && /^[\p{L}\p{N}]/u.test(said) && /[\p{L}\p{N}]$/u.test(say) ? ` ${said}` : said;
+    lastCode = code;
+  };
   for (const piece of pieces(source)) {
     const mark = { bold: piece.bold, italic: piece.italic, code: piece.code };
     if (piece.code) {
       parts.push({ text: piece.text, ...mark });
-      // Punctuation it touches stays against it: "(rev x's)," is said in one breath.
-      const said = piece.say ?? "";
-      say += /^[\p{L}\p{N}]/u.test(said) && /[\p{L}\p{N}]$/u.test(say) ? ` ${said}` : said;
+      add(piece.say ?? "", true);
       continue;
     }
     for (const run of piece.text.split(/(\s+)/)) {
       if (!run) continue;
-      if (/^\s+$/.test(run)) end();
-      else {
-        parts.push({ text: run, ...mark });
-        const said = sayText(run).text;
-        say += /^[\p{L}\p{N}]/u.test(said) && /[\p{L}\p{N}]$/u.test(say) ? ` ${said}` : said;
+      if (/^\s+$/.test(run)) {
+        end();
+        lastCode = false;
+        continue;
       }
+      parts.push({ text: run, ...mark });
+      // A move named in bold (**rw**, **linarith**) is said as its name is.
+      const named = piece.bold ? /^([\p{L}_?]+)([.,;:!?)]*)$/u.exec(run) : null;
+      add(named && isTactic(named[1]) ? sayName(named[1]) + named[2] : sayText(run).text, false);
     }
   }
   end();

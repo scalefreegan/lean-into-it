@@ -75,3 +75,47 @@ test("running text: symbols become words, hyphens and slashes stay", () => {
   assert.deepEqual(sayText("a⊕b"), { text: "ab", unknown: ["⊕"] });
   assert.deepEqual(sayText("café—“so”").unknown, []);
 });
+
+test("brackets that change the meaning are said; round one thing or an argument they are not", () => {
+  assert.equal(said("P → (Q → R)"), "P implies open bracket Q implies R close bracket");
+  assert.notEqual(said("P → (Q → R)"), said("P → Q → R"));
+  assert.notEqual(said("(a + b) + c"), said("a + b + c"));
+  assert.notEqual(said("f (x + 1)"), said("f x + 1"));
+  assert.notEqual(said("↑(5 - 7)"), said("↑5 - ↑7"));
+  assert.notEqual(said("¬(P ∧ Q)"), said("¬P ∧ Q"));
+  assert.notEqual(said("(a + b) ^ 2"), said("a + b ^ 2"));
+  assert.equal(said("app (rev xs) ys"), "app rev x's y's");
+  assert.equal(said("(x)"), "x");
+  // A binder by itself is a declaration; inside a formula the same shape is a cast.
+  assert.equal(said("(n : ℕ)"), "n, a natural number");
+  assert.equal(said("(n : ℝ) / 2"), "n as a real number over 2");
+});
+
+test("a dot that takes a part of something is said; a namespace's is not", () => {
+  assert.equal(said("h.1"), "h dot 1");
+  assert.notEqual(said("h.1"), said("h1"));
+  assert.equal(said("x.succ"), "x dot suck");
+  assert.equal(said("Nat.succ_le"), "nat suck L E");
+  assert.equal(said("x₁"), "x 1");
+});
+
+test("square brackets are a list, except after a move that takes a list of facts", () => {
+  assert.equal(said("obtain h := h2 [x] xs"), "obtain h from h 2 the list x x's");
+  assert.equal(said("rw [h2] at h"), "rewrite h 2 at h");
+  assert.equal(said("simp at *"), "simp at everything");
+  assert.equal(said("<-"), "a less than sign and a hyphen");
+  assert.equal(said("_ ≤ z"), "blank is at most z");
+  assert.equal(said("\\to"), "backslash to");
+});
+
+test("running text: absolute-value bars, lists and Lean names written out", () => {
+  assert.equal(sayText("|x|,").text, "the absolute value of x,");
+  assert.equal(sayText("|−5|").text, "the absolute value of minus 5");
+  assert.equal(["|a", "−", "b|"].map((r) => sayText(r).text).join(" "), "the absolute value of a minus b");
+  assert.equal(sayText("[x].").text, "the list x.");
+  assert.equal(sayText("[]").text, "the empty list");
+  assert.equal(sayText("norm_num,").text, "norm num,");
+  // What the voice would stumble on is reported, ASCII too.
+  assert.deepEqual(sayText("|").unknown, ["|"]);
+  assert.deepEqual(sayText("a\\b{c}").unknown, ["\\", "{", "}"]);
+});

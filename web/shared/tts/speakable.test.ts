@@ -172,3 +172,8 @@ test("the spans that want a written spoken form are listed once each; one with a
   assert.deepEqual(spokenGaps(source).map((g) => g.code), ["∀ m < n, P m"]);
   assert.deepEqual(unsaidSymbols("Fine: a² ≤ b. Not known: a ⊕ b and ∮."), ["⊕", "∮"]);
 });
+
+test("a move named in bold is said as its name is; marking alone does not split a word", () => {
+  assert.equal(speakableText("Use **rw**, then **linarith**. Not **every** bold word.").text, "Use rewrite, then lin arith. Not every bold word.");
+  assert.equal(speakableText("Two **P**s and x`h`y.").text, "Two Ps and x h y.");
+});

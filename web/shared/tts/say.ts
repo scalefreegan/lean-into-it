@@ -45,8 +45,13 @@ export const NAMES: Record<string, string> = {
   assoc: "assoc",
   mul: "mul",
   Prop: "prop",
-  dvd: "divides",
+  dvd: "D V D",
   nf: "N F",
+  mp: "M P",
+  mpr: "M P R",
+  inl: "in L",
+  inr: "in R",
+  _: "blank",
 };
 
 /** Whole spans said as a phrase. */
@@ -61,6 +66,8 @@ const WHOLE: Record<string, string> = {
   ":=": "colon equals",
   ":= by": "colon equals by",
   _: "an underscore",
+  "<-": "a less than sign and a hyphen",
+  "->": "a hyphen and a greater than sign",
   "exact?": "exact question mark",
   "apply?": "apply question mark",
   "·": "a dot",
@@ -140,14 +147,23 @@ const LOOSE: Record<string, string> = {
 const ONE_OF: Record<string, string> = { "ℕ": "a natural number", "ℤ": "an integer", "ℚ": "a rational number", "ℝ": "a real number", Prop: "a proposition" };
 
 const TACTIC_SET = new Set(TACTICS);
+const FACT_LISTS = new Set(["rw", "nth_rw", "simp", "simp_all", "dsimp", "norm_num", "field_simp", "linarith", "nlinarith", "ring_nf", "unfold"]);
+/** What makes a bracket matter: with one of these inside, taking the bracket away can change the meaning. */
+const OPERATORS = new Set(["=", "+", "-", "−", "*", "×", "·", "/", "^", "<", ">", "≤", "≥", "≠", "∧", "∨", "¬", "→", "↔", "∣", "∈", "::", "++", "↑"]);
 
 /** One name as it is said: `Nat.add_comm` is "nat add comm", `h1` "h 1", `hPQ` "h P Q", `x'` "x prime". */
 export function sayName(name: string): string {
   if (Object.hasOwn(NAMES, name)) return NAMES[name];
   // A fact named for one thing: ha is "h a".
   if (/^h[a-z]$/.test(name)) return `h ${name[1]}`;
+  // x.succ and h.1 are a thing and what is taken from it: the dot is said.
+  // Nat.add_comm is one name in a namespace: it is not.
+  const dotted = /^([\p{Ll}][\p{N}']*|[^.]*(?=\.\d))\.(.+)$/u.exec(name);
+  if (dotted) return `${sayName(dotted[1])} dot ${sayName(dotted[2])}`;
+  if (/^\d+$/.test(name)) return name;
   return name
-    .split(/[._]+/)
+    .replace(/[₀-₉]/g, (d) => ` ${"₀₁₂₃₄₅₆₇₈₉".indexOf(d)}`)
+    .split(/[._\s]+/)
     .filter(Boolean)
     .map((piece) => {
       const primes = /'+$/.exec(piece)?.[0].length ?? 0;
@@ -170,6 +186,11 @@ export function sayName(name: string): string {
 const TOKEN = /\s+|\+\+|[\p{L}_][\p{L}\p{N}_'.]*[\p{L}\p{N}_']|[\p{L}_]|\d+(?:\.\d+)?|::|:=|=>|\[\]|⁻¹|./gu;
 const IS_NAME = /^[\p{L}_]/u;
 
+/** Whether a word is a move's name (a tactic the lessons or the editor know). */
+export function isTactic(word: string): boolean {
+  return TACTIC_SET.has(word);
+}
+
 export interface Said {
   /** The words to say; may be empty when nothing in the span can be said. */
   text: string;
@@ -184,8 +205,11 @@ export function sayCode(code: string): Said {
   // What is typed to get a symbol: \not, \<.
   if (/^\\\S+$/.test(whole)) {
     const rest = whole.slice(1);
-    return { text: `backslash ${Object.hasOwn(SYMBOLS, rest) ? SYMBOLS[rest].replace(/^is /, "") : rest === "|" ? "bar" : rest.length <= 2 ? rest.toUpperCase().split("").join(" ") : rest}`, sure: true };
+    return { text: `backslash ${Object.hasOwn(SYMBOLS, rest) ? SYMBOLS[rest].replace(/^is /, "") : rest === "|" ? "bar" : rest.length === 1 ? rest.toUpperCase() : rest}`, sure: true };
   }
+  // A binder by itself, (n : ℕ), is a declaration, not a cast.
+  const binder = /^\((.*)\)$/.exec(whole);
+  if (binder && !/[()]/.test(binder[1]) && binder[1].includes(":")) return sayCode(binder[1]);
   const bars = /^\|([^|]+)\|$/.exec(whole);
   if (bars) {
     const inner = sayCode(bars[1]);
@@ -193,8 +217,20 @@ export function sayCode(code: string): Said {
   }
   const tokens = (whole.match(TOKEN) ?? []).filter((t) => t.trim());
   const isName = (t: string | undefined) => t !== undefined && IS_NAME.test(t) && !Object.hasOwn(SYMBOLS, t);
-  // A tactic line: its brackets and commas are punctuation, not maths.
   const tactic = TACTIC_SET.has(tokens[0] ?? "") && tokens.length > 1;
+  // After these the square brackets hold the facts to use, and are punctuation; anywhere else they are a list.
+  const takesFacts = tactic && FACT_LISTS.has(tokens[0]);
+  // Round brackets with an operator inside change what a formula means, so
+  // they are said; round a single thing or an application they are not.
+  const saidBrackets = new Set<number>();
+  const open: number[] = [];
+  tokens.forEach((t, i) => {
+    if (t === "(") open.push(i);
+    else if (t === ")" && open.length) {
+      const from = open.pop()!;
+      if (tokens.slice(from + 1, i).some((x) => OPERATORS.has(x))) saidBrackets.add(from).add(i);
+    }
+  });
   // Between kinds of number the arrow is a function's: "the real numbers to the real numbers".
   const types = tokens.some((t) => "ℕℤℚℝ".includes(t));
   const out: string[] = [];
@@ -236,8 +272,10 @@ export function sayCode(code: string): Said {
     else if (t === "=>" && tokens[0] === "|") {
       if (next !== undefined) out.push(",");
     } else if (t === "↑") out.push("up arrow");
-    else if (t === "[" && !tactic) out.push("the list");
-    else if (t === "]" && !tactic) continue;
+    else if (saidBrackets.has(i)) out.push(t === "(" ? "open bracket" : "close bracket");
+    else if (t === "*" && tokens[i - 1] === "at") out.push("everything");
+    else if (t === "[" && !takesFacts) out.push("the list");
+    else if (t === "]" && !takesFacts) continue;
     else if (t === "," && (tactic || tokens.includes("[") || tokens.includes("⟨"))) out.push(",");
     else if (t === "⟨") {
       if (!tactic) out.push("the pair");
@@ -248,7 +286,7 @@ export function sayCode(code: string): Said {
     else if (isName(t) && !Object.hasOwn(LOOSE, t)) out.push(sayName(t));
     else if (/^\d/.test(t)) out.push(t);
     else if (t === "(" || t === ")") continue;
-    else if (tactic && (t === "[" || t === "]")) continue;
+    else if (t === "[" || t === "]") continue;
     else if (tactic && t === "←") out.push("backwards");
     else {
       sure = false;
@@ -272,6 +310,7 @@ const IN_PROSE: Record<string, string> = {
   "←": "backwards",
   "⊢": "the goal symbol",
   "≈": "is about",
+  "^": "to the power",
   "∞": "infinity",
 };
 
@@ -279,18 +318,30 @@ const IN_PROSE: Record<string, string> = {
  *  it is said; `unknown` are the characters no table has. */
 export function sayText(run: string): { text: string; unknown: string[] } {
   if (run === "…") return { text: "and so on", unknown: [] };
+  // A Lean name written out in the text: norm_num.
+  const name = /^([\p{L}]+(?:_[\p{L}\p{N}]+)+)([.,;:!?)]*)$/u.exec(run);
+  if (name) return { text: sayName(name[1]) + name[2], unknown: [] };
   const unknown: string[] = [];
+  const chars = [...run];
   let out = "";
-  for (const ch of run) {
-    if (ch === "…") continue; // trailing off: the voice pauses at the space
-    if (Object.hasOwn(IN_PROSE, ch)) out += ` ${IN_PROSE[ch]} `;
-    else {
-      // Letters with accents, quotes and dashes are the voice's own business.
-      if (ch.codePointAt(0)! > 0x2000 && !/[‐-‧′″]/.test(ch)) unknown.push(ch);
-      else out += ch;
+  chars.forEach((ch, i) => {
+    const next = chars[i + 1];
+    if (ch === "…") return; // trailing off: the voice pauses at the space
+    if (ch === "|") {
+      // |x| is the absolute value of x: a bar with something after it opens, one before a stop or the end closes.
+      if (chars.length === 1) unknown.push(ch);
+      else if (next !== undefined && !/[|,.;:!?)\]]/.test(next)) out += " the absolute value of ";
+      return;
     }
-  }
+    if (ch === "[") out += next === "]" ? " the empty list " : " the list ";
+    else if (ch === "]") return;
+    else if (Object.hasOwn(IN_PROSE, ch)) out += ` ${IN_PROSE[ch]} `;
+    else if (ch.codePointAt(0)! > 0x2000 && !/[\u2010-\u2027\u2032\u2033]/.test(ch)) unknown.push(ch);
+    else if (/[\\{}~_]/.test(ch)) unknown.push(ch);
+    // Letters with accents, quotes and dashes are the voice's own business.
+    else out += ch;
+  });
   // "(a + b) squared": a bracket or a comma goes back against its word.
-  const text = out.replace(/\s+/g, " ").trim().replace(/ ([,.;:!?)\]"”’])/g, "$1").replace(/([(["“‘]) /g, "$1");
+  const text = out.replace(/\s+/g, " ").trim().replace(/ ([,.;:!?)"”’])/g, "$1").replace(/([("“‘]) /g, "$1");
   return { text, unknown };
 }

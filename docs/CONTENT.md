@@ -367,7 +367,14 @@ natural number"). The tables say whether they are sure. A span they are not
 sure of is still said as well as they can, and `npm run check:content --
 --gaps` lists it with what is said now, so write a form for it. `{say:}`
 with nothing in it says nothing: the span is passed over. A form cannot
-contain `}` or a backtick.
+contain `}`. Forms are for lesson text only: an exercise's `title` and
+`says` are shown as written, so reword those instead.
+
+What the tables do with brackets: round a single thing or a function's
+argument they are not said (`f (g x)` is "f g x"); round anything with an
+operator in it they are, since they change the meaning (`(a + b) + c` is
+"open bracket a plus b close bracket plus c"). Where that is clumsy, write
+a form.
 
 **A code block's summary.** A fenced block is shown and not read. To have
 something said in its place, put `say: …` at the end of the opening line;
@@ -384,7 +391,9 @@ Say what the code does, in the words you would use reading it to someone,
 and write names the way the tables say them ("h 1", "x's", "I H"). The
 block is still checked by Lean as before: only the first word of the
 opening line decides that. A block with no summary is passed over in
-silence, which suits a block the prose around it already describes.
+silence, which suits a block the prose around it already describes. Only
+code blocks take a summary: an ` ```exercise ` or ` ```widget ` line must
+be written exactly, with nothing after it.
 
 A new name or symbol that is said badly everywhere belongs in the tables
 (`NAMES`, `SYMBOLS` in `say.ts`), not in a form on every use.

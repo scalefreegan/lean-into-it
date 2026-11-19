@@ -292,7 +292,7 @@ Landed in the first PR, the foundation slice:
   are not sure of, and symbols no table has; both lists are empty now.
   `docs/CONTENT.md` "Spoken forms" has the syntax. How the forms sound in
   a real voice has not been heard: nothing was sent to ElevenLabs.
-- Tests: 359, including every reference solution checked by the real Lean,
+- Tests: 364, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
