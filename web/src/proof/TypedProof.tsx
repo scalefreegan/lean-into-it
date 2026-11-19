@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
-import { explain, suggestion } from "../../shared/explain.ts";
+import { explain, LEFT_FALSE, leftFalse as isLeftFalse, suggestion } from "../../shared/explain.ts";
 import { stillOpenGoals } from "../../shared/goals.ts";
 import type { Position } from "../../shared/proof.ts";
 import type { CheckReply } from "../../shared/wire.ts";
@@ -74,6 +74,9 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   // No goal at this point, yet the proof is unfinished: a case left open
   // elsewhere (a bullet never started). Lean's "unsolved goals" error names it.
   const stillOpen = stillOpenGoals(reply, goals);
+  // When all that is left is False, say what that means (explain.ts).
+  const unsolved = reply?.diagnostics.find((d) => d.severity === "error" && /^unsolved goals/.test(d.message));
+  const leftFalse = unsolved && isLeftFalse(unsolved.message) ? LEFT_FALSE : null;
   const empty = !body.trim();
   useTutorWork(lessonId, exercise.id, { body, goals: stillOpen.length ? stillOpen : goals, error: reply?.error ? `${reply.error.line !== null ? `line ${reply.error.line + 1}: ` : ""}${reply.error.message}` : (reply?.refusal ?? null) });
 
@@ -151,7 +154,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
             <Refusal key={i} plain={`Line ${(d.line as number) + 1}: ${explain(d.message) ?? d.message.split("\n")[0]}`} raw={d.message} />
           ))}
           {verdict && !verdict.solved && errors.length === 0 && reply.forbidden.length === 0 && !reply.refusal && (
-            <Notice tone="warn">{empty ? "Nothing to check yet." : "Not finished: every line is fine, but there is still something left to show. The panel says what."}</Notice>
+            <Notice tone="warn">{empty ? "Nothing to check yet." : leftFalse ? `Not finished. ${leftFalse}` : "Not finished: every line is fine, but there is still something left to show. The panel says what."}</Notice>
           )}
         </div>
       )}

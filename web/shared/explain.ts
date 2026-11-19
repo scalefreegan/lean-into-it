@@ -19,6 +19,15 @@ export const NOT_AN_EXISTS = "The goal is not of the form ∃ x, …, so the boa
 /** What the board reports for `induction` when the goal has nothing to do induction on. */
 export const NO_NUMBER = "There is no natural number and no list among this goal's objects, so the board did not send this move to Lean.";
 
+/** The sentence for a proof whose one goal left is False. */
+export const LEFT_FALSE =
+  "What is left to show is False, which cannot be proved outright. Either two facts on the board contradict each other: apply a fact of the form “not A” to turn the goal into A, or use contradiction. Or a move gave up a goal that was true: exfalso does that, and Undo or deleting the line takes it back. Or the claim was false all along, and norm_num or simp worked it out to False.";
+
+/** True when `message` is Lean's "unsolved goals" with one goal, and that goal is False. */
+export function leftFalse(message: string): boolean {
+  return /^unsolved goals/.test(message) && /(^|\n)⊢ False\s*$/.test(message) && !/\n\s*\n/.test(message.trim());
+}
+
 /** A plain sentence for a Lean error, or null when there is none for it. */
 export function explain(message: string): string | null {
   const first = message.split("\n")[0];
@@ -37,6 +46,12 @@ export function explain(message: string): string | null {
   }
   if ((m = /^failed to synthesize instance of type class\n\s*(Neg|OfScientific) (\S+)/.exec(message))) {
     return m[1] === "Neg" ? `What is wanted here is one of ${m[2]}, and ${m[2]} has no negative numbers.` : `What is wanted here is one of ${m[2]}, and ${m[2]} has no numbers with a decimal point.`;
+  }
+  if ((m = /^Function expected at\n\s*(.+)\nbut this term has type\n\s*(.+)/.exec(message))) {
+    return `${m[1].trim()} says “${m[2].trim()}”, which is not an “if… then” or a “for all”, so nothing can be given to it. Only a fact of that form takes a fact or a thing after its name.`;
+  }
+  if ((m = /^Application type mismatch: The argument\n\s*(.+)\nhas type\n\s*(.+)\nbut is expected to have type\n\s*(.+)\nin the application\n\s*(.+)/.exec(message))) {
+    return `In ${m[4].trim()}, ${m[1].trim()} says “${m[2].trim()}”, but what goes in that place has to say “${m[3].trim()}”.`;
   }
   if ((m = /^Type mismatch\n\s*(.+)\nhas type\n\s*(.+)\nbut is expected to have type\n\s*(.+)/i.exec(message))) {
     return `${m[1].trim()} says “${m[2].trim()}”, but the goal is “${m[3].trim()}”. exact needs a fact that says exactly what the goal says.`;
@@ -154,6 +169,10 @@ export function explain(message: string): string | null {
   if (/^No goals to be solved/i.test(first)) {
     return "The proof was already finished before this line. Delete it.";
   }
+  if (/^`exact\?` could not close the goal/.test(first)) {
+    return "exact? searched Lean's library and the facts on the board, and found no single step that finishes this goal as it stands. Take a step yourself first (intro, constructor, a rewrite) and search again, or the goal may not follow from what is on the board.";
+  }
+  if (leftFalse(message)) return LEFT_FALSE;
   if (/^unsolved goals/.test(first)) {
     return "Every line is fine so far, but there is still something left to show.";
   }
