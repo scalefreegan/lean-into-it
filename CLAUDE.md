@@ -28,10 +28,12 @@ web/server/check.ts      /api/check, /api/playground, /api/lean (status), /api/l
 web/server/loader.ts     content/ -> Content, with readable refusals
 web/server/contentcheck.ts  what `npm run check:content` asks Lean (scripts/check-content.ts is the command)
 web/server/api.ts        wrap() and the route table
-web/server/tutor.ts      /api/tutor: the read-only Tutor, the hint ladder, rung 3 checked by Lean
+web/server/tutor.ts      /api/tutor: the Tutor (read-only, or writing lessons in a worktree), the hint ladder, rung 3 checked by Lean
+web/server/turn.ts       where a writing turn writes: a git worktree outside the repo, its commit, the fast-forward by plumbing
+web/server/author.ts     what the Tutor wrote, judged before the commit: the loader, lost ids, the word filter, Lean on every exercise
 web/server/tts.ts        /api/tts: Listen mode's ElevenLabs proxy (key from .env.local, audio cached under data/tts-cache/)
 web/shared/tts/          Listen mode's pure parts: word timings, speakable text, which block next
-scripts/claude.mjs       the headless `claude -p` the Tutor runs on (read-only sandbox, argv pinned by a test)
+scripts/claude.mjs       the headless `claude -p` the Tutor runs on (read-only, or Edit/Write under a worktree's content/ only; argv pinned by tests)
 scripts/history-mcp.mjs  the Tutor's read-only tools on the learner's attempts (stdio MCP server, Postgres role lean_tutor_ro)
 scripts/lean-mcp.mjs     the Tutor's Lean tool in the Playground (stdio MCP server; posts scratch Lean to /api/tutor/lean)
 web/shared/partner.ts    what the Tutor's scratch Lean may contain; Lean's verdict under each Lean block of a reply (pure)
@@ -72,6 +74,12 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   (Two things still reach the learner's Lean: a rung-3 hint line, inside
   an exercise's brackets, and a block the learner presses Insert on.) A new document pays for `import Mathlib` again (several seconds);
   a changed one costs about 200 ms. Do not add a document per exercise.
+- The Tutor never writes into the working tree. A writing turn works in a
+  worktree outside the repository (`web/server/turn.ts`; read its header
+  before touching the git calls), and its commit lands only after the
+  loader and Lean (the sandboxed one, `web/server/author.ts`) accept it.
+  Tests of it use a throwaway repository (`scripts/tests/authorrepo.mjs`):
+  in a test `authoringRoot()` refuses this one.
 - A check has 20 seconds (`web/server/lean/lsp.ts`); past it the document is
   closed, which ends its Lean worker, and the reply says Lean took too long.
   Only the child process this server spawned is ever signalled.

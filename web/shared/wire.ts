@@ -156,6 +156,8 @@ export interface TutorMessage {
 export interface TutorReply {
   messages: TutorMessage[];
   line: string | null;
+  /** The turn wrote lessons and its commit is on the branch: content/ has changed. */
+  commit?: { hash: string; summary: string } | null;
 }
 
 /** GET /api/tutor/history. `busy`: a turn is running now. */

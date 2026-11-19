@@ -1,7 +1,9 @@
 // The headless Claude Code CLI: the Tutor's runtime. Mirrors Fret Not's
-// scripts/claude.mjs, cut down to the one profile this app uses: a turn that
-// may READ the repository (Read, Glob, Grep) and do nothing else. The Tutor
-// explains and hints; it never writes a file, runs a command or grades.
+// scripts/claude.mjs, cut down to two profiles: a turn that may READ the
+// repository (Read, Glob, Grep) and do nothing else, and a writing turn
+// (lesson authoring) that may also Edit and Write under the content/ of a
+// git worktree made for it (web/server/turn.ts), never the repository.
+// Neither runs a command, and the Tutor never grades.
 //
 // The prompt (the transcript) goes in on STDIN from a temp file opened
 // read-only: an argument would one day cross macOS's ~1 MB argv cap, and a
@@ -64,6 +66,27 @@ export function secretDenials(root = REPO_ROOT) {
   return READ_TOOLS.flatMap((tool) => SECRET_PATHS.map((p) => `${tool}(//${base}/${p})`));
 }
 
+/**
+ * A writing turn's grants: Edit and Write, approved ONLY for paths under the
+ * content directory of its own worktree, in the CLI's path-scoped rule
+ * syntax (`Edit(//abs/path/**)`, where `//` is the filesystem root). An
+ * Edit or Write anywhere else would prompt, and a prompt is a denial.
+ * Throws when the directory is not inside the run's root.
+ */
+export function contentGrants(contentDir, repoRoot) {
+  const dir = path.resolve(contentDir);
+  const rel = path.relative(path.resolve(repoRoot), dir);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel) || /[()"\s]/.test(dir)) throw new Error(`the content directory must be inside the run's root (${repoRoot}), with no space, quote or bracket in its path; got ${contentDir}`);
+  const rulePath = dir.replace(/^\/+/, "");
+  return [`Edit(//${rulePath}/**)`, `Write(//${rulePath}/**)`];
+}
+
+/** Inside that grant, nothing named `.git` (a nested repository's config can run commands). */
+export function contentDenials(contentDir, repoRoot) {
+  const base = contentGrants(contentDir, repoRoot)[0].slice("Edit(".length, -"/**)".length);
+  return ["Edit", "Write"].flatMap((tool) => [`${tool}(${base}/.git)`, `${tool}(${base}/**/.git)`, `${tool}(${base}/.git/**)`, `${tool}(${base}/**/.git/**)`]);
+}
+
 /** MCP tools a run may be granted, by exact name: never a wildcard, so a
  *  server that grows a tool does not hand it to the Tutor unasked. */
 const MCP_TOOL_RE = /^mcp__[a-z][a-z0-9_-]*__[a-z][a-z0-9_]*$/;
@@ -81,8 +104,13 @@ const MCP_TOOL_RE = /^mcp__[a-z][a-z0-9_-]*__[a-z][a-z0-9_]*$/;
  *                              its tools are allowed one by one (`mcpTools`)
  *   --no-session-persistence   the server keeps the history; nothing to resume
  */
-export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, mcpConfigPath, repoRoot = REPO_ROOT, mcpTools = [] }) {
+export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, mcpConfigPath, repoRoot = REPO_ROOT, mcpTools = [], write = null }) {
   for (const t of mcpTools) if (!MCP_TOOL_RE.test(t)) throw new Error(`not an MCP tool name: ${t}`);
+  // A writing turn (`write: { contentDir }`, lesson authoring): Edit and
+  // Write exist, granted only under that folder; `repoRoot` is its worktree.
+  const tools = write ? [...READ_TOOLS, "Edit", "Write"] : READ_TOOLS;
+  const grants = write ? contentGrants(write.contentDir, repoRoot) : [];
+  const denied = write ? [...DENIED.filter((t) => t !== "Edit" && t !== "Write"), ...contentDenials(write.contentDir, repoRoot)] : DENIED;
   const args = [
     "-p",
     "--output-format", "json",
@@ -91,9 +119,9 @@ export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, 
     "--restricted",
     "--permission-prompts", "none",
     "--no-session-persistence",
-    "--tools", READ_TOOLS.join(","),
-    "--allowedTools", ...READ_TOOLS, ...mcpTools,
-    "--disallowedTools", ...DENIED, ...secretDenials(repoRoot),
+    "--tools", tools.join(","),
+    "--allowedTools", ...READ_TOOLS, ...grants, ...mcpTools,
+    "--disallowedTools", ...denied, ...secretDenials(repoRoot),
   ];
   if (systemPrompt) args.push("--append-system-prompt", systemPrompt);
   if (mcpConfigPath) args.push("--mcp-config", mcpConfigPath, "--strict-mcp-config");
@@ -200,13 +228,14 @@ export function sweepRunDirs({ maxAgeMs = 45 * 60_000, now = Date.now(), tmp = o
 }
 
 /**
- * Start one read-only run in `cwd`. Returns { result, kill }; `result`
+ * Start one run in `cwd`: read-only, or with `write: { contentDir }` able
+ * to Edit and Write under that folder alone (a worktree's content/). Returns { result, kill }; `result`
  * resolves to { text } (the final reply) and rejects with a sentence the
  * learner may read. `signal` aborting kills the run. `mcpServers` is the
  * --mcp-config file's `mcpServers` (none by default) and `mcpTools` their
  * tools the run may call, by full name.
  */
-export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd = REPO_ROOT, signal, maxTurns = 12, timeoutSec = 180, mcpServers = {}, mcpTools = [] }) {
+export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd = REPO_ROOT, signal, maxTurns = 12, timeoutSec = 180, mcpServers = {}, mcpTools = [], write = null }) {
   let dir = fs.mkdtempSync(path.join(os.tmpdir(), RUN_DIR_PREFIX));
   const cleanup = () => {
     if (!dir) return;
@@ -222,7 +251,7 @@ export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd =
     const promptPath = path.join(dir, "prompt.txt");
     fs.writeFileSync(promptPath, String(prompt ?? ""), { mode: 0o600 });
     fd = fs.openSync(promptPath, "r");
-    proc = spawn("claude", buildArgs({ systemPrompt, model, maxTurns, mcpConfigPath, repoRoot: cwd, mcpTools }), { cwd, env: childEnv(), stdio: [fd, "pipe", "pipe"], detached: true });
+    proc = spawn("claude", buildArgs({ systemPrompt, model, maxTurns, mcpConfigPath, repoRoot: cwd, mcpTools, write }), { cwd, env: childEnv(), stdio: [fd, "pipe", "pipe"], detached: true });
   } catch (e) {
     cleanup();
     throw e;

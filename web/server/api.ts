@@ -7,7 +7,7 @@ import { closeLean } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { localHost, sameOrigin } from "./origin.ts";
 import { handleProgress } from "./progress.ts";
-import { handleTutor } from "./tutor.ts";
+import { handleTutor, sweepAuthoring } from "./tutor.ts";
 import { handleTts } from "./tts.ts";
 import { HttpError, INTERNAL_ERROR, methodNotAllowed, sendJson } from "./sse.ts";
 
@@ -86,6 +86,8 @@ export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: bool
       // Lean is a child process; it must not outlive the dev server.
       server.httpServer?.once("close", () => closeLean());
       if (opts.warm !== false) warmLean();
+      // A Tutor worktree a killed server left in the temp folder.
+      sweepAuthoring();
       // The boot check: Vite awaits this hook, so a database that is
       // missing, down or behind on migrations stops `npm run dev` with
       // checkDatabase's message (what to run) instead of starting a server
