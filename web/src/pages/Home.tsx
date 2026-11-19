@@ -10,8 +10,25 @@ import { LevelLock } from "./LevelLock.tsx";
 // unwritten level will cover. A level opens as the one before it is
 // mastered (web/shared/progress.ts levelStatuses); a locked one says what it
 // needs, and can be opened anyway.
+//
+// A card folds down to its heading. Unless the learner has said otherwise,
+// only the level with the next lesson in it is unfolded, so the page starts
+// short and at the right place. What they fold and unfold is remembered in
+// this browser.
 
 const OFFER_KEY = "lean-into-it:placement-offer-hidden";
+const FOLD_KEY = "lean-into-it:levels-unfolded";
+
+/** The learner's own choices, level id to unfolded; empty when none are kept or storage is unavailable. */
+function readFolds(): Record<string, boolean> {
+  try {
+    const kept: unknown = JSON.parse(localStorage.getItem(FOLD_KEY) ?? "{}");
+    if (!kept || typeof kept !== "object" || Array.isArray(kept)) return {};
+    return Object.fromEntries(Object.entries(kept).filter(([, v]) => typeof v === "boolean")) as Record<string, boolean>;
+  } catch {
+    return {};
+  }
+}
 
 export function Home() {
   const { content, solved, levels, mastery, placed, reloadProgress } = useApp();
@@ -23,6 +40,18 @@ export function Home() {
       return false;
     }
   });
+  const [folds, setFolds] = useState(readFolds);
+  // Each change is made to the choices as they are then, not as they were when the page was last drawn.
+  const changeFolds = (change: (kept: Record<string, boolean>) => Record<string, boolean>) =>
+    setFolds((kept) => {
+      const next = change(kept);
+      try {
+        localStorage.setItem(FOLD_KEY, JSON.stringify(next));
+      } catch {
+        // Not kept: the page starts from its own choice next time.
+      }
+      return next;
+    });
   const firstRun = !placed && Object.keys(mastery.concepts).length === 0;
   useEffect(() => void reloadProgress(), [reloadProgress]);
   // The first lesson not done in an open level, passing over any the
@@ -30,6 +59,8 @@ export function Home() {
   const next = content.lessons.find((l) => levelOpen(levels, l.level) && !lessonProgress(l, solved).complete && !lessonCredited(l, mastery)) ?? null;
   const total = content.lessons.reduce((n, l) => n + l.exercises.length, 0);
   const done = content.lessons.reduce((n, l) => n + lessonProgress(l, solved).done, 0);
+  const unfolded = (level: Level) => folds[level.id] ?? (next !== null && next.level === level.id);
+  const allUnfolded = content.levels.every(unfolded);
 
   return (
     <div className="mx-auto flex max-w-[2400px] flex-col gap-6">
@@ -96,8 +127,20 @@ export function Home() {
         </Notice>
       )}
 
-      {/* Two columns where there is room; levels read left to right, then down. */}
-      <div className="grid items-start gap-6 xl:grid-cols-2">
+      <div className="-mb-3 flex justify-end">
+        <button
+          type="button"
+          data-levels-all
+          className="rounded-lg px-3 py-1.5 text-sm font-semibold text-fg-2 hover:bg-raised"
+          onClick={() => changeFolds(() => Object.fromEntries(content.levels.map((l) => [l.id, !allUnfolded])))}
+        >
+          {allUnfolded ? "Close all levels" : "Open all levels"}
+        </button>
+      </div>
+
+      {/* One level to a row, in order, so folding one never moves another
+          sideways. An unfolded level's lessons go in two columns where there is room. */}
+      <div className="flex flex-col gap-3">
         {content.levels.map((level) => (
           <LevelCard
             key={level.id}
@@ -105,6 +148,8 @@ export function Home() {
             status={levels.find((s) => s.level === level.id)}
             lessons={content.lessons.filter((l) => l.level === level.id)}
             nextId={next?.id ?? null}
+            unfolded={unfolded(level)}
+            onFold={(to) => changeFolds((kept) => ({ ...kept, [level.id]: to }))}
           />
         ))}
       </div>
@@ -112,90 +157,126 @@ export function Home() {
   );
 }
 
-function LevelCard({ level, status, lessons, nextId }: { level: Level; status: LevelStatus | undefined; lessons: Lesson[]; nextId: string | null }) {
+function LevelCard({
+  level,
+  status,
+  lessons,
+  nextId,
+  unfolded,
+  onFold,
+}: {
+  level: Level;
+  status: LevelStatus | undefined;
+  lessons: Lesson[];
+  nextId: string | null;
+  unfolded: boolean;
+  onFold: (unfolded: boolean) => void;
+}) {
   const { content, solved, mastery } = useApp();
   const trackTitle = (id: string) => content.tracks.find((t) => t.id === id)?.title ?? id;
   const written = lessons.length > 0;
   const locked = written && status?.state === "locked";
   const lit = written && !locked;
+  const lessonsDone = lessons.filter((l) => lessonProgress(l, solved).complete).length;
+  const bodyId = `level-${level.id}-body`;
   return (
     <section
       data-level={level.id}
       data-level-state={written ? (status?.state ?? "open") : "outline"}
-      className={cx("rounded-2xl border bg-panel p-5", lit ? "border-line-strong shadow-sm" : "border-line")}
+      data-level-unfolded={unfolded}
+      className={cx("rounded-2xl border bg-panel", lit ? "border-line-strong shadow-sm" : "border-line")}
     >
-      <div className="flex items-baseline gap-3">
-        <span className={cx("font-mono text-sm font-semibold", lit ? "text-accent" : "text-fg-3")}>Level {level.id}</span>
-        <h2 className={cx("text-2xl font-semibold", lit ? "text-fg" : "text-fg-2")}>{level.title}</h2>
-        {!written && <span className="rounded-full bg-raised px-2 py-0.5 text-xs font-semibold text-fg-3">outlined</span>}
-        {locked && <span className="rounded-full bg-raised px-2 py-0.5 text-xs font-semibold text-fg-3">locked</span>}
-        {status?.state === "done" && <span className="rounded-full bg-good-soft px-2 py-0.5 text-xs font-semibold text-good">done</span>}
-      </div>
-      <p className="mt-1 text-fg-2">{level.summary}</p>
-
-      {level.moves.length > 0 && (
-        <p className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-fg-3">
-          <span className="font-semibold uppercase tracking-wide">Moves</span>
-          {level.moves.map((m) => (
-            <span key={m} className="rounded-full border border-line px-2 py-0.5 font-mono text-fg-2">
-              {m}
+      {/* The whole heading is the control. The h2 keeps the level in the page's outline. */}
+      <h2>
+        <button
+          type="button"
+          aria-expanded={unfolded}
+          aria-controls={bodyId}
+          onClick={() => onFold(!unfolded)}
+          className={cx("flex w-full flex-wrap items-baseline gap-x-3 gap-y-1 rounded-2xl px-5 text-left hover:bg-raised", unfolded ? "pt-5 pb-1" : "py-4")}
+        >
+          <span aria-hidden="true" className={cx("w-3 shrink-0 self-center text-xs text-fg-3 transition-transform", unfolded && "rotate-90")}>
+            ▶
+          </span>
+          <span className={cx("font-mono text-sm font-semibold", lit ? "text-accent" : "text-fg-3")}>Level {level.id}</span>
+          <span className={cx("font-semibold", unfolded ? "text-2xl" : "text-xl", lit ? "text-fg" : "text-fg-2")}>{level.title}</span>
+          {!written && <span className="rounded-full bg-raised px-2 py-0.5 text-xs font-semibold text-fg-3">outlined</span>}
+          {locked && <span className="rounded-full bg-raised px-2 py-0.5 text-xs font-semibold text-fg-3">locked</span>}
+          {status?.state === "done" && <span className="rounded-full bg-good-soft px-2 py-0.5 text-xs font-semibold text-good">done</span>}
+          {written && (
+            <span className="ml-auto font-mono text-xs font-normal text-fg-3" data-level-count>
+              {lessonsDone}/{lessons.length} lessons
             </span>
-          ))}
-        </p>
-      )}
+          )}
+        </button>
+      </h2>
+      <div id={bodyId} hidden={!unfolded} className="px-5 pb-5">
+        <p className="mt-1 text-fg-2">{level.summary}</p>
 
-      {locked && status && <LevelLock status={status} />}
-
-      {written && (
-        <ul className="mt-4 flex flex-col gap-2">
-          {lessons.map((lesson) => {
-            const p = lessonProgress(lesson, solved);
-            const known = lessonMastery(lesson, mastery);
-            return (
-              <li key={lesson.id}>
-                {/* A locked level's lessons are listed, not linked: the card says how to open it. */}
-                <LessonRow
-                  locked={locked}
-                  href={href("lesson", lesson.id)}
-                  data-lesson={lesson.id}
-                  className={cx(
-                    "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
-                    locked ? "border-line opacity-70" : lesson.id === nextId ? "border-accent bg-accent-soft hover:bg-raised" : "border-line hover:bg-raised",
-                  )}
-                >
-                  {p.complete ? <Tick className="shrink-0 text-good" /> : <span className="h-5 w-5 shrink-0 rounded-full border-2 border-line-strong" />}
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-semibold text-fg">{lesson.title}</span>
-                    <span className="block text-sm text-fg-3">{lesson.summary}</span>
-                  </span>
-                  <span className="shrink-0 text-right text-xs text-fg-3">
-                    <span className="block">{trackTitle(lesson.track)}</span>
-                    <span className="block font-mono">
-                      {p.done}/{p.total}
-                    </span>
-                    {known !== null && (
-                      <span className="mt-1 block">
-                        <MasteryBar value={known} mastered={lessonMastered(lesson, mastery)} label={`${lesson.title} mastery`} />
-                      </span>
-                    )}
-                  </span>
-                </LessonRow>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {level.topics.length > 0 && (
-        <details className="mt-4" open={!written && level.id === 0}>
-          <summary className="cursor-pointer text-sm font-semibold text-fg-3">{written ? "Still to come in this level" : "What this level will cover"}</summary>
-          <ul className="mt-2 list-disc pl-5 text-sm text-fg-2">
-            {level.topics.map((t) => (
-              <li key={t}>{t}</li>
+        {level.moves.length > 0 && (
+          <p className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-fg-3">
+            <span className="font-semibold uppercase tracking-wide">Moves</span>
+            {level.moves.map((m) => (
+              <span key={m} className="rounded-full border border-line px-2 py-0.5 font-mono text-fg-2">
+                {m}
+              </span>
             ))}
+          </p>
+        )}
+
+        {locked && status && <LevelLock status={status} />}
+
+        {written && (
+          <ul className="mt-4 grid gap-2 xl:grid-cols-2">
+            {lessons.map((lesson) => {
+              const p = lessonProgress(lesson, solved);
+              const known = lessonMastery(lesson, mastery);
+              return (
+                <li key={lesson.id}>
+                  {/* A locked level's lessons are listed, not linked: the card says how to open it. */}
+                  <LessonRow
+                    locked={locked}
+                    href={href("lesson", lesson.id)}
+                    data-lesson={lesson.id}
+                    className={cx(
+                      "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
+                      locked ? "border-line opacity-70" : lesson.id === nextId ? "border-accent bg-accent-soft hover:bg-raised" : "border-line hover:bg-raised",
+                    )}
+                  >
+                    {p.complete ? <Tick className="shrink-0 text-good" /> : <span className="h-5 w-5 shrink-0 rounded-full border-2 border-line-strong" />}
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-semibold text-fg">{lesson.title}</span>
+                      <span className="block text-sm text-fg-3">{lesson.summary}</span>
+                    </span>
+                    <span className="shrink-0 text-right text-xs text-fg-3">
+                      <span className="block">{trackTitle(lesson.track)}</span>
+                      <span className="block font-mono">
+                        {p.done}/{p.total}
+                      </span>
+                      {known !== null && (
+                        <span className="mt-1 block">
+                          <MasteryBar value={known} mastered={lessonMastered(lesson, mastery)} label={`${lesson.title} mastery`} />
+                        </span>
+                      )}
+                    </span>
+                  </LessonRow>
+                </li>
+              );
+            })}
           </ul>
-        </details>
-      )}
+        )}
+
+        {level.topics.length > 0 && (
+          <details className="mt-4" open={!written && level.id === 0}>
+            <summary className="cursor-pointer text-sm font-semibold text-fg-3">{written ? "Still to come in this level" : "What this level will cover"}</summary>
+            <ul className="mt-2 list-disc pl-5 text-sm text-fg-2">
+              {level.topics.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
     </section>
   );
 }
