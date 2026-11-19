@@ -9,7 +9,7 @@ gives a bead's full brief, and the PR that closes a bead moves its row from
 Remaining to Done in this file. `.beads/issues.jsonl` is the exported copy of
 the beads that git tracks.
 
-Last updated 2026-11-17.
+Last updated 2026-11-18.
 
 ## Done
 
@@ -251,8 +251,8 @@ Landed in the first PR, the foundation slice:
   gen:reference` from the registry and the move table: every widget,
   exercise kind and move with checked examples; a test fails when it is
   stale; `lii-2zf.1`), the hero-image prompt, README
-  with five screenshots (retaken with the CodeMirror editor and the level
-  locks; the Tutor's added; `lii-2zf.4`), `CLAUDE.md`. The sixth, the
+  with five screenshots (retaken with the CodeMirror editor and the levels'
+  progress; the Tutor's added; `lii-2zf.4`), `CLAUDE.md`. The sixth, the
   proof map's, comes with that feature (`lii-8wq.2`).
 
 `docs/hero.png` (1600×900, generated from `docs/hero-image-prompt.md`) is

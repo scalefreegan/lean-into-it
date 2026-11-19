@@ -32,14 +32,14 @@ This is an early build. Five of the six features below work today; the live proo
     </td>
     <td width="50%" valign="top">
       <img src="docs/screenshots/typed-proof.png" alt="A typed Lean proof with the live goal panel beside it" width="100%">
-      <br><sub><i>A typed proof, with the goal at the caret beside it.</i></sub>
+      <br><sub><i>A typed proof, part way: the goal at the caret beside it, and an underline where Lean points.</i></sub>
       <h3>Typed Lean with a live goal panel</h3>
       <p>An editor with Lean's colours, completion and errors underlined where Lean points, and the current hypotheses and goals next to it, updated as you type. Exercises are graded by Lean: an error or a <code>sorry</code> fails, and nothing else decides.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/screenshots/guided-path.png" alt="The Path page: levels 0 to 8 with lessons and completion" width="100%">
+      <img src="docs/screenshots/guided-path.png" alt="The Path page: Levels 0 and 1 with their lessons and progress" width="100%">
       <br><sub><i>The Path: nine levels, from what a proof is to how large formalisations are built.</i></sub>
       <h3>A guided path</h3>
       <p>Levels 0 to 8 in four linked tracks: logic and proof, a maths refresher towards calculus, Lean itself, and verified programs. Levels 0 to 3 are written; the rest are outlined. A level opens when enough of the one before it is mastered, a placement check lets you skip what you know, and what you have learned comes back for review.</p>
@@ -60,7 +60,7 @@ This is an early build. Five of the six features below work today; the live proo
       <img src="docs/screenshots/tutor.png" alt="The Tutor drawer open beside an exercise, with its three hint rungs" width="100%">
       <br><sub><i>The Tutor: a nudge, then the move, then the line.</i></sub>
       <h3>A Tutor</h3>
-      <p>An embedded Claude agent that sees your goal state and the last error, answers questions about the page, and gives hints one rung at a time. It never grades: a line it gives is checked by Lean like any other. Planned: working alongside you in the Playground, and writing new lessons whose exercises must compile in Lean before they land.</p>
+      <p>An embedded Claude agent that sees your goal state and the last error, answers questions about the page, and gives hints one rung at a time. It never grades: the line it gives at the last rung is checked by Lean before you see it, and a proof solved with it counts as assisted. Planned: working alongside you in the Playground, and writing new lessons whose exercises must compile in Lean before they land.</p>
     </td>
   </tr>
 </table>
