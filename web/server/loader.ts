@@ -13,7 +13,8 @@ import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { ROOT } from "../../scripts/env.mjs";
 import type { Block, Content, ContentProblem, Exercise, Lesson, Level, Track } from "../shared/content.ts";
-import { sortLessons } from "../shared/content.ts";
+import { sortLessons, type TrueFalse } from "../shared/content.ts";
+import { splitStatement, writeAnswer, type Witness } from "../shared/truefalse.ts";
 import { checkParams, EXERCISE_KEYS, EXERCISES, isExerciseKind, isWidget, WIDGET_KEYS, WIDGETS } from "../shared/registry.ts";
 
 /** LEAN_INTO_IT_CONTENT_DIR lets tests point at a fixture; else <repo>/content. */
@@ -208,6 +209,7 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
   if (!ok) return null;
 
   const own = typeof e.given === "string" ? e.given.replace(/\s+$/, "") : "";
+  const truefalse = kind === "truefalse" ? trueFalseOf(e) : undefined;
   return {
     id,
     kind,
@@ -222,8 +224,23 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
     proof: typeof e.proof === "string" ? e.proof.replace(/\s+$/, "") : "",
     options: strings(e.options).map((o) => o.trim()),
     // A fill is one line, compared with the options as written there.
-    solution: typeof e.solution !== "string" ? "" : kind === "fill" ? e.solution.trim() : e.solution.replace(/\s+$/, ""),
+    solution: truefalse ? truefalse.solution : typeof e.solution !== "string" ? "" : kind === "fill" ? e.solution.trim() : e.solution.replace(/\s+$/, ""),
     concept,
+    ...(truefalse ? { truefalse: truefalse.spec } : {}),
+  };
+}
+
+/** A `truefalse` exercise's own fields, and its reference answer as an
+ *  answer is written (web/shared/truefalse.ts). The registry has already
+ *  checked them. */
+export function trueFalseOf(e: Raw): { spec: TrueFalse; solution: string } {
+  const truth = e.truth === true;
+  const witness: Witness = e.witness === "proof" ? "proof" : "values";
+  const proof = typeof e.solution === "string" ? e.solution.replace(/\s+$/, "") : "";
+  const values = truth ? [] : str(e.counterexample).split(",").map((v) => v.trim());
+  return {
+    spec: { truth, why: str(e.why), close: str(e.close) || "norm_num", witness, names: splitStatement(str(e.statement))?.names ?? [] },
+    solution: writeAnswer({ side: truth ? "true" : "false", values, body: proof }),
   };
 }
 

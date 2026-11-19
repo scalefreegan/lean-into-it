@@ -19,7 +19,7 @@ import { checkExercise, handleCheck, handleLean, handlePlayground, leanError } f
 import { checkSolution, checkWithLean } from "./contentcheck.ts";
 import { setDb, type Db } from "./db.ts";
 import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, tutorLean, type LeanServer } from "./lean/lsp.ts";
-import { loadContent } from "./loader.ts";
+import { loadContent, trueFalseOf } from "./loader.ts";
 import { documentedLesson } from "./doclesson.ts";
 import type { HttpError } from "./sse.ts";
 import { acceptedPart, handleTutor, lineProblem, setAgent } from "./tutor.ts";
@@ -635,13 +635,65 @@ test("the exercise examples in the reference are real: Lean accepts each solutio
   let checked = 0;
   for (const [kind, spec] of Object.entries(EXERCISES)) {
     for (const [i, example] of spec.examples.entries()) {
-      const e = { ...exercise("use-it"), given: "", moves: [], forbid: [], proof: "", options: [], ...example, kind, id: `${kind}-${i}` } as Exercise;
+      const tf = kind === "truefalse" ? trueFalseOf(example) : null;
+      const e = { ...exercise("use-it"), given: "", moves: [], forbid: [], proof: "", options: [], ...example, kind, id: `${kind}-${i}`, ...(tf ? { truefalse: tf.spec, solution: tf.solution } : {}) } as Exercise;
       assert.deepEqual((await checkSolution(leanServer(), e)).problems, [], `${kind} example ${i + 1}`);
       if (kind === "prove" && example.mode === "board") assert.ok((await replay(`${kind} example ${i + 1}`, e)) > 0);
       checked++;
     }
   }
-  assert.ok(checked >= 4);
+  assert.ok(checked >= 7);
+});
+
+test("true or false: Lean decides each side; the wrong side is answered at once, values that are no counterexample are refused, and a proof is a proof", { skip }, async () => {
+  const make = (example: Record<string, unknown>) => {
+    const tf = trueFalseOf(example);
+    return { ...exercise("use-it"), kind: "truefalse", mode: "typed", given: "", moves: [], forbid: [], proof: "", options: [], ...example, id: "tf", truefalse: tf.spec, solution: tf.solution } as Exercise;
+  };
+  const [falseOne, trueOne, byProof] = EXERCISES.truefalse.examples.map(make);
+  const lean = leanServer();
+  const ask = (e: Exercise, answer: string) => checkExercise(lean, e, answer);
+  // The wrong side: refused with the exercise's why, and Lean is not asked.
+  assert.match((await ask(falseOne, "true\nomega")).refusal!, /^This claim is false, so it cannot be proved[\s\S]*At n = 1/);
+  assert.match((await ask(trueOne, "false: 3")).refusal!, /^This claim is true, so no counterexample can exist/);
+  // The right side, nothing written yet: not solved, nothing refused.
+  const bare = await ask(falseOne, "false");
+  assert.deepEqual([bare.solved, bare.refusal], [false, null]);
+  // Values: a counterexample is accepted; one that is not is refused in words; a non-number, or the wrong count, never reaches Lean.
+  assert.equal((await ask(falseOne, "false: 1")).solved, true);
+  const holds = await ask(falseOne, "false: 5");
+  assert.equal(holds.solved, false);
+  assert.match(holds.refusal!, /^Lean could not show that the claim fails at n = 5: these values may not be a counterexample/);
+  assert.match((await ask(falseOne, "false: x")).refusal!, /“x” is not a number/);
+  assert.match((await ask(byProof, "false: 1")).refusal!, /^This claim has 2 variables, a, b: give a value for each/);
+  // A value Lean cannot read as the variable's type is Lean's to refuse.
+  assert.equal((await ask(falseOne, "false: -1")).solved, false);
+  // With witness: proof, the learner's lines must prove False from hc; the server's lines are not theirs.
+  assert.equal((await ask(byProof, "false: 1, 1\nnorm_num at hc")).solved, true);
+  const wrongProof = await ask(byProof, "false: 1, 1\nexact hc");
+  assert.equal(wrongProof.solved, false);
+  assert.equal(wrongProof.error?.line, 0, "the error is on the learner's first line, not the server's");
+  // The values must really be a counterexample: at a = b = 0 nothing proves False,
+  // not even the claim at other values, since the server clears it after taking these.
+  assert.equal((await ask(byProof, "false: 0, 0\nnorm_num at hc")).solved, false);
+  assert.equal((await ask(byProof, "false: 0, 0\nexact absurd (hall 1 1) (by norm_num)")).solved, false);
+  // Proof lines without values are asked for the values; a fraction is not a natural number.
+  assert.match((await ask(byProof, "false\nnorm_num at hc")).refusal!, /give a value for each/);
+  assert.match((await ask(falseOne, "false: 1/2")).refusal!, /not a whole number/);
+  // An error is underlined on the learner's own line, not the server's.
+  const ranged = wrongProof.diagnostics.filter((d) => d.range);
+  assert.ok(ranged.length > 0 && ranged.every((d) => d.range!.start.line === d.line), "every underline is on the line it names, in the learner's own lines");
+  // The Tutor's rung 3 gives a counterexample's values, and Lean checks them, with or without the proof being the learner's.
+  assert.equal(await lineProblem(byProof, "", "1, 1"), null);
+  assert.notEqual(await lineProblem(byProof, "", "0, 0"), null);
+  assert.equal(await lineProblem(falseOne, "", "1"), null);
+  assert.notEqual(await lineProblem(falseOne, "", "4"), null);
+  // The true side is the statement's own proof.
+  assert.equal((await ask(trueOne, trueOne.solution)).solved, true);
+  assert.equal((await ask(trueOne, "true\nsimp")).solved, false);
+  // An escape is refused on either side.
+  assert.ok((await ask(byProof, "false: 1, 1\nrun_tac pure ()")).refusal);
+  assert.ok((await ask(trueOne, "true\n)\n#eval 1")).refusal);
 });
 
 test("the complete lesson in docs/CONTENT.md is real: Lean accepts its solutions and refuses its other option", { skip }, async () => {

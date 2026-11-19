@@ -297,6 +297,68 @@ exercises:
     solution: h2
 ```
 
+### `truefalse` (shown as “True or false”)
+
+A claim to decide. The learner says whether it is true or false, then backs that up: a proof when it is true, a counterexample when it is false (a value for each variable of the statement, which Lean checks by proving the claim's negation). Picking the side Lean has not backed up is answered at once with `why`. Lean decides either way.
+
+| Parameter | Value | |
+|---|---|---|
+| `says` (required) | one line of text | The claim in plain English, as a mathematician would say it. Shown above the exercise. |
+| `statement` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The claim in Lean: binder groups, a colon, the claim. A false claim's conditions go in the claim (`n > 0 → …`), not in binders: a counterexample gives a value for every `( )` binder. |
+| `given` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |
+| `truth` (required) | `true` or `false` | Whether the claim holds. `npm test` checks the reference answer on that side against the real Lean. |
+| `why` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Said to a learner who picks the other side: why the claim is true, or where it fails, in a sentence or two. |
+| `solution` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The reference proof: required when `truth` is true (a proof of the statement), and with `witness: proof` (a proof of False from hc, the claim at the counterexample's values). |
+| `counterexample` | one line of text | Required when `truth` is false: a value for each variable, in order, separated by commas, like `1` or `2, 3`. Numbers only. |
+| `close` | one line of text | With `witness: values`: the tactic that shows the claim fails at the values given. Default norm_num; decide for small cases. |
+| `witness` | one of `values`, `proof` | What a counterexample takes from the learner: only the values (default; `close` does the rest), or the values and the proof that they work. |
+| `forbid` | a list of text: `[a, b]` | Names that may not appear in what the learner writes. |
+
+```yaml
+exercises:
+  - id: truefalse-example-1
+    kind: truefalse
+    title: An example
+    says: "For every natural number n, n² is at least 2n."
+    statement: "(n : ℕ) : n ^ 2 ≥ 2 * n"
+    truth: false
+    why: |
+      At n = 1, n² is 1 and 2n is 2. (From n = 2 on it does hold.)
+    counterexample: "1"
+```
+
+```yaml
+exercises:
+  - id: truefalse-example-2
+    kind: truefalse
+    title: An example
+    says: "For every natural number n, n² + n is even."
+    statement: "(n : ℕ) : Even (n ^ 2 + n)"
+    truth: true
+    why: |
+      n² + n = n(n + 1), and one of two numbers in a row is even.
+    solution: |
+      have h : n ^ 2 + n = n * (n + 1) := by ring
+      rw [h]
+      exact Nat.even_mul_succ_self n
+```
+
+```yaml
+exercises:
+  - id: truefalse-example-3
+    kind: truefalse
+    title: An example
+    says: "For all whole numbers a and b, (a + b)² = a² + b²."
+    statement: "(a b : ℤ) : (a + b) ^ 2 = a ^ 2 + b ^ 2"
+    truth: false
+    why: |
+      (a + b)² = a² + 2ab + b², so it fails whenever ab is not 0: at a = b = 1 the left side is 4 and the right side 2.
+    counterexample: "1, 1"
+    witness: proof
+    solution: |
+      norm_num at hc
+```
+
 ## Moves
 
 The ids a board exercise's `moves` and a `move-list` widget may name. Each click on the proof board writes one line of Lean, and every line of a board exercise's `solution` must be a line one of its moves writes (`npm test` replays it against Lean's goals).

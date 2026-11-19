@@ -178,6 +178,49 @@ start of its line when the gap is part of a term. Put the gap where a
 wrong answer fails on the gap's own line, not on a later one. The loader checks the shape; whether the solution compiles and
 the other options fail is checked by `npm test`, as for every solution.
 
+### True or false
+
+`kind: truefalse` is a claim to decide. The learner says whether it holds,
+then backs that up: a proof when it is true, a counterexample when it is
+false. It takes `says`, `statement`, `given` and `forbid` as above, and:
+
+| Field | Meaning |
+|---|---|
+| `truth` | `true` or `false`: which side the reference answer backs up. |
+| `why` | Said at once to a learner who picks the other side: why the claim is true, or where it fails. |
+| `solution` | A true claim: its proof. A false claim with `witness: proof`: the lines that prove `False` from `hc`, the claim at the counterexample's values. |
+| `counterexample` | A false claim: a value for each `( )` variable of the statement, in order, separated by commas (`1` or `2, 3`). Numbers only. |
+| `witness` | `values` (default): the learner gives only the values, and `close` shows the claim fails there. `proof`: they also write that proof. |
+| `close` | With `witness: values`: the tactic that shows the claim fails at the values. Default `norm_num`; `decide` for small cases. |
+
+```yaml
+  - id: squares-and-doubles
+    kind: truefalse
+    title: Squares and doubles
+    says: For every natural number n, n² is at least 2n.
+    statement: "(n : ℕ) : n ^ 2 ≥ 2 * n"
+    truth: false
+    why: At n = 1, n² is 1 and 2n is 2. (From n = 2 on it does hold.)
+    counterexample: "1"
+```
+
+A counterexample is checked by proving the claim's negation, which the
+server writes from the statement: `¬ (∀ (n : ℕ), n ^ 2 ≥ 2 * n)`, proved
+by `intro hall`, `have hc := hall (1)`, then `revert hc` and `close` (or
+the learner's lines). So a false claim's conditions go in the claim
+(`n > 0 → …`), not in binders, since every `( )` binder takes a value
+(a hypothesis `(h : 0 < n)` would be asked for one), and a false claim has
+no instance binders (`[Fact p.Prime]`). Values are numbers; for an ℕ or ℤ
+variable a fraction or a decimal is refused (in Lean `1/2 : ℕ` is 0), and
+for ℕ a negative one. After `have hc` the server clears `hall`, so a
+counterexample's proof can use the claim only at the values given.
+Lean has accepted the reference answer on its side (`npm test`), so the
+other side cannot be backed up: picking it is answered at once with `why`
+and kept as an attempt that failed, and the learner can switch. Nothing is
+solved except by Lean. The true side is a typed proof (no board). The
+second form of this kind in docs/PRD.md, finding the flawed step in an
+argument, is not built (`lii-6xv.4`).
+
 ### The body
 
 A small markdown subset: `##` and `###` headings, paragraphs, `**bold**`,
@@ -265,9 +308,9 @@ That is all a widget needs. An exercise kind needs more. Its parameters and
 its component go through the registry, but the `Exercise` type
 (`web/shared/content.ts`), the object the loader builds (`parseExercise`)
 and the checking route (`checkExercise` in `web/server/check.ts`) are
-written by hand for each kind. Both kinds so far are a statement and an
+written by hand for each kind. Every kind so far is a statement and an
 answer that Lean judges, and `checkExercise` turns the answer into the
-proof body to check; `fill` shows how. A kind that Lean does not judge
+proof body to check; `fill` and `truefalse` show how. A kind that Lean does not judge
 would need a route of its own.
 
 A widget parameter may not be called `type`, and an exercise kind's

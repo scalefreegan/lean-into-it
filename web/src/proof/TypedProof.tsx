@@ -20,9 +20,14 @@ interface Props {
   exercise: Exercise;
   solution?: string;
   onSolved: (body: string) => void;
+  /** The answer sent for these proof lines, when it is more than the lines
+   *  (a true-or-false answer names its side first). Default: the lines. */
+  encode?: (body: string) => string;
+  /** The line above the editor. Default: `example <statement> := by`. */
+  header?: string;
 }
 
-export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
+export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b) => b, header }: Props) {
   const [body, setBody] = useState(solution ?? "");
   const [caret, setCaret] = useState<Position>({ line: 0, character: 0 });
   const [submitted, setSubmitted] = useState<{ body: string; reply: CheckReply } | null>(null);
@@ -32,8 +37,11 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
 
   // Re-checking the stored solution the exercise opened with is not an attempt.
   const opening = useRef(solution);
-  const live = useLive({ body, caret }, (k, signal) =>
-    check({ lessonId, exerciseId: exercise.id, body: k.body, cursor: k.caret, ...(k.body === opening.current ? {} : { record: "live" as const }) }, signal),
+  // The whole answer is in the key: when what surrounds the lines changes
+  // (a counterexample's values), the reply to the old answer is dropped.
+  const answer = encode(body);
+  const live = useLive({ body, caret, answer }, (k, signal) =>
+    check({ lessonId, exerciseId: exercise.id, body: k.answer, cursor: k.caret, ...(k.body === opening.current ? {} : { record: "live" as const }) }, signal),
   );
   const reply = live.reply;
 
@@ -41,19 +49,19 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   useEffect(() => {
     if (reply?.solved && !live.checking && !told.current) {
       told.current = true;
-      onSolved(body);
+      onSolved(answer);
     }
-  }, [reply, live.checking, body, onSolved]);
+  }, [reply, live.checking, answer, onSolved]);
 
   async function submit() {
     setSubmitting(true);
     setTrouble(null);
     try {
-      const r = await check({ lessonId, exerciseId: exercise.id, body, record: "submitted" });
-      setSubmitted({ body, reply: r });
+      const r = await check({ lessonId, exerciseId: exercise.id, body: answer, record: "submitted" });
+      setSubmitted({ body: answer, reply: r });
       if (r.solved && !told.current) {
         told.current = true;
-        onSolved(body);
+        onSolved(answer);
       }
     } catch (e) {
       setTrouble(e instanceof ApiError ? e.message : String(e));
@@ -69,7 +77,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
   const errors = (reply?.diagnostics ?? []).filter((d) => d.severity === "error" && d.line !== null && !(reply?.error && /^unsolved goals/.test(d.message)));
   // What `exact?` found, where the exercise allows searching.
   const found = live.checking || exercise.forbid.includes("exact?") ? [] : (reply?.diagnostics ?? []).flatMap((d) => (d.severity === "info" ? [suggestion(d.message)] : [])).filter((x): x is string => x !== null);
-  const verdict = submitted && submitted.body === body ? submitted.reply : null;
+  const verdict = submitted && submitted.body === answer ? submitted.reply : null;
   const goals = reply ? (reply.cursorGoals ?? reply.goals) : null;
   // No goal at this point, yet the proof is unfinished: a case left open
   // elsewhere (a bullet never started). Lean's "unsolved goals" error names it.
@@ -86,7 +94,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved }: Props) {
         <div className="flex min-w-0 flex-col gap-2">
           <LeanEditor
             label={`Proof of: ${exercise.says}`}
-            header={`example ${exercise.statement} := by`}
+            header={header ?? `example ${exercise.statement} := by`}
             value={body}
             rows={7}
             errorLines={errors.map((d) => d.line as number)}
