@@ -682,6 +682,16 @@ test("predict, read and match: Lean decides a prediction, the author's answer a 
   assert.match((await checkSolution(lean, misread)).problems.join("\n"), /reference solution is not accepted/);
   const twice = predict({ ...first, options: [...(first.options as string[]), "hp : p\nhpq : p → q\np q : Prop\n⊢ p"] });
   assert.match((await checkSolution(lean, twice)).problems.join("\n"), /Lean also accepts the option/);
+  // A bullet's move leaves the other case open, though the end of the body shows no goal: that case is the state.
+  const bullet = predict({ says: "s", statement: "(p q : Prop) (hp : p) (hq : q) : p ∧ q", before: "constructor", move: "· exact hp", options: ["no goals", "p q : Prop\nhp : p\nhq : q\n⊢ q"], solution: "p q : Prop\nhp : p\nhq : q\n⊢ q" });
+  assert.equal((await checkExercise(lean, bullet, "no goals")).solved, false);
+  assert.deepEqual((await checkSolution(lean, bullet)).problems, []);
+  // Lines that step outside a proof are never run, so nothing is marked right, and the content check says why.
+  const escaping = predict({ ...first, move: "native_decide", options: ["no goals", "⊢ q"], solution: "no goals" });
+  const escaped = await checkExercise(lean, escaping, "no goals");
+  assert.equal(escaped.solved, false);
+  assert.match(escaped.refusal!, /^The move fails in this exercise/);
+  assert.match((await checkSolution(lean, escaping)).problems.join("\n"), /reference solution is not accepted/);
   // A move that fails is the exercise's fault, said in words.
   assert.match((await checkExercise(lean, predict({ ...first, move: "exact hp" }), "⊢ p")).refusal!, /^The move fails in this exercise/);
   // Read and match: marked against the author's answer, and their Lean must be Lean that Lean reads.
@@ -690,6 +700,8 @@ test("predict, read and match: Lean decides a prediction, the author's answer a 
   assert.equal((await checkExercise(lean, read, read.options[1])).solved, false);
   assert.deepEqual((await checkSolution(lean, read)).problems, []);
   assert.match((await checkSolution(lean, { ...read, statement: "(f : ℕ → ℕ) : ∀ n, ∃ m, f m > nope" })).problems.join("\n"), /Lean cannot read/);
+  // A one-letter name never bound is a typo, not a variable Lean may invent.
+  assert.match((await checkSolution(lean, { ...read, statement: "(f : ℕ → ℕ) : ∀ n, ∃ m, f m > k" })).problems.join("\n"), /Lean cannot read/);
   const m = EXERCISES.match.examples[0] as { english: string[]; lean: string[] };
   const match = { ...base, kind: "match", id: "mt", statement: "", pairs: { english: m.english, lean: m.lean }, solution: "0,1,2" } as Exercise;
   assert.equal((await checkExercise(lean, match, "0,1,2")).solved, true);
@@ -698,11 +710,13 @@ test("predict, read and match: Lean decides a prediction, the author's answer a 
   assert.deepEqual((await checkSolution(lean, match)).problems, []);
   assert.match((await checkSolution(lean, { ...match, pairs: { english: m.english, lean: ["∀ n : ℕ, ∃ m, m >", "True", "False"] } })).problems.join("\n"), /Lean cannot read/);
   // The Tutor's rung 3 is the answer, checked as the app would.
-  assert.equal(await lineProblem(p1, "", "⊢ p"), null);
-  assert.notEqual(await lineProblem(p1, "", "q"), null);
+  assert.equal(await lineProblem(p1, "", "p q : Prop; hpq : p → q; hp : p ⊢ p"), null);
+  assert.notEqual(await lineProblem(p1, "", "p q : Prop; hp : p ⊢ p"), null, "a fact missing");
+  assert.notEqual(await lineProblem(p1, "", "p q : Prop; hp : p; hpq : p → q ⊢ q"), null);
   assert.equal(await lineProblem(read, "", read.solution), null);
   assert.notEqual(await lineProblem(read, "", read.options[1]), null);
   assert.equal(await lineProblem(match, "", `${m.english[1]} ↔ ${m.lean[1]}`), null);
+  assert.notEqual(await lineProblem(match, `${m.english[1]} ↔ ${m.lean[1]}`, `${m.english[1]} ↔ ${m.lean[1]}`), null, "a pair the learner already has");
   assert.notEqual(await lineProblem(match, "", `${m.english[1]} ↔ ${m.lean[0]}`), null);
 });
 

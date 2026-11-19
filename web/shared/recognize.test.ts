@@ -14,8 +14,9 @@ test("two states are the same whatever the order of the facts, their grouping an
   assert.equal(sameState(optionGoals(two), optionGoals("p q : Prop\n⊢ q\n\np q : Prop\n⊢ p")), false);
   assert.deepEqual(optionGoals("No goals"), []);
   assert.equal(sameState(optionGoals("no goals"), []), true);
-  assert.equal(optionProblem("p : Prop"), "an option must be a proof state (facts, then a line starting ⊢) or `no goals`");
+  assert.match(optionProblem("p : Prop")!, /^an option must be a proof state/);
   assert.equal(optionProblem("⊢ True"), null);
+  assert.notEqual(optionProblem("p : Prop\n⊢ p\n\nq : Prop"), null, "a goal without its ⊢");
 });
 
 test("a match answer pairs every sentence with a different Lean line", () => {
@@ -41,6 +42,7 @@ test("the registry refuses reading exercises that cannot be marked", () => {
   assert.match(says("predict", { ...predict, options: ["no goals", "p"] }), /proof state/);
   assert.match(says("predict", { ...predict, move: "intro h\nexact h" }), /one line/);
   assert.match(says("predict", { ...predict, before: "sorry" }), /sorry/);
+  assert.match(says("predict", { ...predict, move: "native_decide" }), /`before`\/`move` line 1/);
   const read = { statement: ": True", options: ["a", "b"], solution: "a" };
   assert.equal(says("read", read), "");
   assert.match(says("read", { ...read, options: ["a"] }), /two to 5/);

@@ -26,7 +26,9 @@ export function optionGoals(option: string): Goal[] {
 /** Why a state option cannot be read, or null when it can. */
 export function optionProblem(option: string): string | null {
   if (option.trim().toLowerCase() === NO_GOALS) return null;
-  return /^\s*⊢/m.test(option) ? null : `an option must be a proof state (facts, then a line starting ⊢) or \`${NO_GOALS}\``;
+  // Every goal in it ends with its ⊢ line.
+  const goals = option.trim().split(/\n\s*\n/);
+  return goals.every((g) => /^\s*⊢/m.test(g)) ? null : `an option must be a proof state (facts, then a line starting ⊢; each goal its own ⊢) or \`${NO_GOALS}\``;
 }
 
 const squash = (s: string) => s.replace(/\s+/g, " ").trim();

@@ -57,6 +57,7 @@ import { localHost } from "./origin.ts";
 import { labelReply, tryLean } from "./partner.ts";
 import { checkExercise, leanError } from "./check.ts";
 import { readAnswer } from "../shared/truefalse.ts";
+import { NO_GOALS, optionGoals, sameState } from "../shared/recognize.ts";
 import { learnerId, rawDb } from "./db.ts";
 import fs from "node:fs";
 import { leanGate, remainingNote, repairAsk, turnProblems, unloaded, type GateResult, type GateRun } from "./author.ts";
@@ -130,7 +131,7 @@ export function contextNote(ctx: TutorContext, where: Where): string {
     lines.push(`It says: ${exercise.says}`);
     if (exercise.kind !== "match") lines.push(`Lean statement: theorem _ ${exercise.statement} := by`);
     if (exercise.predict) {
-      lines.push(`${exercise.predict.before ? `Lines that run first:\n${fence(exercise.predict.before)}\n` : ""}The move: \`${exercise.predict.move}\`. The states offered:\n${exercise.options.map((o, i) => `Option ${i + 1}:\n${fence(o)}`).join("\n")}\nThe right one (Lean has checked it) is:\n${fence(exercise.solution)}\nDo not give it away before rung 3; at rung 1 ask what the move does to the goal, at rung 2 name what changes. At rung 3 the LINE is the target of the first goal after the move, the text after ⊢ (or \`no goals\`).`);
+      lines.push(`${exercise.predict.before ? `Lines that run first:\n${fence(exercise.predict.before)}\n` : ""}The move: \`${exercise.predict.move}\`. The states offered:\n${exercise.options.map((o, i) => `Option ${i + 1}:\n${fence(o)}`).join("\n")}\nThe right one (Lean has checked it) is:\n${fence(exercise.solution)}\nDo not give it away before rung 3; at rung 1 ask what the move does to the goal, at rung 2 name what changes. At rung 3 the LINE is the first goal after the move on one line, its facts separated by semicolons, then ⊢ and the target: \`P Q : Prop; hp : P; hq : Q ⊢ Q ∧ P\` (or \`no goals\`).`);
     }
     if (exercise.kind === "read") lines.push(`The sentences offered:\n${exercise.options.map((o) => `- ${o}`).join("\n")}\nThe right one: ${exercise.solution}${exercise.why ? ` (${exercise.why})` : ""}\nDo not give it away before rung 3. At rung 3 the LINE is that sentence, exactly.`);
     if (exercise.pairs) lines.push(`The pairs (right as written):\n${exercise.pairs.english.map((e, i) => `- ${e} ↔ ${exercise.pairs!.lean[i]}`).join("\n")}\nDo not give them away before rung 3. At rung 3 the LINE is one pair the learner has wrong, written \`<sentence> ↔ <Lean>\` exactly as above.`);
@@ -273,17 +274,26 @@ export async function lineProblem(exercise: Exercise, body: string, line: string
   const lean = leanServer();
   try {
     // Reading kinds: the line is the answer itself, checked as the app would.
-    if (exercise.kind === "read") return line.trim() === exercise.solution.trim() ? null : "that is not the sentence that says what the statement claims";
+    // The reply's line has lost backticks at its ends (splitLine), so the answer is compared without them too.
+    const plain = (s: string) => s.replace(/\s+/g, " ").trim().replace(/^`+|`+$/g, "").trim();
+    if (exercise.kind === "read") return plain(line) === plain(exercise.solution) ? null : "that is not the sentence that says what the statement claims";
     if (exercise.pairs) {
       const { english, lean: leans } = exercise.pairs;
-      const at = english.findIndex((e, i) => `${e} ↔ ${leans[i]}`.replace(/\s+/g, " ") === line.replace(/\s+/g, " ").trim());
-      return at >= 0 ? null : "that is not one of the pairs as written, sentence ↔ Lean";
+      const pair = (i: number) => plain(`${english[i]} ↔ ${leans[i]}`);
+      const at = english.findIndex((_, i) => pair(i) === plain(line));
+      if (at < 0) return "that is not one of the pairs as written, sentence ↔ Lean";
+      // The page sends the learner's pairs one per line: a pair they already have is no help.
+      return body.split("\n").some((l) => plain(l) === pair(at)) ? "the learner already has that pair right: give one they have wrong" : null;
     }
     if (exercise.predict) {
       const r = await checkExercise(lean, exercise, exercise.solution);
       if (r.refusal) return r.refusal;
-      const target = r.goals.length ? r.goals[0].target : "no goals";
-      return target.replace(/\s+/g, " ").trim() === line.replace(/^⊢\s*/, "").replace(/\s+/g, " ").trim() ? null : `after the move Lean's first goal is not that; it is \`${target}\``;
+      const said = plain(line);
+      if (said.toLowerCase() === NO_GOALS) return r.goals.length ? "the move does not finish the proof" : null;
+      const at = said.indexOf("⊢");
+      if (at < 0 || !r.goals.length) return r.goals.length ? "give the state as facts; facts ⊢ target" : "the move finishes the proof: no goals";
+      const state = optionGoals(`${said.slice(0, at).split(";").map((f) => f.trim()).filter(Boolean).join("\n")}\n⊢ ${said.slice(at + 1).trim()}`);
+      return sameState(state, [r.goals[0]]) ? null : "that is not the first goal Lean leaves after the move";
     }
     const tf = exercise.truefalse;
     if (tf && !tf.truth) {
@@ -589,12 +599,14 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
       if (rung === 3 && where.exercise) {
         const ex = where.exercise;
         const base = await acceptedPart(ex, ctx.body ?? "");
+        // A match is checked against the pairs the learner has, as the page sent them.
+        const against = ex.pairs ? (ctx.body ?? "") : base;
         let split = splitLine(text);
-        let why = split.line ? await lineProblem(ex, base, split.line) : "the reply had no LINE: line";
+        let why = split.line ? await lineProblem(ex, against, split.line) : "the reply had no LINE: line";
         if (why) {
           const again = await run(retryPrompt(text, split.line ?? "(none)", why, ctx, where, base));
           split = splitLine(again);
-          why = split.line ? await lineProblem(ex, base, split.line) : "the reply had no LINE: line";
+          why = split.line ? await lineProblem(ex, against, split.line) : "the reply had no LINE: line";
         }
         if (ctrl.signal.aborted) throw new TurnStopped("stopped");
         if (why) {

@@ -400,6 +400,9 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
         if (wrong) out.push(`${JSON.stringify(o)}: ${wrong}`);
       }
       for (const text of [p.before, p.move].filter((t): t is string => typeof t === "string")) if (/\b(sorry|admit)\b/.test(text)) out.push("`before` and `move` must not contain sorry or admit");
+      // What the server would refuse to run is refused here, where the author sees it.
+      const lines = [p.before, p.move].filter((t): t is string => typeof t === "string" && t.trim() !== "").join("\n");
+      for (const e of escapesIn(lines)) out.push(`\`before\`/\`move\` line ${e.line + 1}: ${e.message}`);
       out.push(...choiceProblems(p));
       return out;
     },
@@ -430,7 +433,7 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
     params: {
       says: { type: "string", required: true, doc: "What to look for, in a sentence. Shown above the pairs." },
       english: { type: "string[]", required: true, doc: "Two to six sentences, in order." },
-      lean: { type: "string[]", required: true, doc: "The Lean proposition for each sentence, in the same order: `∀ n : ℕ, ∃ m, m > n`. Each is checked as `example : <it>`." },
+      lean: { type: "string[]", required: true, doc: "The Lean proposition for each sentence, in the same order: `∀ n : ℕ, ∃ m, m > n`. Lean checks each can be read, as a theorem's statement after `given`." },
       given: { type: "text", doc: "Lean definitions the statements are about. No `sorry`, no `axiom`." },
     },
     examples: [

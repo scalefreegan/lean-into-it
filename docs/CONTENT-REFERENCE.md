@@ -439,7 +439,7 @@ Sentences and Lean statements to pair up, each sentence with the statement that 
 |---|---|---|
 | `says` (required) | one line of text | What to look for, in a sentence. Shown above the pairs. |
 | `english` (required) | a list of text: `[a, b]` | Two to six sentences, in order. |
-| `lean` (required) | a list of text: `[a, b]` | The Lean proposition for each sentence, in the same order: `∀ n : ℕ, ∃ m, m > n`. Each is checked as `example : <it>`. |
+| `lean` (required) | a list of text: `[a, b]` | The Lean proposition for each sentence, in the same order: `∀ n : ℕ, ∃ m, m > n`. Lean checks each can be read, as a theorem's statement after `given`. |
 | `given` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Lean definitions the statements are about. No `sorry`, no `axiom`. |
 
 ```yaml

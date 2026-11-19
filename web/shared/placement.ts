@@ -1,7 +1,8 @@
 // The placement check (lii-zjf.4): a few exercises from each level in
 // order, so a learner who already knows some of this can skip it. Pure, like
 // the rest of web/shared/; the page (web/src/pages/Placement.tsx) asks the
-// questions, Lean judges every answer as it judges any other, and the server
+// questions, each answer is judged as it is anywhere else (Lean, or the
+// author's answer for the reading kinds read and match), and the server
 // (web/server/progress.ts, POST /api/progress/placement) records the result.
 //
 // A level is passed when PLACEMENT_PASS of its questions are solved. A
@@ -40,8 +41,9 @@ export function placementLevels(content: PlacementContent): number[] {
 
 /** Quickest first: choosing a fill, typing one, clicking a board proof, typing a whole proof. */
 function effort(e: Pick<Exercise, "kind" | "mode" | "options" | "solution">): number {
-  // Choosing is quicker than writing: the reading kinds and a fill with options come first.
-  const kind = e.kind === "predict" || e.kind === "read" || e.kind === "match" ? 0 : e.kind === "fill" ? (e.options.length ? 0 : 1) : e.mode === "board" ? 2 : 3;
+  // The reading kinds come last: their few choices can be clicked through
+  // until one is right, which says little about what a learner knows.
+  const kind = e.kind === "predict" || e.kind === "read" || e.kind === "match" ? 9 : e.kind === "fill" ? (e.options.length ? 0 : 1) : e.mode === "board" ? 2 : 3;
   return kind * 1000 + Math.min(999, e.solution.split("\n").filter((l) => l.trim()).length);
 }
 

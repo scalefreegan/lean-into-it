@@ -55,7 +55,7 @@ export function Predict(props: ExerciseProps) {
   useEffect(() => {
     const abort = new AbortController();
     check({ lessonId, exerciseId: exercise.id, body: "" }, abort.signal).then(
-      (r) => (r.refusal ? setStartTrouble(r.refusal) : setStart(r.cursorGoals ?? [])),
+      (r) => !abort.signal.aborted && (r.refusal ? setStartTrouble(r.refusal) : setStart(r.cursorGoals ?? [])),
       (e: Error) => !abort.signal.aborted && e.name !== "AbortError" && setStartTrouble(e instanceof ApiError ? e.message : String(e)),
     );
     return () => abort.abort();
@@ -83,6 +83,8 @@ export function Predict(props: ExerciseProps) {
             const option = exercise.options[i];
             const chosen = picked === option;
             const right = chosen && (reply ? reply.reply.solved : !!solution);
+            // A refusal is the exercise failing, not the choice being wrong.
+            const judged = chosen && !reply?.reply.refusal;
             return (
               <button
                 key={i}
@@ -91,7 +93,7 @@ export function Predict(props: ExerciseProps) {
                 aria-pressed={chosen}
                 disabled={busy}
                 onClick={() => void send(option)}
-                className={cx("rounded-xl border-2 p-3 text-left transition-colors hover:border-accent", chosen ? (right ? "border-good" : "border-bad") : "border-line")}
+                className={cx("rounded-xl border-2 p-3 text-left transition-colors hover:border-accent", judged ? (right ? "border-good" : "border-bad") : "border-line")}
               >
                 <GoalView goals={optionGoals(option)} />
               </button>
@@ -179,10 +181,16 @@ export function Match(props: ExerciseProps) {
   const { reply, busy, trouble, send } = useAnswer(props);
   const order = shuffled(lean.length, exercise.id);
   // For each sentence, the Lean line paired with it (its authored index), or null.
-  const [pairs, setPairs] = useState<(number | null)[]>(() => (solution ? solution.split(",").map(Number) : english.map(() => null)));
+  // A stored answer is used only while it still fits the sentences (the lesson may have changed).
+  const [pairs, setPairs] = useState<(number | null)[]>(() => {
+    const kept = solution?.split(",").map(Number) ?? [];
+    return kept.length === english.length && kept.every((k) => k >= 0 && k < lean.length) ? kept : english.map(() => null);
+  });
   const answer = pairs.every((p) => p !== null) ? pairs.join(",") : null;
   const result = reply && reply.answer === answer ? reply.reply : null;
-  useTutorWork(lessonId, exercise.id, { body: english.map((e, i) => `${e} ↔ ${pairs[i] === null ? "?" : lean[pairs[i]!]}`).join("\n"), goals: null, error: result && !result.solved ? "Not every pair is right." : null });
+  // Solved before, and unchanged since: shown as solved.
+  const solvedBefore = !reply && !!solution && answer === solution;
+  useTutorWork(lessonId, exercise.id, { body: english.map((e, i) => `${e} ↔ ${pairs[i] === null ? "?" : lean[pairs[i]!]}`).join("\n"), goals: null, error: result && !result.solved ? (result.refusal ?? "Not every pair is right.") : null });
 
   const pick = (sentence: number, line: number | null) =>
     setPairs((ps) => ps.map((p, i) => (i === sentence ? line : p === line && line !== null ? null : p)));
@@ -200,7 +208,7 @@ export function Match(props: ExerciseProps) {
                 value={pairs[i] ?? ""}
                 disabled={busy}
                 onChange={(e) => pick(i, e.target.value === "" ? null : Number(e.target.value))}
-                className={cx("lean rounded-md border-2 bg-panel px-2 py-1 text-sm text-fg outline-none focus:border-accent", result ? (result.solved ? "border-good" : "border-line-strong") : "border-line-strong")}
+                className={cx("lean rounded-md border-2 bg-panel px-2 py-1 text-sm text-fg outline-none focus:border-accent", result?.solved || solvedBefore ? "border-good" : "border-line-strong")}
               >
                 <option value="">Choose the Lean…</option>
                 {order.map((j) => (
@@ -218,7 +226,13 @@ export function Match(props: ExerciseProps) {
           </div>
           <div aria-live="polite" className="flex flex-col gap-2 empty:hidden">
             {trouble && <Notice tone="warn">{trouble}</Notice>}
-            {result && (
+            {solvedBefore && (
+              <Closed>
+                <strong>All paired right.</strong>
+              </Closed>
+            )}
+            {result?.refusal && <Notice tone="warn">{result.refusal}</Notice>}
+            {result && !result.refusal && (
               <div data-verdict={result.solved ? "right" : "wrong"}>
                 {result.solved ? (
                   <Closed>
