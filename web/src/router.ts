@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 //   #/review           today's review session: due concepts, one exercise each
 //   #/placement        the placement check: skip the levels already known
 //   #/moves            every move the curriculum teaches, with its mastery
+//   #/lab              explorers and every move with an example to run, nothing
+//                      scored; #/lab/<tool> for one explorer
 //   #/playground       free Lean, nothing scored
 //   #/gallery          every widget and exercise kind in the registry;
 //                      #/gallery/<widget> for one widget

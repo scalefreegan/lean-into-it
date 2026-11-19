@@ -117,7 +117,7 @@ export interface OpenLevelRequest {
 /** What the page tells the Tutor about itself (web/server/tutor.ts rebuilds
  *  it field by field; the lesson and exercise are looked up by id). */
 export interface TutorContext {
-  page: "path" | "lesson" | "review" | "moves" | "playground";
+  page: "path" | "lesson" | "review" | "moves" | "playground" | "lab";
   lessonId?: string;
   /** The exercise in view, with the learner's work on it. */
   exerciseId?: string;

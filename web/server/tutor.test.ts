@@ -27,6 +27,12 @@ test("the context is rebuilt from its own fields: ids checked, text clipped, an 
   assert.equal(ctx.body!.length, 4000);
   assert.equal(ctx.goals, "");
   assert.equal("extra" in ctx, false);
+  // A free file is kept on the two pages that have one, and nowhere else.
+  assert.equal(sanitizeContext({ page: "lab", source: "y".repeat(10_000) }).source!.length, 8000);
+  assert.equal(sanitizeContext({ page: "playground", source: "example : True := trivial" }).source, "example : True := trivial");
+  assert.equal("source" in sanitizeContext({ page: "moves", source: "x" }), false);
+  const lab = sanitizeContext({ page: "lab", source: "example : 2 + 2 = 4 := by\n  rfl" });
+  assert.match(contextNote(lab, locate(content, lab)), /^The learner is on the Lab .*\nThe example they have open in the Lab, as it is now:\n```\nexample : 2 \+ 2 = 4/s);
   // An exercise without a lesson is no exercise.
   assert.equal(sanitizeContext({ page: "lesson", exerciseId: "use-it" }).exerciseId, undefined);
 });

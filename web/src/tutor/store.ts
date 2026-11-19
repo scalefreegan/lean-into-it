@@ -36,6 +36,7 @@ export function useTutor(): TutorStore {
 
 export const workKey = (lessonId: string, exerciseId: string) => `${lessonId}\u0000${exerciseId}`;
 export const PLAYGROUND_KEY = "playground";
+export const LAB_KEY = "lab";
 
 /** An exercise's state, for the Tutor. Cheap: a ref write per change. */
 export function useTutorWork(lessonId: string, exerciseId: string, w: Work): void {
@@ -56,10 +57,11 @@ export function useTouch(lessonId: string, exerciseId: string): { onPointerDownC
   }, [touch, lessonId, exerciseId]);
 }
 
-/** The Playground's file, for the Tutor. */
-export function useTutorSource(source: string): void {
+/** A free Lean file, for the Tutor: the Playground's, or the example open in the Lab (`key`). Forgotten when the page that holds it goes. */
+export function useTutorSource(source: string, key = PLAYGROUND_KEY): void {
   const store = useContext(TutorCtx);
   useEffect(() => {
-    store?.report(PLAYGROUND_KEY, { body: source, goals: null, error: null });
-  }, [store, source]);
+    store?.report(key, { body: source, goals: null, error: null });
+    return () => store?.report(key, { body: "", goals: null, error: null });
+  }, [store, source, key]);
 }

@@ -65,7 +65,7 @@ This is an early build. Five of the six features below work today; the live proo
   </tr>
 </table>
 
-Also planned: more exercise kinds, Listen mode (read-aloud), and a Lab with a gallery of famous proofs.
+There is also a Lab, where nothing is scored: every move with an example to run and change, and explorers for functions and the number line. Planned: more exercise kinds, more explorers, Listen mode (read-aloud), and a gallery of famous proofs.
 
 ## How it works
 
