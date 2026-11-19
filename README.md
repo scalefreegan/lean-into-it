@@ -39,7 +39,7 @@ This is an early build. Five of the six features below work today; the live proo
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/screenshots/guided-path.png" alt="The Path page: Levels 0 and 1 with their lessons and progress" width="100%">
+      <img src="docs/screenshots/guided-path.png" alt="The Path page: Level 0 done and folded, Level 1 open with its lessons" width="100%">
       <br><sub><i>The Path: nine levels, from what a proof is to how large formalisations are built.</i></sub>
       <h3>A guided path</h3>
       <p>Levels 0 to 8 in four linked tracks: logic and proof, a maths refresher towards calculus, Lean itself, and verified programs. Levels 0 to 3 are written; the rest are outlined. A level opens when enough of the one before it is mastered, a placement check lets you skip what you know, and what you have learned comes back for review.</p>
