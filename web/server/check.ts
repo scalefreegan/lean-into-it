@@ -7,6 +7,7 @@ import { parseGoals } from "../shared/goals.ts";
 import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
+import { optionGoals, readPairing, sameState } from "../shared/recognize.ts";
 import { bareAnswer, COUNTER_PREFIX, counterBody, negation, readAnswer, splitStatement, valuesProblem, wrongSide } from "../shared/truefalse.ts";
 import { hintRung, recordAttempt, solvedSince } from "../../scripts/db/progress.ts";
 import { startOfDay } from "../shared/progress.ts";
@@ -50,6 +51,8 @@ export function leanError(e: unknown): unknown {
  */
 export async function checkExercise(lean: LeanServer, exercise: Exercise, answer: string, cursor?: Position): Promise<CheckReply> {
   if (exercise.kind === "truefalse") return checkTrueFalse(lean, exercise, answer, cursor);
+  if (exercise.kind === "predict") return checkPredict(lean, exercise, answer);
+  if (exercise.kind === "read" || exercise.kind === "match") return checkFixed(exercise, answer);
   if (exercise.kind !== "fill") return checkBody(lean, exercise, answer, answer, cursor);
   const fill = answer.trim();
   // What the missing step has to prove is the state where the gap starts.
@@ -71,6 +74,36 @@ export async function checkExercise(lean: LeanServer, exercise: Exercise, answer
 }
 
 const refuse = (refusal: string | null): CheckReply => ({ solved: false, goals: [], cursorGoals: null, error: null, diagnostics: [], forbidden: [], refusal });
+
+/**
+ * Kind `predict` (web/shared/recognize.ts): Lean runs the exercise's
+ * `before` lines and its move, and the state it leaves is compared with the
+ * one picked. An empty answer asks only for the state before the move (in
+ * `cursorGoals`), to show. Lean's state after the move goes back in `goals`
+ * once an answer is given, so the learner sees what it really is.
+ */
+async function checkPredict(lean: LeanServer, exercise: Exercise, answer: string): Promise<CheckReply> {
+  const { before, move } = exercise.predict!;
+  if (!answer.trim()) {
+    const at = await checkBody(lean, exercise, before, before);
+    if (at.error) return refuse(`This exercise's own lines fail before the move: ${at.error.message.split("\n")[0]}`);
+    return { ...refuse(null), cursorGoals: at.goals };
+  }
+  const body = before ? `${before}\n${move}` : move;
+  const ran = await checkBody(lean, exercise, body, body);
+  if (ran.error) return refuse(`The move fails in this exercise, so there is nothing to predict: ${ran.error.message.split("\n")[0]}`);
+  const goals = ran.solved ? [] : ran.goals;
+  return { ...refuse(null), solved: sameState(optionGoals(answer), goals), goals };
+}
+
+/** Kinds `read` and `match`: a fixed answer, marked against the author's (no Lean). */
+export function checkFixed(exercise: Exercise, answer: string): CheckReply {
+  if (exercise.kind === "read") return { ...refuse(null), solved: answer.trim() === exercise.solution.trim() };
+  const n = exercise.pairs!.english.length;
+  const picks = readPairing(answer, n);
+  if (typeof picks === "string") return refuse(picks);
+  return { ...refuse(null), solved: picks.every((p, i) => p === i) };
+}
 
 /**
  * Kind `truefalse` (web/shared/truefalse.ts). The true side is a proof of
@@ -173,11 +206,16 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
 
   // A fill is kept as it was checked, without the spaces around it.
   const body = exercise.kind === "fill" ? input.body.trim() : input.body;
-  const reply = await withLean((lean) => checkExercise(lean, exercise, body, cursor));
+  // A fixed answer needs no Lean, so it is marked even while Lean is down.
+  const fixed = exercise.kind === "read" || exercise.kind === "match";
+  const reply = fixed ? checkFixed(exercise, body) : await withLean((lean) => checkExercise(lean, exercise, body, cursor));
   // Looking at an empty gap is not an attempt at it, nor is choosing the
-  // right side of a true-or-false before writing anything (the wrong side is).
+  // right side of a true-or-false before writing anything (the wrong side
+  // is), nor asking for the state a prediction starts from.
   const tf = exercise.kind === "truefalse" ? readAnswer(body) : null;
-  const bare = (exercise.kind === "fill" && !body) || (tf !== null && (typeof tf === "string" || (bareAnswer(tf, exercise.truefalse!.witness) && reply.refusal === null)));
+  const bare =
+    ((exercise.kind === "fill" || exercise.kind === "predict" || fixed) && !body.trim()) ||
+    (tf !== null && (typeof tf === "string" || (bareAnswer(tf, exercise.truefalse!.witness) && reply.refusal === null)));
   if (!bare) await keep(lesson.id, exercise.id, body, reply, input.record);
   sendJson(res, 200, reply);
 }

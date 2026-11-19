@@ -59,6 +59,12 @@ export interface Exercise {
   concept: string;
   /** Kind `truefalse` only. */
   truefalse?: TrueFalse;
+  /** Kind `predict` only: the lines that run first, and the move predicted. */
+  predict?: { before: string; move: string };
+  /** Kind `match` only: the sentences and their Lean, paired by position. */
+  pairs?: { english: string[]; lean: string[] };
+  /** Kind `read`: how to read the statement, shown after an answer. */
+  why?: string;
 }
 
 /** What a `truefalse` exercise says beyond its statement. */

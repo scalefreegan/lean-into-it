@@ -279,9 +279,23 @@ const failure = (e: unknown) => `Lean could not check it: ${oneLine((e as Error)
 /** Check one exercise's reference solution as the app would check a learner's answer. */
 export async function checkSolution(lean: LeanServer, exercise: Exercise): Promise<{ problems: string[]; options: number }> {
   const problems: string[] = [];
+  // A fixed answer's Lean is not proved, but it must be Lean that Lean can read.
+  if (exercise.kind === "read" || exercise.kind === "match") {
+    const statements = exercise.kind === "read" ? [exercise.statement] : exercise.pairs!.lean.map((l) => `: ${l}`);
+    for (const statement of statements) {
+      try {
+        const reply = await checkExercise(lean, { ...exercise, kind: "prove", statement }, "sorry");
+        const wrong = reply.diagnostics.find((d) => d.severity === "error");
+        if (wrong) problems.push(`exercise "${exercise.id}": Lean cannot read \`${statement.replace(/^: /, "")}\`: ${oneLine(wrong.message)}`);
+      } catch (e) {
+        problems.push(`exercise "${exercise.id}": \`${statement}\`: ${failure(e)}`);
+      }
+    }
+  }
   try {
     const reply = await checkExercise(lean, exercise, exercise.solution);
-    if (!reply.solved || reply.goals.length) problems.push(`exercise "${exercise.id}": the reference solution is not accepted: ${whyNot(reply)}`);
+    // A prediction's reply carries the state Lean left: that is the point, not a proof left open.
+    if (!reply.solved || (exercise.kind !== "predict" && reply.goals.length)) problems.push(`exercise "${exercise.id}": the reference solution is not accepted: ${whyNot(reply)}`);
   } catch (e) {
     problems.push(`exercise "${exercise.id}": the reference solution: ${failure(e)}`);
   }

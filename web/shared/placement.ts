@@ -40,7 +40,8 @@ export function placementLevels(content: PlacementContent): number[] {
 
 /** Quickest first: choosing a fill, typing one, clicking a board proof, typing a whole proof. */
 function effort(e: Pick<Exercise, "kind" | "mode" | "options" | "solution">): number {
-  const kind = e.kind === "fill" ? (e.options.length ? 0 : 1) : e.mode === "board" ? 2 : 3;
+  // Choosing is quicker than writing: the reading kinds and a fill with options come first.
+  const kind = e.kind === "predict" || e.kind === "read" || e.kind === "match" ? 0 : e.kind === "fill" ? (e.options.length ? 0 : 1) : e.mode === "board" ? 2 : 3;
   return kind * 1000 + Math.min(999, e.solution.split("\n").filter((l) => l.trim()).length);
 }
 

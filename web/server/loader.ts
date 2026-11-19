@@ -224,9 +224,21 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
     proof: typeof e.proof === "string" ? e.proof.replace(/\s+$/, "") : "",
     options: strings(e.options).map((o) => o.trim()),
     // A fill is one line, compared with the options as written there.
-    solution: truefalse ? truefalse.solution : typeof e.solution !== "string" ? "" : kind === "fill" ? e.solution.trim() : e.solution.replace(/\s+$/, ""),
+    // A match's answer is the pairs as written: each sentence with its own line.
+    solution: truefalse
+      ? truefalse.solution
+      : kind === "match"
+        ? strings(e.english).map((_, i) => i).join(",")
+        : typeof e.solution !== "string"
+          ? ""
+          : kind === "fill" || kind === "predict" || kind === "read"
+            ? e.solution.trim()
+            : e.solution.replace(/\s+$/, ""),
     concept,
     ...(truefalse ? { truefalse: truefalse.spec } : {}),
+    ...(kind === "predict" ? { predict: { before: typeof e.before === "string" ? e.before.replace(/\s+$/, "") : "", move: str(e.move).trim() } } : {}),
+    ...(kind === "match" ? { pairs: { english: strings(e.english).map((x) => x.trim()), lean: strings(e.lean).map((x) => x.trim()) } } : {}),
+    ...(kind === "read" && typeof e.why === "string" ? { why: e.why.trim() } : {}),
   };
 }
 
