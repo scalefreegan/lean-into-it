@@ -9,7 +9,7 @@ gives a bead's full brief, and the PR that closes a bead moves its row from
 Remaining to Done in this file. `.beads/issues.jsonl` is the exported copy of
 the beads that git tracks.
 
-Last updated 2026-11-17.
+Last updated 2026-11-18.
 
 ## Done
 
@@ -251,15 +251,16 @@ Landed in the first PR, the foundation slice:
   gen:reference` from the registry and the move table: every widget,
   exercise kind and move with checked examples; a test fails when it is
   stale; `lii-2zf.1`), the hero-image prompt, README
-  with four screenshots, `CLAUDE.md`.
+  with five screenshots (retaken with the CodeMirror editor and the levels'
+  progress; the Tutor's added; `lii-2zf.4`), `CLAUDE.md`. The sixth, the
+  proof map's, comes with that feature (`lii-8wq.2`).
 
-Not yet there, and waiting on Aaron: `docs/hero.png`, generated from
-`docs/hero-image-prompt.md` (`lii-2zf.5`). The README shows a broken image
-until it is added.
+`docs/hero.png` (1600×900, generated from `docs/hero-image-prompt.md`) is
+in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-33 beads in 12 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+31 beads in 12 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -352,5 +353,3 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-2zf.3` | `docs/DATA.md` | 3 | |
-| `lii-2zf.4` | README screenshots | 2 | |
-| `lii-2zf.5` | Generate `docs/hero.png` from the prompt (Aaron) | 2 | |
