@@ -35,7 +35,8 @@ scripts/claude.mjs       the headless `claude -p` the Tutor runs on (read-only s
 scripts/history-mcp.mjs  the Tutor's read-only tools on the learner's attempts (stdio MCP server, Postgres role lean_tutor_ro)
 scripts/lean-mcp.mjs     the Tutor's Lean tool in the Playground (stdio MCP server; posts scratch Lean to /api/tutor/lean)
 web/shared/partner.ts    what the Tutor's scratch Lean may contain; Lean's verdict under each Lean block of a reply (pure)
-web/server/partner.ts    /api/tutor/lean: scratch Lean checked in the `tutor` document; labels a Playground reply's Lean
+web/server/partner.ts    /api/tutor/lean: the Tutor's scratch Lean, checked by the sandboxed Lean; labels a Playground reply's Lean
+web/server/lean/sandbox.ts  the sandbox-exec profile the Tutor's Lean runs under (no writes, no network, no reading the user's files)
 scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
 web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor, LeanPad (a free Lean file with its goals and messages)
 web/src/widgets/         one component per widget; registry.ts maps registered names to them
@@ -65,7 +66,11 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   `web/server/api.ts`: the Host must be this machine and the Origin must
   match it. No exceptions, and never serve this app on a network.
 - All exercises share one Lean document (`"exercise"`), the Playground has
-  its own, and the Tutor's scratch Lean a third (`"tutor"`). A new document pays for `import Mathlib` again (several seconds);
+  its own. Lean the Tutor's model wrote is checked on the Tutor's behalf
+  only by `tutorLean()`, a second Lean under the OS sandbox
+  (`web/server/lean/sandbox.ts`), and nowhere when there is no sandbox.
+  (Two things still reach the learner's Lean: a rung-3 hint line, inside
+  an exercise's brackets, and a block the learner presses Insert on.) A new document pays for `import Mathlib` again (several seconds);
   a changed one costs about 200 ms. Do not add a document per exercise.
 - A check has 20 seconds (`web/server/lean/lsp.ts`); past it the document is
   closed, which ends its Lean worker, and the reply says Lean took too long.

@@ -46,7 +46,7 @@ import { localHost } from "./origin.ts";
 import { labelReply, tryLean } from "./partner.ts";
 import { checkExercise, leanError } from "./check.ts";
 import { learnerId, rawDb } from "./db.ts";
-import { leanServer } from "./lean/lsp.ts";
+import { leanServer, tutorLean } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { HttpError, INTERNAL_ERROR, methodNotAllowed, readJsonBody, sendJson } from "./sse.ts";
 
@@ -424,7 +424,7 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
       // In the Playground, what stands under a snippet is Lean's word on it.
       // A verdict line is the app's to write: one the Tutor wrote is taken out, on any page.
       text = withoutLabels(text);
-      if (ctx.page === "playground" && leanBlocks(text).length) text = await labelReply(leanServer(), text, ctrl.signal);
+      if (ctx.page === "playground" && leanBlocks(text).length) text = await labelReply(tutorLean(), text, ctrl.signal);
       // Stopped while the reply was on its way: not given, not a rung reached.
       if (ctrl.signal.aborted) throw new TurnStopped("stopped");
       const shown = line ? `${text}\n\n\`${line}\`` : text;
@@ -457,7 +457,7 @@ async function handleLean(req: IncomingMessage, res: ServerResponse): Promise<vo
   if (typeof body.lean !== "string" || !body.lean.trim()) throw new HttpError(400, "lean is required");
   const line = body.goalsAfterLine;
   if (line !== undefined && !(Number.isInteger(line) && line >= 1)) throw new HttpError(400, "goalsAfterLine must be a line number, from 1");
-  sendJson(res, 200, await tryLean(leanServer(), body.lean, line));
+  sendJson(res, 200, await tryLean(tutorLean(), body.lean, line));
 }
 
 export async function handleTutor(req: IncomingMessage, res: ServerResponse): Promise<void> {

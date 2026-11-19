@@ -20,12 +20,15 @@
 //   3. Nor `axiom` or `opaque`: "no errors" must not rest on an assumption
 //      the scratch file made up.
 //
-// THIS IS NOT A SANDBOX. It reads words, and Lean is a language that can be
-// extended from inside a file in more ways than a list can name: a clever
-// enough text could get past it. It is a second wall. The first is that
-// what reaches the Tutor is the learner's own files and words; the wall
-// that would hold by itself is running the Tutor's Lean under an OS sandbox
-// (bead lii-2zo.6). Do not loosen the lists without reading this.
+// THIS IS NOT THE SANDBOX. It reads words, and Lean is a language that can
+// be extended from inside a file in more ways than a list can name: a
+// clever enough text could get past it. The wall that holds by itself is
+// under it: the Tutor's Lean runs in an OS sandbox that cannot read the
+// user's files, write, start a program or reach the network
+// (web/server/lean/sandbox.ts). This filter is the outer layer: it turns
+// most such text away before any Lean sees it, with a reason the Tutor can
+// read, and it is what decides whether a block gets an Insert button (the
+// learner's own Lean is NOT sandboxed). Do not loosen the lists lightly.
 //
 // Also here: finding the Lean blocks in a reply, so the server can ask Lean
 // about each and say under it what Lean said (`leanBlocks`, `labelled`).

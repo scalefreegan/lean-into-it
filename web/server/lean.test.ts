@@ -17,7 +17,7 @@ import { assemble, axiomsOf, judge, replayOf, toBody } from "../shared/proof.ts"
 import { checkExercise, handleCheck, handleLean, handlePlayground, leanError } from "./check.ts";
 import { checkSolution, checkWithLean } from "./contentcheck.ts";
 import { setDb, type Db } from "./db.ts";
-import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, type LeanServer } from "./lean/lsp.ts";
+import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, tutorLean, type LeanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { documentedLesson } from "./doclesson.ts";
 import type { HttpError } from "./sse.ts";
@@ -51,6 +51,7 @@ before(async () => {
 
 after(async () => {
   leanServer().stop();
+  tutorLean().close();
   setDb(null);
   await closeDb();
 });
@@ -763,9 +764,58 @@ test("an exercise with definitions of its own: goals, error lines and the axiom 
 
 /* ------------------------- the Tutor as proof partner ------------------------- */
 
-test("proof partner: a statement in Lean elaborates, a lemma is found and accepted in use, a step shows the goals it leaves", { skip }, async () => {
+/** The Tutor's Lean runs under macOS's sandbox, and nowhere without it. */
+const skipSandbox = skip || (process.platform !== "darwin" ? "the Tutor's Lean needs macOS's sandbox-exec" : false);
+if (!skip && skipSandbox) console.warn(`[lean.test] SKIPPED the Tutor's Lean: ${skipSandbox}. Nothing about it was checked.`);
+
+test("the Tutor's Lean is shut in: it cannot read the user's files, write, or start a program, and still proves things", { skip: skipSandbox }, async () => {
+  const os = await import("node:os");
+  const repoFile = path.resolve(import.meta.dirname, "../../package.json");
+  const out = path.join(os.tmpdir(), `lean-into-it-sandbox-probe-${process.pid}.txt`);
+  const toolchainFile = path.resolve(import.meta.dirname, "../../lean/lean-toolchain");
+  // Harmless probes (the word filter would refuse them unread, so they are
+  // given to each Lean directly): each tries one thing and says whether it
+  // could, with Lean's reason when it could not.
+  const probe = `import Mathlib
+def tryIt (what : String) (act : IO Unit) : IO Unit := do
+  try act; IO.println s!"{what}: ALLOWED" catch e => IO.println s!"{what}: {e}"
+#eval tryIt "read a file of the repository" (do let s ← IO.FS.readFile ${JSON.stringify(repoFile)}; if s.length == 0 then throw (IO.userError "empty"))
+#eval tryIt "list the home folder" (do let _ ← System.FilePath.readDir ${JSON.stringify(os.homedir())})
+#eval tryIt "ask about a folder in the home folder" (do let _ ← System.FilePath.metadata ${JSON.stringify(path.join(os.homedir(), "Library"))})
+#eval tryIt "list a folder outside the home folder" (do let _ ← System.FilePath.readDir "/Applications")
+#eval tryIt "read a system setting" (do let s ← IO.FS.readFile "/private/etc/hosts"; if s.length == 0 then throw (IO.userError "empty"))
+#eval tryIt "write a temp file" (IO.FS.writeFile ${JSON.stringify(out)} "x")
+#eval tryIt "start a program" (do let o ← IO.Process.output { cmd := "/bin/echo", args := #["hi"] }; if o.stdout != "hi\\n" then throw (IO.userError "it did not run"))
+#eval tryIt "start the toolchain's lake" (do let o ← IO.Process.output { cmd := "lake", args := #["--version"] }; if o.exitCode != 0 then throw (IO.userError "it did not run"))
+#eval tryIt "read a file of lean/" (do let s ← IO.FS.readFile ${JSON.stringify(toolchainFile)}; if s.length == 0 then throw (IO.userError "empty"))
+example (a b : ℝ) : (a + b)^2 = a^2 + 2*a*b + b^2 := by ring
+example : (37 : ℕ).Prime := by norm_num
+`;
+  const told = (r: { diagnostics: { severity: string; message: string }[] }) => r.diagnostics.filter((d) => d.severity === "info").map((d) => d.message.trim().split("\n")[0]);
+  const shut = await tutorLean().check("tutor", probe, []);
+  const refused = (what: string) => new RegExp(`^${what}: operation not permitted`);
+  const said = told(shut);
+  for (const [i, what] of ["read a file of the repository", "list the home folder", "ask about a folder in the home folder", "list a folder outside the home folder", "read a system setting", "write a temp file"].entries()) assert.match(said[i], refused(what));
+  assert.equal(said[6], "start a program: it did not run");
+  assert.equal(said[7], "start the toolchain's lake: it did not run");
+  assert.equal(said[8], "read a file of lean/: ALLOWED");
+  assert.equal(said.length, 9);
+  assert.deepEqual(shut.diagnostics.filter((d) => d.severity === "error"), []);
+  assert.equal(fs.existsSync(out), false);
+  // The control: the same file on the learner's own Lean, where nothing is
+  // shut in. Every probe is allowed there, so it is the sandbox that refused.
+  try {
+    const open = told(await leanServer().check("sandbox-control", probe, []));
+    assert.deepEqual(open.map((l) => l.replace(/^.*: /, "")), Array.from({ length: 9 }, () => "ALLOWED"), open.join("\n"));
+    assert.equal(fs.existsSync(out), true);
+  } finally {
+    fs.rmSync(out, { force: true });
+  }
+});
+
+test("proof partner: a statement in Lean elaborates, a lemma is found and accepted in use, a step shows the goals it leaves", { skip: skipSandbox }, async () => {
   const { tryLean, TUTOR_DOCUMENT } = await import("./partner.ts");
-  const lean = leanServer();
+  const lean = tutorLean();
   assert.equal(TUTOR_DOCUMENT, "tutor");
   // "Formalise: the sum of two even numbers is even."
   const stated = await tryLean(lean, "theorem sum_of_evens (m n : ℕ) (hm : Even m) (hn : Even n) : Even (m + n) := by\n  sorry");
@@ -798,7 +848,7 @@ test("proof partner: a statement in Lean elaborates, a lemma is found and accept
   assert.match(refused.refused[0], /^line 2: “#eval” is not run for the Tutor/);
 });
 
-test("proof partner: a Playground reply's Lean is labelled with what Lean said, and the tool's post is answered during the turn", { skip }, async (t) => {
+test("proof partner: a Playground reply's Lean is labelled with what Lean said, and the tool's post is answered during the turn", { skip: skipSandbox }, async (t) => {
   const { db } = await freshDb().then((f) => (t.after(f.close), setDb(f.db as unknown as Db), f));
   t.after(() => setDb(null));
   t.after(() => setAgent(null));
