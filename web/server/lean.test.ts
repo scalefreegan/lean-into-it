@@ -348,6 +348,15 @@ test("with the word list out of the way, the kernel replay alone refuses a theor
   assert.match(verdict.refusal ?? "", /refused part of it/);
 });
 
+test("the kernel replay refuses a file with anything already where its copies go", { skip }, async () => {
+  // Lean's replay skips a theorem it already holds by name and type, so a constant planted under the
+  // copies' prefix could stand in for a copy unchecked (found in review of lii-1ou.4). Any such name is refused.
+  const given = "theorem _lii_replay.planted : True := trivial";
+  const body = "exact hP";
+  const result = await leanServer().check("exercise", assemble("(P : Prop) (hP : P) : P", body, given), []);
+  assert.match(replayOf(result.diagnostics, body, given) ?? "", /_lii_replay\.planted is in the way/);
+});
+
 test("the kernel replay passes an honest proof, with the given's definitions, recursion and an inductive type", { skip }, async () => {
   const given = "inductive MyTree where\n  | leaf : MyTree\n  | node : MyTree → ℕ → MyTree → MyTree\n\ndef MyTree.size : MyTree → ℕ\n  | .leaf => 0\n  | .node l _ r => l.size + 1 + r.size\n\n@[simp] def app : List ℕ → List ℕ → List ℕ\n  | [], ys => ys\n  | x :: xs, ys => x :: app xs ys";
   const statement = "(t : MyTree) (xs : List ℕ) : t.size + 0 = t.size ∧ app [] xs = xs";

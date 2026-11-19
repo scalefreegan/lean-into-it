@@ -227,10 +227,12 @@ Landed in the first PR, the foundation slice:
   `#lii_replay` under the axiom report renames every constant the file
   added and replays them through `Lean.Kernel.Environment.replay`, so a
   theorem a metaprogram added without the kernel's check is refused even
-  with the word list bypassed. About 1–4 ms a check; it runs in the same
-  Lean process, so it is a second layer under the word list, not a
-  replacement for it.
-- Tests: 293, including every reference solution checked by the real Lean,
+  with the word list bypassed; so is a file with anything already named
+  where the copies go. About 1–4 ms for a typical proof, more where the
+  kernel's own check is heavy (it is done twice: 75 ms measured for a
+  `decide`-heavy proof). It runs in the same Lean process, so it is a
+  second layer under the word list, not a replacement for it.
+- Tests: 295, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

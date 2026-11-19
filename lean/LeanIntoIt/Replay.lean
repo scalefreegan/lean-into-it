@@ -59,6 +59,13 @@ elab "#lii_replay" : command => do
   let env ← getEnv
   let local_ := env.constants.map₂
   let isLocal (n : Name) : Bool := local_.contains n
+  -- Nothing may already sit where a copy goes. Lean's replay skips a theorem
+  -- the environment already holds under the same name and type, so a
+  -- constant planted under `root` beforehand would stand in for its copy
+  -- unchecked. The file has no reason to name anything under `root`.
+  if let some n := local_.foldl (fun found n _ => found <|> (if root.isPrefixOf n || env.contains (root ++ n) then some n else none)) none then
+    logError m!"lii-replay: the kernel refused this: {n} is in the way of the copies this check makes"
+    return
   let copies := local_.foldl (fun (m : Std.HashMap Name ConstantInfo) n ci =>
     m.insert (root ++ n) (renameInfo isLocal ci)) {}
   try

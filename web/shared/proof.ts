@@ -20,9 +20,11 @@
 //      the proof added on the way) goes through Lean's kernel again, renamed
 //      (`#lii_replay`, lean/LeanIntoIt/Replay.lean). The axiom report cannot
 //      see a theorem a metaprogram added without the kernel's check; this
-//      can. Solved needs its "ok", on its own line. It is a second layer
-//      under 2, not a replacement: it runs in the same Lean process as the
-//      proof, so it trusts that the body could not reach the elaborator.
+//      can. Solved needs its "ok", on its own line. It catches a
+//      metaprogram that added a constant without the kernel's check. It
+//      runs in the same Lean process as the proof, so a metaprogram written
+//      to defeat the replay itself could still try: 2 stays the first
+//      layer, and this one is under it, not instead of it.
 //
 // `solved` means: none of the above, no error, and no `sorry`.
 //

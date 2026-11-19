@@ -349,10 +349,10 @@ test("in a fill-the-gap exercise the forbid list is about the fill, not the proo
   assert.equal(judgeWith([], body, ["linarith"], axioms, "ok").solved, false, "a whole proof may not use it");
   assert.deepEqual(judgeWith([], body, ["linarith"], axioms, "ok", "abs_lt").forbidden, []);
   assert.equal(judgeWith([], body, ["linarith"], axioms, "ok", "abs_lt").solved, true);
-  assert.deepEqual(judgeWith([], body, ["abs_lt"], axioms, "abs_lt").forbidden, ["abs_lt"]);
+  assert.deepEqual(judgeWith([], body, ["abs_lt"], axioms, "ok", "abs_lt").forbidden, ["abs_lt"]);
   // Everything else is still judged on the whole body.
-  assert.match(judgeWith([], "rw [abs_lt] at h\nrun_tac foo", [], axioms, "abs_lt").refusal ?? "", /run_tac/);
-  assert.equal(judgeWith([], body, [], null, "abs_lt").solved, false);
+  assert.match(judgeWith([], "rw [abs_lt] at h\nrun_tac foo", [], axioms, "ok", "abs_lt").refusal ?? "", /run_tac/);
+  assert.equal(judgeWith([], body, [], null, "ok", "abs_lt").solved, false);
 });
 
 test("solved needs the kernel replay's ok on its own line; a refusal or no report is not solved", () => {
