@@ -20,6 +20,7 @@
 //   theorem _ : ¬ (∀ (n : ℕ) (m : ℕ), <claim>) := by
 //     intro hall
 //     have hc := hall (1) (2)
+//     clear hall           (so only these values can be used)
 //     revert hc            ┐ `witness: values` (the default): the exercise's
 //     norm_num             ┘ own `close` shows the claim fails for them
 //
@@ -46,7 +47,7 @@ const OPEN = "([{⦃⟨";
 const CLOSE = ")]}⦄⟩";
 
 /**
- * `(n m : ℕ) (h : 0 < n) : P n` → its groups, explicit names and claim.
+ * `(n m : ℕ) {α : Type} : P n m` → its groups, explicit names and claim.
  * Null when it is not binder groups, a colon and a claim (the loader says so).
  */
 export function splitStatement(statement: string): Split | null {
@@ -88,13 +89,33 @@ export function negation(split: Split): string {
 }
 
 /** A value a learner may give for a variable: a number, a negative one, a decimal or a fraction. */
-const VALUE = /^-?\d{1,12}(\.\d{1,12})?(\/-?\d{1,12})?$/;
+const VALUE = /^-?\d{1,12}(\.\d{1,12})?(\/\d{1,12})?$/;
 
 /** Why `value` cannot stand for a variable, or null when it can. */
 export function valueProblem(value: string): string | null {
-  const v = value.replace(/\s+/g, "");
+  const v = value.trim();
   if (!v) return "a value is missing";
-  return VALUE.test(v) ? null : `“${value.trim()}” is not a number. A value here is a number, like 3, -2, 0.5 or 1/2.`;
+  return VALUE.test(v) ? null : `“${v}” is not a number. A value here is a number, like 3, -2, 0.5 or 1/2.`;
+}
+
+/** The type a variable is declared with, from its binder group. */
+export function typeOf(split: Split, name: string): string | null {
+  for (const g of split.groups) {
+    if (g[0] !== "(") continue;
+    const inner = g.slice(1, -1);
+    const colon = inner.indexOf(":");
+    if (inner.slice(0, colon).trim().split(/\s+/).includes(name)) return inner.slice(colon + 1).trim();
+  }
+  return null;
+}
+
+/** Why `value` does not mean what it says for a variable of type `type`
+ *  (in ℕ and ℤ, 1/2 is 0 and 0.5 is no number; in ℕ there is no -1). */
+export function valueTypeProblem(value: string, type: string | null): string | null {
+  const whole = type === "ℕ" || type === "Nat" || type === "ℤ" || type === "Int";
+  if (whole && /[./]/.test(value)) return `${value.trim()} is not a whole number, and this variable is ${type === "ℕ" || type === "Nat" ? "a natural number" : "an integer"}.`;
+  if ((type === "ℕ" || type === "Nat") && value.trim().startsWith("-")) return `${value.trim()} is negative, and this variable is a natural number (0, 1, 2, …).`;
+  return null;
 }
 
 export type Side = "true" | "false";
@@ -133,24 +154,25 @@ export function bareAnswer(a: Answer, witness: Witness): boolean {
 export type Witness = "values" | "proof";
 
 /** Lines the server writes above a counterexample's own proof lines. */
-export const COUNTER_PREFIX = 2;
+export const COUNTER_PREFIX = 3;
 
 /** The proof body of the negation for a counterexample: see the top of this file. */
 export function counterBody(values: string[], close: string, witness: Witness, written: string): string {
-  const args = values.map((v) => `(${v.replace(/\s+/g, "")})`).join(" ");
-  const head = ["intro hall", args ? `have hc := hall ${args}` : "have hc := hall"];
+  const args = values.map((v) => `(${v.trim()})`).join(" ");
+  // Without `clear hall` a proof could use the claim at other values than these.
+  const head = ["intro hall", args ? `have hc := hall ${args}` : "have hc := hall", "clear hall"];
   const rest = witness === "proof" ? written.replace(/\s+$/, "") : `revert hc\n${close}`;
   return `${head.join("\n")}\n${rest}`;
 }
 
 /** Why the values given do not fit the statement, or null when they do. */
-export function valuesProblem(values: string[], names: string[]): string | null {
-  if (values.length !== names.length) {
+export function valuesProblem(values: string[], names: string[], split?: Split): string | null {
+  if (values.length !== names.length || values.some((v) => !v.trim())) {
     const want = names.length === 1 ? `one variable, ${names[0]}` : `${names.length} variables, ${names.join(", ")}`;
     return `This claim has ${want}: give ${names.length === 1 ? "a value for it" : "a value for each, in that order"}.`;
   }
-  for (const v of values) {
-    const wrong = valueProblem(v);
+  for (const [i, v] of values.entries()) {
+    const wrong = valueProblem(v) ?? (split ? valueTypeProblem(v, typeOf(split, names[i])) : null);
     if (wrong) return wrong;
   }
   return null;

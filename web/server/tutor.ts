@@ -56,6 +56,7 @@ import type { PartnerRequest, TutorContext, TutorHistoryReply, TutorLadderReply,
 import { localHost } from "./origin.ts";
 import { labelReply, tryLean } from "./partner.ts";
 import { checkExercise, leanError } from "./check.ts";
+import { readAnswer } from "../shared/truefalse.ts";
 import { learnerId, rawDb } from "./db.ts";
 import fs from "node:fs";
 import { leanGate, remainingNote, repairAsk, turnProblems, unloaded, type GateResult, type GateRun } from "./author.ts";
@@ -130,7 +131,7 @@ export function contextNote(ctx: TutorContext, where: Where): string {
     if (exercise.kind === "fill") lines.push(`The proof, with the step the learner fills marked <gap>:\n${fence(exercise.proof)}`);
     if (exercise.truefalse) {
       const tf = exercise.truefalse;
-      lines.push(`The claim is ${tf.truth ? "TRUE" : "FALSE"} (Lean has checked the reference answer): ${tf.why} Do not say which before a hint at rung 2 or a direct question; at rung 1 nudge them to try small cases or to look for why it might hold. ${tf.truth ? "They prove it as a typed proof." : `A counterexample is a value for each of ${tf.names.join(", ")}, ${tf.witness === "proof" ? "then lines proving False from hc, the claim at those values" : "and the app proves the claim fails there"}.`} At rung 3 the LINE is ${tf.truth ? "the next line of the proof" : tf.witness === "values" ? "the values, separated by commas, like `1, 2`" : "not given: give the values in words instead, and no LINE: line"}.`);
+      lines.push(`The claim is ${tf.truth ? "TRUE" : "FALSE"} (Lean has checked the reference answer): ${tf.why} Do not say which before a hint at rung 2 or a direct question; at rung 1 nudge them to try small cases or to look for why it might hold. ${tf.truth ? "They prove it as a typed proof." : `A counterexample is a value for each of ${tf.names.join(", ")}, ${tf.witness === "proof" ? "then lines proving False from hc, the claim at those values" : "and the app proves the claim fails there"}.`} At rung 3 the LINE is ${tf.truth ? "the next line of the proof" : `the values, separated by commas, like \`1, 2\`${tf.witness === "proof" ? " (the proof that they work stays theirs to write)" : ""}`}.`);
     }
     if (exercise.mode === "board" && exercise.kind !== "fill") lines.push(`Moves on offer: ${exercise.moves.join(", ")}.`);
     if (exercise.forbid.length) lines.push(`Not allowed in the answer: ${exercise.forbid.join(", ")}.`);
@@ -267,10 +268,22 @@ export async function lineProblem(exercise: Exercise, body: string, line: string
   try {
     const tf = exercise.truefalse;
     if (tf && !tf.truth) {
-      // The line is the counterexample's values; with `witness: proof` none is given.
-      if (tf.witness === "proof") return "a line is not given for this counterexample";
-      const r = await checkExercise(lean, exercise, `false: ${line.replace(/^false\s*:?\s*/, "")}`);
-      return r.solved ? null : (r.refusal ?? r.error?.message ?? "these values are not a counterexample");
+      // The line is the counterexample's values. With `witness: proof` they are
+      // checked with the reference proof's lines, or else norm_num: the proof stays the learner's.
+      const values = `false: ${line.replace(/^false\s*:?\s*/, "")}`;
+      const tries =
+        tf.witness === "values"
+          ? [() => checkExercise(lean, exercise, values)]
+          : [readAnswer(exercise.solution), null].map((ref) => () =>
+              ref && typeof ref !== "string" ? checkExercise(lean, exercise, `${values}\n${ref.body}`) : checkExercise(lean, { ...exercise, truefalse: { ...tf, witness: "values", close: "norm_num" } }, values),
+            );
+      let why = "these values are not a counterexample";
+      for (const t of tries) {
+        const r = await t();
+        if (r.solved) return null;
+        why = r.refusal ?? r.error?.message ?? why;
+      }
+      return why;
     }
     // A true claim: the line goes after the proof so far, as for `prove`.
     if (tf) exercise = { ...exercise, kind: "prove", truefalse: undefined };

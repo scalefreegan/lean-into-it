@@ -28,13 +28,14 @@ export function TrueOrFalse(props: ExerciseProps) {
   const [busy, setBusy] = useState(false);
   const [trouble, setTrouble] = useState<string | null>(null);
   const told = useRef(false);
-  const [won, setWon] = useState(false);
+  /** The answer Lean accepted, here or before (a solved exercise reopens with it). */
+  const [won, setWon] = useState<string | null>(solution ?? null);
   const split = splitStatement(exercise.statement);
 
   const solved = (answer: string) => {
     if (told.current) return;
     told.current = true;
-    setWon(true);
+    setWon(answer);
     onSolved(answer);
   };
 
@@ -75,15 +76,16 @@ export function TrueOrFalse(props: ExerciseProps) {
   }
 
   const reply = checked && checked.values === answerOf("") ? checked.reply : null;
-  const done = !!reply?.solved || (won && !reply);
-  useTutorWork(lessonId, exercise.id, {
-    body: side === null ? "" : side === "true" ? "(proving it true)" : `(a counterexample: ${tf.names.map((n, i) => `${n} = ${values[i] || "?"}`).join(", ")})`,
-    goals: null,
-    error: refused?.why ?? reply?.refusal ?? null,
-  });
+  // Success is shown for the values on screen only: editing them takes it away.
+  const done = !!reply?.solved || won === answerOf("");
+  // Where a proof editor is open, it tells the Tutor about the work itself.
+  const editor = side === "true" || (side === "false" && tf.witness === "proof");
 
   return (
     <>
+      {!editor && (
+        <TellTutor lessonId={lessonId} exerciseId={exercise.id} body={side === "false" ? answerOf("") : ""} error={refused?.why ?? reply?.refusal ?? null} />
+      )}
       <Claim exercise={exercise} />
       <div data-truefalse={exercise.id} className="overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-sm">
         <div className="flex flex-col gap-3 p-4 sm:p-5">
@@ -177,4 +179,10 @@ export function TrueOrFalse(props: ExerciseProps) {
       )}
     </>
   );
+}
+
+/** What the Tutor is told while no proof editor is open: the side and values so far. */
+function TellTutor({ lessonId, exerciseId, body, error }: { lessonId: string; exerciseId: string; body: string; error: string | null }) {
+  useTutorWork(lessonId, exerciseId, { body, goals: null, error });
+  return null;
 }

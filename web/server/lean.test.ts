@@ -673,8 +673,21 @@ test("true or false: Lean decides each side; the wrong side is answered at once,
   const wrongProof = await ask(byProof, "false: 1, 1\nexact hc");
   assert.equal(wrongProof.solved, false);
   assert.equal(wrongProof.error?.line, 0, "the error is on the learner's first line, not the server's");
-  // The values must really be a counterexample: at a = b = 0 nothing proves False.
+  // The values must really be a counterexample: at a = b = 0 nothing proves False,
+  // not even the claim at other values, since the server clears it after taking these.
   assert.equal((await ask(byProof, "false: 0, 0\nnorm_num at hc")).solved, false);
+  assert.equal((await ask(byProof, "false: 0, 0\nexact absurd (hall 1 1) (by norm_num)")).solved, false);
+  // Proof lines without values are asked for the values; a fraction is not a natural number.
+  assert.match((await ask(byProof, "false\nnorm_num at hc")).refusal!, /give a value for each/);
+  assert.match((await ask(falseOne, "false: 1/2")).refusal!, /not a whole number/);
+  // An error is underlined on the learner's own line, not the server's.
+  const ranged = wrongProof.diagnostics.filter((d) => d.range);
+  assert.ok(ranged.length > 0 && ranged.every((d) => d.range!.start.line === d.line), "every underline is on the line it names, in the learner's own lines");
+  // The Tutor's rung 3 gives a counterexample's values, and Lean checks them, with or without the proof being the learner's.
+  assert.equal(await lineProblem(byProof, "", "1, 1"), null);
+  assert.notEqual(await lineProblem(byProof, "", "0, 0"), null);
+  assert.equal(await lineProblem(falseOne, "", "1"), null);
+  assert.notEqual(await lineProblem(falseOne, "", "4"), null);
   // The true side is the statement's own proof.
   assert.equal((await ask(trueOne, trueOne.solution)).solved, true);
   assert.equal((await ask(trueOne, "true\nsimp")).solved, false);

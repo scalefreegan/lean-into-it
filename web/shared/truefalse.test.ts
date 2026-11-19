@@ -31,17 +31,24 @@ test("an answer is its side on the first line, the values after a colon, and the
 });
 
 test("a value is a number; the count must match the variables", () => {
-  for (const ok of ["3", "-2", "0.5", "1/2", " 7 ", "-1/-3"]) assert.equal(valueProblem(ok), null, ok);
-  for (const bad of ["", "x", "1e5", "2+2", "(1)", "1, 2", "Real.pi", "1/"]) assert.notEqual(valueProblem(bad), null, bad);
+  for (const ok of ["3", "-2", "0.5", "1/2", " 7 "]) assert.equal(valueProblem(ok), null, ok);
+  for (const bad of ["", "x", "1e5", "2+2", "(1)", "1, 2", "Real.pi", "1/", "1 2", "-1/-3"]) assert.notEqual(valueProblem(bad), null, bad);
   assert.equal(valuesProblem(["1", "2"], ["a", "b"]), null);
   assert.match(valuesProblem(["1"], ["a", "b"])!, /^This claim has 2 variables, a, b: give a value for each, in that order\.$/);
   assert.match(valuesProblem([], ["n"])!, /one variable, n: give a value for it/);
   assert.match(valuesProblem(["two"], ["n"])!, /“two” is not a number/);
+  assert.match(valuesProblem([""], ["n"])!, /give a value for it/);
+  // In ℕ and ℤ a fraction or a decimal is not the number it looks like, and ℕ has no negatives.
+  const split = splitStatement("(n : ℕ) (k : ℤ) (x : ℝ) : True")!;
+  assert.match(valuesProblem(["1/2", "0", "0"], ["n", "k", "x"], split)!, /not a whole number, and this variable is a natural number/);
+  assert.match(valuesProblem(["1", "0.5", "0"], ["n", "k", "x"], split)!, /an integer/);
+  assert.match(valuesProblem(["-1", "0", "0"], ["n", "k", "x"], split)!, /is negative/);
+  assert.equal(valuesProblem(["1", "-3", "-1/2"], ["n", "k", "x"], split), null);
 });
 
 test("the counterexample's proof: the server's lines, then the close or the learner's own", () => {
-  assert.equal(counterBody(["1", " 2 "], "norm_num", "values", "ignored"), "intro hall\nhave hc := hall (1) (2)\nrevert hc\nnorm_num");
-  assert.equal(counterBody(["1"], "norm_num", "proof", "norm_num at hc\n"), "intro hall\nhave hc := hall (1)\nnorm_num at hc");
+  assert.equal(counterBody(["1", " 2 "], "norm_num", "values", "ignored"), "intro hall\nhave hc := hall (1) (2)\nclear hall\nrevert hc\nnorm_num");
+  assert.equal(counterBody(["1"], "norm_num", "proof", "norm_num at hc\n"), "intro hall\nhave hc := hall (1)\nclear hall\nnorm_num at hc");
   assert.match(wrongSide(true, "Because."), /^This claim is true, so no counterexample can exist.* Because\.$/);
   assert.match(wrongSide(false, "At 1."), /^This claim is false, so it cannot be proved.* At 1\.$/);
 });

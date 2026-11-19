@@ -208,7 +208,12 @@ A counterexample is checked by proving the claim's negation, which the
 server writes from the statement: `¬ (∀ (n : ℕ), n ^ 2 ≥ 2 * n)`, proved
 by `intro hall`, `have hc := hall (1)`, then `revert hc` and `close` (or
 the learner's lines). So a false claim's conditions go in the claim
-(`n > 0 → …`), not in binders, since every `( )` binder takes a value.
+(`n > 0 → …`), not in binders, since every `( )` binder takes a value
+(a hypothesis `(h : 0 < n)` would be asked for one), and a false claim has
+no instance binders (`[Fact p.Prime]`). Values are numbers; for an ℕ or ℤ
+variable a fraction or a decimal is refused (in Lean `1/2 : ℕ` is 0), and
+for ℕ a negative one. After `have hc` the server clears `hall`, so a
+counterexample's proof can use the claim only at the values given.
 Lean has accepted the reference answer on its side (`npm test`), so the
 other side cannot be backed up: picking it is answered at once with `why`
 and kept as an attempt that failed, and the learner can switch. Nothing is

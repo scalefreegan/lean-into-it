@@ -4,7 +4,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals } from "../shared/goals.ts";
-import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position, forbiddenIn } from "../shared/proof.ts";
+import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { bareAnswer, COUNTER_PREFIX, counterBody, negation, readAnswer, splitStatement, valuesProblem, wrongSide } from "../shared/truefalse.ts";
@@ -86,17 +86,23 @@ async function checkTrueFalse(lean: LeanServer, exercise: Exercise, text: string
   if (typeof answer === "string") return refuse(answer);
   if ((answer.side === "true") !== tf.truth) return refuse(wrongSide(tf.truth, tf.why));
   if (answer.side === "true") return checkBody(lean, exercise, answer.body, answer.body, cursor);
-  if (!answer.values.length) return refuse(null);
-  const wrong = valuesProblem(answer.values, tf.names);
-  if (wrong) return refuse(wrong);
+  // Only the side so far: nothing to check yet. Proof lines without values are asked for the values.
+  if (!answer.values.length && !answer.body.trim()) return refuse(null);
   const split = splitStatement(exercise.statement);
   if (!split) return refuse("This exercise's statement cannot be read.");
+  const wrong = valuesProblem(answer.values, tf.names, split);
+  if (wrong) return refuse(wrong);
   const written = tf.witness === "proof" ? answer.body : answer.values.join(", ");
   const negated = { ...exercise, statement: negation(split).replace(/^:\s*/, ": ") };
   const shift = (p?: Position) => (p ? { line: p.line + COUNTER_PREFIX, character: p.character } : undefined);
   const reply = await checkBody(lean, negated, counterBody(answer.values, tf.close, tf.witness, answer.body), written, tf.witness === "proof" ? shift(cursor) : undefined);
   // Lines the server wrote are not the learner's: what Lean says about them is said about the values.
-  const back = <T extends { line: number | null }>(d: T): T => ({ ...d, line: tf.witness === "proof" && d.line !== null && d.line >= COUNTER_PREFIX ? d.line - COUNTER_PREFIX : null });
+  const back = (d: BodyDiagnostic): BodyDiagnostic => {
+    const { range, ...rest } = d;
+    if (tf.witness !== "proof" || d.line === null || d.line < COUNTER_PREFIX) return { ...rest, line: null };
+    const up = (p: Position) => ({ line: p.line - COUNTER_PREFIX, character: p.character });
+    return { ...rest, line: d.line - COUNTER_PREFIX, ...(range ? { range: { start: up(range.start), end: up(range.end) } } : {}) };
+  };
   const diagnostics = reply.diagnostics.map(back);
   if (tf.witness === "values" && !reply.solved && !reply.refusal && !reply.forbidden.length) {
     const said = reply.error?.message.split("\n")[0] ?? "it leaves something unproved";
