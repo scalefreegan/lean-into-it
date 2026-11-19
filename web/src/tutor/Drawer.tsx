@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { TutorMessage } from "../../shared/wire.ts";
 import { ApiError, askTutor, clearTutor, tutorHistory, tutorLadder } from "../api/client.ts";
-import { Markdown } from "../markdown.tsx";
+import { speakableText } from "../../shared/tts/speakable.ts";
+import { useListen } from "../listen/data.ts";
+import { Markdown, SpokenMarkdown } from "../markdown.tsx";
 import { useApp } from "../state.tsx";
 import { Button, cx, Notice } from "../ui.tsx";
 import { useTutor } from "./store.ts";
@@ -22,6 +24,21 @@ export function TutorDrawer() {
   const { open, setOpen, active, snapshot } = useTutor();
   const { content } = useApp();
   const [messages, setMessages] = useState<TutorMessage[] | null>(null);
+  // Listen mode: a reply is read aloud as it arrives, the word sounding marked.
+  const listen = useListen();
+  // A reply can take a while: whether to read it is asked when it arrives, not when the question was sent.
+  const listenNow = useRef(listen);
+  useEffect(() => {
+    listenNow.current = listen;
+  }, [listen]);
+  const [spoken, setSpoken] = useState<{ id: number; word: number | null } | null>(null);
+  function readAloud(m: TutorMessage) {
+    const text = speakableText(m.text).text;
+    if (!text) return;
+    const done = () => setSpoken((s) => (s?.id === m.id ? null : s));
+    setSpoken({ id: m.id, word: null });
+    listenNow.current.speak(text, { aside: true, onWord: (word) => setSpoken((s) => (s?.id === m.id ? { id: m.id, word } : s)), onEnd: done, onError: done, onStop: done });
+  }
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [trouble, setTrouble] = useState<string | null>(null);
@@ -67,6 +84,8 @@ export function TutorDrawer() {
     try {
       const reply = await askTutor({ ...req, context: snapshot() }, ctrl.signal);
       setMessages((m) => [...(m ?? []), ...reply.messages]);
+      const said = reply.messages.findLast((m) => m.role === "assistant");
+      if (said && listenNow.current.on && listenNow.current.voiceId) readAloud(said);
       if (req.hint) {
         const given = reply.messages.some((m) => m.role === "assistant" && m.rung === req.hint);
         if (given) setRung((r) => Math.max(r, req.hint!));
@@ -149,7 +168,7 @@ export function TutorDrawer() {
               ) : (
                 <div className="mr-4 rounded-xl border border-line bg-ground px-3 py-2 text-sm">
                   {m.rung && <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-accent">Hint {m.rung}</p>}
-                  <Markdown source={m.text} />
+                  {spoken?.id === m.id ? <SpokenMarkdown source={m.text} activeWord={spoken.word} /> : <Markdown source={m.text} />}
                 </div>
               )}
             </li>

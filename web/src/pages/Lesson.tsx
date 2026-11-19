@@ -1,6 +1,8 @@
 import type { Exercise, Lesson as LessonType } from "../../shared/content.ts";
 import { ErrorBoundary } from "../ErrorBoundary.tsx";
-import { Markdown } from "../markdown.tsx";
+import { Markdown, SpokenMarkdown } from "../markdown.tsx";
+import { ReadingLineContext } from "../listen/data.ts";
+import { exerciseSpeech, useLessonReading } from "../listen/useLessonReading.ts";
 import { EXERCISES } from "../../shared/registry.ts";
 import { EXERCISE_COMPONENTS } from "../exercises/registry.ts";
 import { href } from "../router.ts";
@@ -13,12 +15,17 @@ import { useTouch } from "../tutor/store.ts";
 
 // A lesson: prose, widgets and exercises in the order the file gives them. Lean
 // checks each exercise; a solved one is remembered (state.tsx markSolved,
-// and the server has already stored it).
+// and the server has already stored it). With Listen mode on, the
+// transport's Play reads it aloud from the top (listen/useLessonReading.ts).
 
 export function Lesson({ id }: { id: string }) {
   const { content, solved, levels, markSolved, reloadProgress } = useApp();
   const index = content.lessons.findIndex((l) => l.id === id);
-  const lesson = content.lessons[index];
+  const lesson: LessonType | undefined = content.lessons[index];
+  // A lesson in a locked level shows what opens it instead of its exercises, and is not read.
+  const status = lesson ? levels.find((s) => s.level === lesson.level) : undefined;
+  const lockedBy = status?.state === "locked" ? status : null;
+  const reading = useLessonReading(lesson, !lockedBy);
   if (!lesson) {
     return (
       <div className="mx-auto max-w-[2400px]">
@@ -32,9 +39,13 @@ export function Lesson({ id }: { id: string }) {
   const progress = lessonProgress(lesson, solved);
   const level = content.levels.find((l) => l.id === lesson.level);
   const track = content.tracks.find((t) => t.id === lesson.track);
-  // A lesson in a locked level shows what opens it instead of its exercises.
-  const status = levels.find((s) => s.level === lesson.level);
-  const lockedBy = status?.state === "locked" ? status : null;
+  /** Under a widget or an exercise the reading has stopped at: how to go on. */
+  const waitNote = (i: number) =>
+    reading.waitingAt === i && (
+      <p role="status" data-reading-waiting className="mt-2 rounded-lg bg-accent-soft px-3 py-1.5 text-sm text-fg">
+        The reading waits here. Press Play at the foot of the page to go on.
+      </p>
+    );
 
   return (
     <article className="mx-auto flex max-w-[2400px] flex-col gap-6" data-lesson-page={lesson.id}>
@@ -60,17 +71,27 @@ export function Lesson({ id }: { id: string }) {
         if (block.type === "prose") {
           // Running text keeps a readable line length; the proofs below it use the full width.
           return (
-            <div key={i} className="min-w-0">
-              <Markdown source={block.markdown} />
+            <div key={i} className="min-w-0 scroll-my-24" data-reading-block={i}>
+              {reading.active?.block === i ? <SpokenMarkdown source={block.markdown} activeWord={reading.active.word} /> : <Markdown source={block.markdown} />}
             </div>
           );
         }
-        if (block.type === "widget") return <RenderWidget key={i} type={block.widget} params={block.params} />;
+        if (block.type === "widget") {
+          return (
+            <div key={i} className="min-w-0 scroll-my-24" data-reading-block={i}>
+              <RenderWidget type={block.widget} params={block.params} />
+              {waitNote(i)}
+            </div>
+          );
+        }
         const exercise = lesson.exercises.find((e) => e.id === block.id);
         if (!exercise) return null;
+        // The claim's words come after the title's in what is spoken.
+        const word = reading.active?.block === i && reading.active.word !== null ? reading.active.word - exerciseSpeech(exercise.title, exercise.says).titleWords : null;
         return (
+          <ReadingLineContext.Provider key={block.id} value={reading.active?.block === i ? { id: exercise.id, word: word !== null && word >= 0 ? word : null } : null}>
+          <div className="min-w-0 scroll-my-24" data-reading-block={i}>
           <ExerciseBlock
-            key={block.id}
             lesson={lesson}
             exercise={exercise}
             number={lesson.exercises.indexOf(exercise) + 1}
@@ -81,6 +102,9 @@ export function Lesson({ id }: { id: string }) {
               void reloadProgress();
             }}
           />
+          {waitNote(i)}
+          </div>
+          </ReadingLineContext.Provider>
         );
         })
       )}

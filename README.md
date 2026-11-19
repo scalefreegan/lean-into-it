@@ -65,7 +65,7 @@ This is an early build. Five of the six features below work today; the live proo
   </tr>
 </table>
 
-There is also a Lab, where nothing is scored: every move with an example to run and change, and explorers for functions, the number line and an identity from algebra. Planned: more exercise kinds, more explorers, Listen mode (read-aloud), and a gallery of famous proofs.
+There is also a Lab, where nothing is scored: every move with an example to run and change, and explorers for functions, the number line and an identity from algebra. With an ElevenLabs key in `.env.local` (`ELEVENLABS_API_KEY=…`), Listen mode reads lessons, exercise claims and the Tutor's replies aloud and marks the word being read; without one, the Listen button says how to add it. Planned: more exercise kinds, more explorers, and a gallery of famous proofs.
 
 ## How it works
 

@@ -3,6 +3,7 @@
 
 import type { LevelStatus, MasteryMap, ReviewItem } from "./progress.ts";
 import type { Goal } from "./goals.ts";
+import type { SpokenWord } from "./tts/alignment.ts";
 import type { BodyDiagnostic, Position } from "./proof.ts";
 
 export interface ErrorReply {
@@ -167,4 +168,51 @@ export interface TutorHistoryReply {
  *  was last solved (0: none yet). */
 export interface TutorLadderReply {
   rung: number;
+}
+
+/* ------------------------------ Listen mode ------------------------------ */
+
+export interface TtsModel {
+  id: string;
+  label: string;
+  note: string;
+}
+
+/** GET /api/tts/settings, and the reply to PUT. `voiceId` is null until one
+ *  is chosen; `configured` says whether the server has an ElevenLabs key at
+ *  all (the key itself never leaves the server). */
+export interface ListenSettings {
+  on: boolean;
+  voiceId: string | null;
+  modelId: string;
+  models: TtsModel[];
+  configured: boolean;
+}
+
+/** PUT /api/tts/settings: only the fields given change. */
+export interface ListenSettingsPatch {
+  on?: boolean;
+  voiceId?: string;
+  modelId?: string;
+}
+
+export interface TtsVoice {
+  id: string;
+  name: string;
+}
+
+/** GET /api/tts/voices: the account's ElevenLabs voices. */
+export interface TtsVoicesReply {
+  voices: TtsVoice[];
+}
+
+/** POST /api/tts/speak: the voice and model are the stored ones. */
+export interface TtsSpeakRequest {
+  text: string;
+}
+
+/** The audio to play (a URL on this server) and when each word sounds. */
+export interface TtsSpeakReply {
+  audioUrl: string;
+  words: SpokenWord[];
 }

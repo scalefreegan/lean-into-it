@@ -1,5 +1,5 @@
 import type { Content } from "../../shared/content.ts";
-import type { CheckReply, CheckRequest, ErrorReply, LeanStatus, OpenLevelRequest, PlacementRequest, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest } from "../../shared/wire.ts";
+import type { CheckReply, CheckRequest, ErrorReply, LeanStatus, OpenLevelRequest, PlacementRequest, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest, ListenSettings, ListenSettingsPatch, TtsSpeakReply, TtsSpeakRequest, TtsVoicesReply } from "../../shared/wire.ts";
 
 // The one fetch. Every call to the server goes through here, so an error is
 // always an ApiError carrying the server's own sentence.
@@ -48,3 +48,8 @@ export const askTutor = (req: TutorRequest, signal?: AbortSignal) => api<TutorRe
 export const tutorHistory = () => api<TutorHistoryReply>("/api/tutor/history");
 export const clearTutor = () => api<{ ok: boolean }>("/api/tutor/history", undefined, undefined, "DELETE");
 export const tutorLadder = (lessonId: string, exerciseId: string) => api<TutorLadderReply>(`/api/tutor/ladder?lesson=${encodeURIComponent(lessonId)}&exercise=${encodeURIComponent(exerciseId)}`);
+// Listen mode (web/server/tts.ts). The ElevenLabs key stays on the server.
+export const listenSettings = () => api<ListenSettings>("/api/tts/settings");
+export const putListenSettings = (patch: ListenSettingsPatch) => api<ListenSettings>("/api/tts/settings", patch, undefined, "PUT");
+export const ttsVoices = () => api<TtsVoicesReply>("/api/tts/voices");
+export const ttsSpeak = (text: string, signal?: AbortSignal) => api<TtsSpeakReply>("/api/tts/speak", { text } satisfies TtsSpeakRequest, signal);

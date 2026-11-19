@@ -234,3 +234,28 @@ export async function recordCredits(db: Db, learnerId: string, credits: { concep
 export async function creditsFor(db: Db, learnerId: string): Promise<CreditRow[]> {
   return db.select({ concept: conceptCredits.concept, creditedAt: conceptCredits.creditedAt, dueAt: conceptCredits.dueAt }).from(conceptCredits).where(eq(conceptCredits.learnerId, learnerId));
 }
+
+/* ------------------------------ Listen mode ------------------------------ */
+
+export interface ListenRow {
+  listenMode: boolean;
+  /** Null until a voice is chosen. */
+  ttsVoiceId: string | null;
+  /** Null: the server's default model. */
+  ttsModelId: string | null;
+}
+
+export async function listenSettings(db: Db, learnerId: string): Promise<ListenRow> {
+  const [row] = await db.select({ listenMode: learners.listenMode, ttsVoiceId: learners.ttsVoiceId, ttsModelId: learners.ttsModelId }).from(learners).where(eq(learners.id, learnerId));
+  return row ?? { listenMode: false, ttsVoiceId: null, ttsModelId: null };
+}
+
+/** Change only the fields given; answers with the row as it then is. */
+export async function setListenSettings(db: Db, learnerId: string, patch: Partial<ListenRow>): Promise<ListenRow> {
+  const set: Partial<ListenRow> = {};
+  if (patch.listenMode !== undefined) set.listenMode = patch.listenMode;
+  if (patch.ttsVoiceId !== undefined) set.ttsVoiceId = patch.ttsVoiceId;
+  if (patch.ttsModelId !== undefined) set.ttsModelId = patch.ttsModelId;
+  if (Object.keys(set).length) await db.update(learners).set(set).where(eq(learners.id, learnerId));
+  return listenSettings(db, learnerId);
+}

@@ -7,6 +7,7 @@ import { leanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { handleProgress } from "./progress.ts";
 import { handleTutor } from "./tutor.ts";
+import { handleTts } from "./tts.ts";
 import { HttpError, INTERNAL_ERROR, methodNotAllowed, sendJson } from "./sse.ts";
 
 // The whole "backend": dev-server-only middleware on the Vite server, bound
@@ -105,6 +106,8 @@ export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: bool
       server.middlewares.use("/api/progress", wrap(handleProgress));
       // The Tutor: explain and hint, read-only, never grading.
       server.middlewares.use("/api/tutor", wrap(handleTutor));
+      // Listen mode: text read aloud by ElevenLabs, cached under data/.
+      server.middlewares.use("/api/tts", wrap(handleTts));
       // Anything else under /api is a typo, not the SPA shell: answer in the
       // envelope the client already parses instead of index.html.
       server.middlewares.use("/api", wrap((_req, res) => sendJson(res, 404, { error: "no such route" })));

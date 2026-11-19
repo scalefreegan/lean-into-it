@@ -21,6 +21,12 @@ const tz = (name: string) => timestamp(name, { withTimezone: true });
 export const learners = pgTable("learners", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
+  /** Listen mode: whether it is on, and the ElevenLabs voice and model it
+   *  reads with. No voice until one is chosen. The model's default lives in
+   *  web/server/tts-models.ts; null here means "the default". */
+  listenMode: boolean("listen_mode").notNull().default(false),
+  ttsVoiceId: text("tts_voice_id"),
+  ttsModelId: text("tts_model_id"),
   createdAt: tz("created_at").notNull().defaultNow(),
 });
 

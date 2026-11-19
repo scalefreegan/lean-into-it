@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { spokenBlocks, type SpokenBlock } from "../shared/tts/speakable.ts";
+import { cx } from "./ui.tsx";
 
 // The small markdown subset lessons are written in (docs/CONTENT.md):
 // ## and ### headings, paragraphs, **bold**, *italic*, `code`, bulleted and
@@ -72,6 +74,86 @@ export function Markdown({ source }: { source: string }) {
       while (i < lines.length && lines[i].trim() && !/^(#{1,3}\s|>\s?|```)/.test(lines[i]) && !isBullet(lines[i]) && !isNumber(lines[i])) buf.push(lines[i++].trim());
       out.push(<p key={key}>{inline(buf.join(" "), key)}</p>);
     }
+  }
+  return <div className="prose-lesson">{out}</div>;
+}
+
+/* ------------------------------- Listen mode ------------------------------ */
+
+const WORD_ON = "rounded-sm bg-accent-soft text-fg";
+
+/** A block's words in order, drawn as Markdown draws the same text (so
+ *  nothing moves when a block starts being read): each word is cut where
+ *  its marking changes, and one `code` span is one piece of code, across
+ *  words and the spaces between them. Every piece of a word carries
+ *  data-word; the pieces of the word sounding are marked. */
+function renderWords(block: SpokenBlock, activeWord: number | null | undefined, keyBase: string): ReactNode[] {
+  const pieces: { node: ReactNode; code: number | null }[] = [];
+  const styled = (node: ReactNode, mark: { bold: boolean; italic: boolean }, key: string): ReactNode => {
+    const em = mark.italic ? <em key={key}>{node}</em> : node;
+    return mark.bold ? <strong key={key}>{em}</strong> : em;
+  };
+  block.words.forEach((w, j) => {
+    if (j > 0) {
+      const gap = block.gaps[j - 1];
+      pieces.push({ node: gap.bold || gap.italic ? styled(" ", gap, `${keyBase}-g${j}`) : " ", code: gap.code });
+    }
+    w.parts.forEach((p, n) => {
+      const key = `${keyBase}-${j}-${n}`;
+      const on = w.index === activeWord;
+      const span = (
+        <span key={key} data-word={w.index} data-reading={on || undefined} className={cx(on && WORD_ON)}>
+          {p.text}
+        </span>
+      );
+      pieces.push({ node: styled(span, p, key), code: p.code });
+    });
+  });
+  const out: ReactNode[] = [];
+  for (let i = 0; i < pieces.length; ) {
+    const { code } = pieces[i];
+    if (code === null) {
+      out.push(pieces[i++].node);
+      continue;
+    }
+    const start = i;
+    const run: ReactNode[] = [];
+    while (i < pieces.length && pieces[i].code === code) run.push(pieces[i++].node);
+    out.push(<code key={`${keyBase}-c${start}`}>{run}</code>);
+  }
+  return out;
+}
+
+/** The same subset as Markdown, for a passage being read aloud: each word
+ *  is its own element (from shared/tts/speakable.ts spokenBlocks, which
+ *  splits blocks as Markdown does), so `activeWord`, the index of the word
+ *  sounding, can be marked. Code blocks are shown and not read. A second
+ *  component and not a prop: only the passage being read pays for the
+ *  per-word elements. */
+export function SpokenMarkdown({ source, activeWord }: { source: string; activeWord?: number | null }) {
+  const blocks = spokenBlocks(source);
+  const out: ReactNode[] = [];
+  let i = 0;
+  let k = 0;
+  while (i < blocks.length) {
+    const b = blocks[i];
+    const key = `s${k++}`;
+    if (b.kind === "bullet" || b.kind === "number") {
+      const items: typeof blocks = [];
+      while (i < blocks.length && blocks[i].kind === b.kind && blocks[i].list === b.list) items.push(blocks[i++]);
+      const lis = items.map((it, j) => <li key={j}>{renderWords(it, activeWord, `${key}-${j}`)}</li>);
+      out.push(b.kind === "number" ? <ol key={key}>{lis}</ol> : <ul key={key}>{lis}</ul>);
+      continue;
+    }
+    if (b.kind === "code") out.push(<pre key={key}>{b.code}</pre>);
+    else {
+      const words = renderWords(b, activeWord, key);
+      if (b.kind === "h2") out.push(<h2 key={key}>{words}</h2>);
+      else if (b.kind === "h3") out.push(<h3 key={key}>{words}</h3>);
+      else if (b.kind === "quote") out.push(<blockquote key={key}>{words}</blockquote>);
+      else out.push(<p key={key}>{words}</p>);
+    }
+    i++;
   }
   return <div className="prose-lesson">{out}</div>;
 }
