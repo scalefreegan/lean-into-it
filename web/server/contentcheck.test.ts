@@ -233,7 +233,7 @@ test("the file Lean is given: the given at the top as exercises have it, snippet
   ]);
   assert.deepEqual(src.problems, []);
   const out = src.source.split("\n");
-  assert.deepEqual(out.slice(0, 3), ["import Mathlib", "", given]);
+  assert.deepEqual(out.slice(0, 3), ["import Mathlib import LeanIntoIt.Replay", "", given]);
   assert.deepEqual(src.given, { start: 2, length: 1 });
   assert.equal(src.spans.length, 3, "the fragment is left out");
   // A snippet that shows a given definition is compiled apart from it.

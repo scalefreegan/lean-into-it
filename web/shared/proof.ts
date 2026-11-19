@@ -16,6 +16,15 @@
 //   3. After the theorem Lean is asked which axioms it rests on. Solved
 //      needs that report, on its own line, naming only the three axioms of
 //      ordinary mathematics. No report (Lean was stopped early) is a refusal.
+//   4. Then every constant the file added (the given, the theorem, anything
+//      the proof added on the way) goes through Lean's kernel again, renamed
+//      (`#lii_replay`, lean/LeanIntoIt/Replay.lean). The axiom report cannot
+//      see a theorem a metaprogram added without the kernel's check; this
+//      can. Solved needs its "ok", on its own line. It catches a
+//      metaprogram that added a constant without the kernel's check. It
+//      runs in the same Lean process as the proof, so a metaprogram written
+//      to defeat the replay itself could still try: 2 stays the first
+//      layer, and this one is under it, not instead of it.
 //
 // `solved` means: none of the above, no error, and no `sorry`.
 //
@@ -46,7 +55,8 @@ export interface BodyDiagnostic {
   line: number | null;
 }
 
-export const HEADER = "import Mathlib\n\n";
+/** One line, so that adding the replay's import moved no line number. */
+export const HEADER = "import Mathlib import LeanIntoIt.Replay\n\n";
 /** The name the exercise's statement is proved under, so Lean can be asked about it. */
 export const THEOREM = "lii_exercise";
 /** Lines before the body's first line: the import, a blank, the statement, the opening bracket. */
@@ -75,13 +85,14 @@ export function bodyLines(body: string): string[] {
  *       )
  *
  *     #print axioms lii_exercise
+ *     #lii_replay
  */
 export function assemble(statement: string, body: string, given = ""): string {
   const lines = bodyLines(body);
   // Comments alone are not a tactic block: the placeholder goes in front of them.
   const shown = !lines.length ? [PLACEHOLDER] : isBlank(body) ? [`${PLACEHOLDER} ${lines[0]}`, ...lines.slice(1)] : lines;
   const before = bodyLines(given);
-  return `${HEADER}${before.length ? `${before.join("\n")}\n\n` : ""}theorem ${THEOREM} ${statement.replace(/\s+/g, " ").trim()} := by\n  (\n${shown.map((l) => INDENT + l).join("\n")}\n  )\n\n#print axioms ${THEOREM}\n`;
+  return `${HEADER}${before.length ? `${before.join("\n")}\n\n` : ""}theorem ${THEOREM} ${statement.replace(/\s+/g, " ").trim()} := by\n  (\n${shown.map((l) => INDENT + l).join("\n")}\n  )\n\n#print axioms ${THEOREM}\n#lii_replay\n`;
 }
 
 /** True when a body has no tactic in it: nothing at all, or only comments. */
@@ -98,6 +109,24 @@ function bodyLine(given: string): number {
 /** The source line of the axiom report: after the body, the closing bracket and a blank. */
 function auditLine(body: string, given: string): number {
   return bodyLine(given) + Math.max(bodyLines(body).length, 1) + 2;
+}
+
+/** The source line of the kernel replay: the line after the axiom report. */
+function replayLine(body: string, given: string): number {
+  return auditLine(body, given) + 1;
+}
+
+/**
+ * What the kernel replay on its own line reported: "ok", the kernel's
+ * refusal, or null when there is no report (Lean stopped before it). As with
+ * the axiom report, nothing from the body's lines can stand in for it.
+ */
+export function replayOf(diagnostics: Diagnostic[], body: string, given = ""): string | null {
+  const line = replayLine(body, given);
+  const here = diagnostics.filter((d) => d.start.line === line);
+  const refused = here.find((d) => d.severity === "error" && /^lii-replay: /.test(d.message));
+  if (refused) return refused.message;
+  return here.some((d) => d.severity === "info" && /^lii-replay: ok, \d+ constants$/.test(d.message.trim())) ? "ok" : null;
 }
 
 /** Where, in the assembled source, a body position is. */
@@ -403,9 +432,11 @@ function blame(message: string, line: number, body: string): number {
  *  the axiom report, which `axiomsOf` reads. */
 export function toBody(diagnostics: Diagnostic[], body: string, given = ""): BodyDiagnostic[] {
   const audit = auditLine(body, given);
+  const replay = replayLine(body, given);
   const first = bodyLine(given);
+  // The axiom report and the replay are the server's questions, judged on their own (judge).
   return diagnostics
-    .filter((d) => !isLinterRemark(d) && !(d.severity === "info" && d.start.line === audit))
+    .filter((d) => !isLinterRemark(d) && !(d.severity === "info" && d.start.line === audit) && !(d.start.line === replay && /^lii-replay: /.test(d.message)))
     .map((d) => {
       const line = d.start.line - first;
       return { severity: d.severity, message: d.message, line: line < 0 ? null : blame(d.message, line, body) };
@@ -496,7 +527,7 @@ export interface Verdict {
  * theorem rests on, or null when Lean gave no report. `written` is the part
  * of the body that is the learner's own, when that is not all of it.
  */
-export function judge(diagnostics: BodyDiagnostic[], body: string, forbid: string[], axioms: string[] | null, written = body): Verdict {
+export function judge(diagnostics: BodyDiagnostic[], body: string, forbid: string[], axioms: string[] | null, replay: string | null, written = body): Verdict {
   const errors = diagnostics.filter((d) => d.severity === "error");
   const error = errors.find((d) => !UNSOLVED.test(d.message)) ?? null;
   const unfinished = !error && errors.some((d) => UNSOLVED.test(d.message));
@@ -512,5 +543,7 @@ export function judge(diagnostics: BodyDiagnostic[], body: string, forbid: strin
   if (escapes.length) refusal = escapes[0].message;
   else if (clean && axioms === null) refusal = "Lean stopped before it could confirm what this proof rests on, so it is not accepted.";
   else if (clean && extra.length) refusal = `This proof rests on something that was assumed, not proved (${extra.join(", ")}), so it is not accepted.`;
+  else if (clean && replay === null) refusal = "Lean stopped before its kernel could check this proof a second time, so it is not accepted.";
+  else if (clean && replay !== "ok") refusal = "Lean's kernel checked everything this proof added a second time, from the start, and refused part of it, so it is not accepted.";
   return { solved: clean && forbidden.length === 0 && refusal === null, error, unfinished, forbidden, refusal };
 }

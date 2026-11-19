@@ -4,7 +4,7 @@
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals } from "../shared/goals.ts";
-import { assemble, axiomsOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position, forbiddenIn } from "../shared/proof.ts";
+import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { hintRung, recordAttempt, solvedSince } from "../../scripts/db/progress.ts";
@@ -105,7 +105,7 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
   const notes = ringNotes(result.diagnostics);
   const around = notes.length ? (await lean.check("exercise", source, notes.flatMap((d) => [d.start, d.end]))).goals : [];
   const diagnostics = toBody(ringFailures(result.diagnostics, notes, around), body, given);
-  const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body, given), written);
+  const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body, given), replayOf(result.diagnostics, body, given), written);
   return {
     solved: verdict.solved,
     goals: parseGoals(result.goals[0] ?? []),

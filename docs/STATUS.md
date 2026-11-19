@@ -223,7 +223,16 @@ Landed in the first PR, the foundation slice:
   (`lii-8wq.4`). The last two gaps: `exact?` finding nothing, and a proof
   left with ⊢ False (after `exfalso`, `by_contra`, or `norm_num` on a false
   claim), which a typed proof's "Not finished" notice now explains.
-- Tests: 290, including every reference solution checked by the real Lean,
+- A passing proof is checked by the kernel a second time (`lii-1ou.4`):
+  `#lii_replay` under the axiom report renames every constant the file
+  added and replays them through `Lean.Kernel.Environment.replay`, so a
+  theorem a metaprogram added without the kernel's check is refused even
+  with the word list bypassed; so is a file with anything already named
+  where the copies go. About 1–4 ms for a typical proof, more where the
+  kernel's own check is heavy (it is done twice: 75 ms measured for a
+  `decide`-heavy proof). It runs in the same Lean process, so it is a
+  second layer under the word list, not a replacement for it.
+- Tests: 295, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -243,14 +252,13 @@ until it is added.
 
 ## Remaining
 
-34 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+33 beads in 11 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-1ou.4` | Re-check a passing proof in a fresh kernel | 2 | |
 | `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
 | `lii-m2l` | Lean timing tests fail in the full suite when the machine is loaded | 3 | |

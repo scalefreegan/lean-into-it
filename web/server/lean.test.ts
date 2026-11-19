@@ -12,7 +12,7 @@ import { explain } from "../shared/explain.ts";
 import { unsolvedGoals } from "../shared/goals.ts";
 import { EXERCISES } from "../shared/registry.ts";
 import { misfit, moveLine, readLine } from "../shared/moves.ts";
-import { assemble, axiomsOf, toBody } from "../shared/proof.ts";
+import { assemble, axiomsOf, judge, replayOf, toBody } from "../shared/proof.ts";
 import { checkExercise, handleCheck, handleLean, handlePlayground, leanError } from "./check.ts";
 import { checkSolution, checkWithLean } from "./contentcheck.ts";
 import { setDb, type Db } from "./db.ts";
@@ -326,6 +326,45 @@ test("with the word list out of the way, the axiom report alone refuses an added
   const result = await leanServer().check("exercise", assemble(FALSE.statement, body), []);
   assert.deepEqual(toBody(result.diagnostics, body).filter((d) => d.severity === "error"), [], "Lean itself raises no error for this");
   assert.deepEqual(axiomsOf(result.diagnostics, body), ["lii_exercise.cheat"]);
+});
+
+test("with the word list out of the way, the kernel replay alone refuses a theorem the kernel never checked", { skip }, async () => {
+  // The exploit an independent review found (lii-1ou.4): a theorem of False added with the kernel's
+  // check switched off. It rests on no axiom, so the axiom report passes it; the replay does not.
+  const body =
+    "run_tac do\n" +
+    "  let d := Lean.Declaration.thmDecl { name := `lii_exercise.fakeThm, levelParams := [], type := Lean.mkConst ``False, value := Lean.mkConst ``True.intro }\n" +
+    "  Lean.withOptions (fun o => Lean.debug.skipKernelTC.set o true) (Lean.addDecl d)\n" +
+    "exact lii_exercise.fakeThm.elim";
+  const result = await leanServer().check("exercise", assemble(FALSE.statement, body), []);
+  const errors = toBody(result.diagnostics, body).filter((d) => d.severity === "error");
+  assert.deepEqual(errors, [], "Lean itself raises no error in the proof");
+  assert.deepEqual(axiomsOf(result.diagnostics, body), [], "and the axiom report sees nothing");
+  const replay = replayOf(result.diagnostics, body);
+  assert.match(replay ?? "", /^lii-replay: the kernel refused this: [\s\S]*fakeThm/);
+  // Judged with the word check set aside (Lean's own diagnostics and the replay, under a body it has no word against):
+  const verdict = judge(errors, "exact h", [], [], replay);
+  assert.equal(verdict.solved, false);
+  assert.match(verdict.refusal ?? "", /refused part of it/);
+});
+
+test("the kernel replay refuses a file with anything already where its copies go", { skip }, async () => {
+  // Lean's replay skips a theorem it already holds by name and type, so a constant planted under the
+  // copies' prefix could stand in for a copy unchecked (found in review of lii-1ou.4). Any such name is refused.
+  const given = "theorem _lii_replay.planted : True := trivial";
+  const body = "exact hP";
+  const result = await leanServer().check("exercise", assemble("(P : Prop) (hP : P) : P", body, given), []);
+  assert.match(replayOf(result.diagnostics, body, given) ?? "", /_lii_replay\.planted is in the way/);
+});
+
+test("the kernel replay passes an honest proof, with the given's definitions, recursion and an inductive type", { skip }, async () => {
+  const given = "inductive MyTree where\n  | leaf : MyTree\n  | node : MyTree → ℕ → MyTree → MyTree\n\ndef MyTree.size : MyTree → ℕ\n  | .leaf => 0\n  | .node l _ r => l.size + 1 + r.size\n\n@[simp] def app : List ℕ → List ℕ → List ℕ\n  | [], ys => ys\n  | x :: xs, ys => x :: app xs ys";
+  const statement = "(t : MyTree) (xs : List ℕ) : t.size + 0 = t.size ∧ app [] xs = xs";
+  const body = "exact ⟨by simp, rfl⟩";
+  const started = Date.now();
+  const result = await leanServer().check("exercise", assemble(statement, body, given), []);
+  assert.equal(replayOf(result.diagnostics, body, given), "ok", JSON.stringify(result.diagnostics));
+  console.log(`# kernel replay with a given of an inductive type and two recursive definitions: whole check ${Date.now() - started} ms`);
 });
 
 test("a body cannot end the theorem and write commands of its own, nor stop Lean before the axiom report", { skip }, async () => {
