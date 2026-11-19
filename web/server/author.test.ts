@@ -10,10 +10,11 @@ import { ensureLearner } from "../../scripts/db/progress.ts";
 import { authorRepo, LESSON_FILE, withExercise } from "../../scripts/tests/authorrepo.mjs";
 import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { TutorReply } from "../shared/wire.ts";
-import { exerciseLean, lostIds, newProblems, refusedLean, turnProblems } from "./author.ts";
+import { exerciseLean, leanGate, lostIds, MAX_GATED, newProblems, refusedLean, turnProblems, unloaded, type Checks } from "./author.ts";
+import type { LeanServer } from "./lean/lsp.ts";
 import { setDb } from "./db.ts";
 import { loadContent } from "./loader.ts";
-import { AUTHOR_PROMPT, authoringRoot, handleTutor, setAgent, setGate, systemPrompt, type Agent, type Gate } from "./tutor.ts";
+import { AUTHOR_PROMPT, authoringRoot, handleTutor, setAgent, setGate, systemPrompt, underTest, type Agent, type Gate } from "./tutor.ts";
 
 // Lesson authoring without a real agent or Lean: the agent is a stand-in
 // that writes files in the worktree it is given, and the gate is a stand-in
@@ -64,8 +65,14 @@ const ask = { message: "write one more exercise on if-then", context: { page: "l
 const notes = (r: TutorReply) => r.messages.filter((m) => m.role === "note").map((m) => m.text);
 
 test("under the test runner a turn may write only into a repository the test names, never this one", () => {
-  assert.equal(authoringRoot({ NODE_TEST_CONTEXT: "child-v8" }), null);
-  assert.equal(authoringRoot({ LEAN_INTO_IT_AUTHORING: "off" }), null);
+  assert.equal(authoringRoot({ NODE_TEST_CONTEXT: "child-v8" }, []), null);
+  assert.equal(authoringRoot({ LEAN_INTO_IT_AUTHORING: "off" }, []), null);
+  // However the test was started: the runner's flag, or the test file run by itself.
+  for (const argv of [["--test"], ["--test-isolation=none"], ["/usr/bin/node", "/x/web/server/tutor.test.ts"], ["node", "scripts/tests/claude.test.mjs"]]) {
+    assert.equal(underTest({}, argv), true, argv.join(" "));
+    assert.equal(authoringRoot({}, argv), null, argv.join(" "));
+  }
+  assert.equal(underTest({}, ["/usr/bin/node", "/x/node_modules/vite/bin/vite.js"]), false);
   assert.equal(typeof process.env.NODE_TEST_CONTEXT, "string", "node --test marks its children; authoringRoot relies on it");
   assert.equal(authoringRoot(), null);
 });
@@ -276,4 +283,114 @@ test("a writing run: Edit and Write exist, granted only under the copy's content
   assert.deepEqual(buildArgs({ repoRoot: "/r" }).slice(buildArgs({ repoRoot: "/r" }).indexOf("--tools") + 1)[0], "Read,Glob,Grep");
   for (const bad of ["/elsewhere/content", "/w/copy", "/w/copy/con tent", "/w/copy/a)b"]) assert.throws(() => buildArgs({ repoRoot: "/w/copy", write: { contentDir: bad } }), /content directory must be inside/, bad);
   assert.match(systemPrompt(loadContent(), false, { root: "/w/copy", author: true, lean: true }), /You may Read, Glob and Grep this repository \(\/w\/copy\)[\s\S]*You cannot run commands\. When[\s\S]*lean_check tool in this turn[\s\S]*Writing lessons\./);
+});
+
+/* ------------------------- which Lean is asked about ------------------------ */
+
+/** The gate over two versions of the if-then lesson's file, with stand-ins for Lean that record what they were asked. */
+async function gated(change: (raw: string) => string, problems: Partial<Record<string, string>> = {}, stopped?: () => boolean) {
+  const repo = authorRepo();
+  try {
+    const file = path.join(repo.content, LESSON_FILE);
+    const old = fs.readFileSync(file, "utf8");
+    const before = loadContent(repo.content);
+    fs.writeFileSync(file, change(old));
+    const asked: string[] = [];
+    let snippets = 0;
+    const ask: Checks = {
+      solution: async (e) => {
+        asked.push(e.id);
+        return problems[e.id] ? [problems[e.id]!] : [];
+      },
+      snippets: async () => {
+        snippets++;
+        return problems.snippets ? [problems.snippets] : [];
+      },
+    };
+    const result = await leanGate(null as unknown as LeanServer, { before, beforeFile: async (f) => (f === LESSON_FILE ? old : fs.readFileSync(path.join(repo.content, f), "utf8")), after: loadContent(repo.content), afterDir: repo.content, stopped }, ask);
+    return { ...result, asked, snippets };
+  } finally {
+    repo.close();
+  }
+}
+
+test("the gate asks Lean about the exercises a turn wrote or changed, and no others; a changed `given` is every exercise's change", async () => {
+  // Nothing changed: Lean is asked nothing.
+  assert.deepEqual(await gated((raw) => raw), { problems: [], lessons: 0, solutions: 0, asked: [], snippets: 0 });
+  // One more exercise: that one, and the lesson's snippets (they compile together).
+  const added = await gated((raw) => withExercise(raw, { id: "one-more" }));
+  assert.deepEqual([added.asked, added.snippets, added.lessons], [["one-more"], 1, 1]);
+  // An existing exercise's solution changed: that one.
+  assert.deepEqual((await gated((raw) => raw.replace("      apply hPQ\n      exact hP\n  - id: prove-it", "      exact hPQ hP\n  - id: prove-it"))).asked, ["use-it"]);
+  // Only prose changed: no exercise, but the snippets again.
+  const prose = await gated((raw) => `${raw}\nOne more sentence.\n`);
+  assert.deepEqual([prose.asked, prose.snippets], [[], 1]);
+  // A lesson-wide `given` stands in front of every exercise: all of them are asked about.
+  const given = await gated((raw) => raw.replace("\nexercises:\n", "\ngiven: |\n  def two : Nat := 2\nexercises:\n"));
+  assert.deepEqual(given.asked, loadContent().lessons.find((l) => l.id === "logic-1-if-then")!.exercises.map((e) => e.id));
+  // What Lean says of an exercise or of the snippets is the turn's problem, against the lesson's file.
+  const refused = await gated((raw) => withExercise(raw, { id: "one-more" }), { "one-more": "exercise \"one-more\": the reference solution is not accepted", snippets: "Lean snippet at line 70: unknown identifier" });
+  assert.deepEqual(refused.problems, [{ file: LESSON_FILE, message: "exercise \"one-more\": the reference solution is not accepted" }, { file: LESSON_FILE, message: "Lean snippet at line 70: unknown identifier" }]);
+  // A stopped turn asks Lean nothing more.
+  assert.deepEqual((await gated((raw) => withExercise(raw, { id: "one-more" }), {}, () => true)).asked, []);
+});
+
+test("the word filter counts: Lean that runs a program is refused before Lean is asked, also in a lesson that already had some", async () => {
+  const sly = await gated((raw) => withExercise(raw, { id: "sly", given: "#eval 1 + 1" }));
+  assert.deepEqual([sly.asked, sly.snippets], [[], 0]);
+  assert.match(sly.problems[0].message, /^exercise "sly": “#eval” is not run for the Tutor.* A lesson the Tutor writes may not use it\.$/);
+  // A lesson a person wrote with one `#eval` in it: the Tutor may add an exercise to it, but not a second `#eval`.
+  const snippet = "\n```lean\n#eval 1 + 1\n```\n";
+  const repo = authorRepo();
+  try {
+    const file = path.join(repo.content, LESSON_FILE);
+    const old = fs.readFileSync(file, "utf8") + snippet;
+    fs.writeFileSync(file, old);
+    const before = loadContent(repo.content);
+    const run = async (now: string) => {
+      fs.writeFileSync(file, now);
+      const asked: string[] = [];
+      const result = await leanGate(null as unknown as LeanServer, { before, beforeFile: async (f) => (f === LESSON_FILE ? old : fs.readFileSync(path.join(repo.content, f), "utf8")), after: loadContent(repo.content), afterDir: repo.content }, { solution: async (e) => (asked.push(e.id), []), snippets: async () => [] });
+      return { problems: result.problems.map((p) => p.message), asked };
+    };
+    assert.deepEqual(await run(withExercise(old, { id: "one-more" })), { problems: [], asked: ["one-more"] });
+    const more = await run(withExercise(old, { id: "one-more", given: "#eval 2 + 2" }));
+    assert.deepEqual(more.asked, []);
+    assert.match(more.problems[0], /“#eval” is not run for the Tutor.*may not use it \(not once more than the lesson already did\)\.$/);
+  } finally {
+    repo.close();
+  }
+});
+
+test("more exercises than Lean is asked to vouch for at once is refused whole", async () => {
+  const many = await gated((raw) => Array.from({ length: MAX_GATED + 1 }, (_, i) => `more-${i}`).reduce((r, id) => withExercise(r, { id }), raw));
+  assert.deepEqual(many.asked, []);
+  assert.match(many.problems[0].message, new RegExp(`wrote or changed ${MAX_GATED + 1} exercises`));
+});
+
+test("a changed lesson file that does not load afterwards is a problem, whatever it was before", async (t) => {
+  const after = loadContent();
+  assert.deepEqual(unloaded([LESSON_FILE, "curriculum.yaml"], after, () => true), []);
+  const broken = unloaded(["lessons/logic/9-99-new.md"], { ...after, problems: [{ file: "lessons/logic/9-99-new.md", message: "level 99 is not in curriculum.yaml" }] }, () => true);
+  assert.match(broken[0].message, /^this lesson does not load \(level 99 is not in curriculum\.yaml\), so nothing in it can be checked/);
+  // A deleted file is the lost-id check's business.
+  assert.deepEqual(unloaded(["lessons/logic/9-99-new.md"], after, () => false), []);
+  // Through a turn: a lesson already refused at the last commit, edited and still refused, never lands (and Lean is not asked).
+  let asked = 0;
+  const repo = await setup(
+    t,
+    async ({ workspace }) => {
+      fs.appendFileSync(path.join(workspace!.content, LESSON_FILE), "\nA line more.\n");
+      return "Edited.\nChanged: a line";
+    },
+    async () => (asked++, { problems: [], lessons: 0, solutions: 0 }),
+  );
+  const file = path.join(repo.content, LESSON_FILE);
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("level: 1\n", "level: 99\n"));
+  repo.git("commit", "-q", "-am", "a lesson that does not load");
+  const base = repo.git("rev-parse", "HEAD");
+  const { reply } = await call(ask);
+  assert.match(notes(reply).join("\n"), /1-01-if-then\.md: this lesson does not load \(.*\), so nothing in it can be checked/);
+  assert.equal(asked, 0);
+  assert.equal(repo.git("rev-parse", "HEAD"), base);
 });

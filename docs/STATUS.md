@@ -386,18 +386,22 @@ Landed in the first PR, the foundation slice:
   merge in progress, a symbolic link) the turn is read-only, in the
   repository, and a note says why and what to do. Before Lean sees a
   lesson the Tutor touched, the word filter reads its Lean: no `#eval`,
-  `IO`, macros or anything else `lean_check` refuses may be added, since
+  `IO`, macros or anything else `lean_check` refuses may be added (uses
+  are counted, so not one more than a person had written there), and a
+  file it changed must load afterwards, since
   once a lesson lands, opening it gives its Lean to the learner's own
   Lean, which is not sandboxed. That filter is not a sandbox; the commit
   is the record, and it is the owner's to read. Tested with a stand-in
-  agent: in throwaway repositories (never this one: under the test runner
-  a turn may only write into a repository the test names), and against
+  agent: in throwaway repositories (never this one: in a test, however it
+  is started, a turn may only write into a repository the test names),
+  and against
   the real Lean with a good exercise and one whose solution fails. Not
   tried: a real Tutor turn that writes (it would commit to this
   repository). Not built: progress while it works (a writing turn can
   take ten minutes or more behind one waiting request; Stop works); a
-  fatal signal mid-turn leaves the worktree for the next turn's sweep.
-- Tests: 455, including every reference solution checked by the real Lean,
+  server killed mid-turn leaves its worktree in the temp folder until the
+  next start or turn sweeps it.
+- Tests: 459, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

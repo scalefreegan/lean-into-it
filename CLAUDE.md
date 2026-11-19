@@ -79,7 +79,7 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   before touching the git calls), and its commit lands only after the
   loader and Lean (the sandboxed one, `web/server/author.ts`) accept it.
   Tests of it use a throwaway repository (`scripts/tests/authorrepo.mjs`):
-  under the test runner `authoringRoot()` refuses this one.
+  in a test `authoringRoot()` refuses this one.
 - A check has 20 seconds (`web/server/lean/lsp.ts`); past it the document is
   closed, which ends its Lean worker, and the reply says Lean took too long.
   Only the child process this server spawned is ever signalled.

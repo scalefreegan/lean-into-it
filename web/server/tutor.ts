@@ -57,7 +57,9 @@ import { localHost } from "./origin.ts";
 import { labelReply, tryLean } from "./partner.ts";
 import { checkExercise, leanError } from "./check.ts";
 import { learnerId, rawDb } from "./db.ts";
-import { leanGate, remainingNote, repairAsk, turnProblems, type GateResult, type GateRun } from "./author.ts";
+import fs from "node:fs";
+import { leanGate, remainingNote, repairAsk, turnProblems, unloaded, type GateResult, type GateRun } from "./author.ts";
+import { SANDBOX_EXEC } from "./lean/sandbox.ts";
 import { leanServer, tutorLean } from "./lean/lsp.ts";
 import { contentDir, loadContent } from "./loader.ts";
 import { applyCommit, changedPaths, closeWorkspace, commitWorkspace, fileAt, foundHeldNote, gitRoot, heldNote, heldRefs, openWorkspace, readOnlyNote, strayWrites, sweepWorkspaces, writable, type NotReady, type Workspace } from "./turn.ts";
@@ -152,7 +154,7 @@ export const AUTHOR_PROMPT = `Writing lessons. In this turn you can also write: 
   - Never change or remove an existing lesson id, exercise id or concept id: the learner's progress is stored against them. Add new exercises under new ids.
   - Every exercise needs a reference solution that Lean accepts, and Lean decides: after your turn the app loads content/ and gives every exercise you wrote or changed to Lean with its solution, exactly as it would check a learner's answer (a fill-the-gap choice that is not the solution must be refused by Lean). If the loader or Lean refuses anything you get one turn to repair it; if it is still refused, everything you wrote is thrown away.
   - So try each statement with its solution in lean_check before you write it (\`theorem t <the statement> := by\` and the solution under it), when that tool is there. Lean content must be exactly right, not from memory.
-  - Lean you write into a lesson may not use #eval, IO, macros, notation, attributes beyond simp, set_option, axiom or anything else lean_check refuses: such a lesson is thrown away.
+  - Lean you write into a lesson may not use #eval, IO, macros, notation, attributes other than simp, ext, reducible and norm_cast, set_option, axiom or anything else lean_check refuses: such a lesson is thrown away.
   - What you learn from the learner's history is private to them: use it to choose what to write, never copy their attempts into a lesson.
   - You have no shell and cannot run the checker yourself.
   - If you edited files, end your reply with one line starting "Changed:" that says what you wrote in a few words (it becomes the commit message). If you edited nothing, write no such line. Tell the learner where the new work is (the lesson's title), in a sentence or two.`;
@@ -411,13 +413,25 @@ export function setGate(g: Gate | null): void {
 
 /**
  * The repository a turn may write lessons into, or null when it may not try.
- * Under the test runner that is only ever a repository the test names
- * (LEAN_INTO_IT_REPO_ROOT): a test must never make a worktree of this one.
+ * In a test that is only ever a repository the test names
+ * (LEAN_INTO_IT_REPO_ROOT): a test must never make a worktree of this one,
+ * however it was started.
  */
-export function authoringRoot(env: NodeJS.ProcessEnv = process.env): string | null {
+export function authoringRoot(env: NodeJS.ProcessEnv = process.env, argv: string[] = [...process.execArgv, ...process.argv]): string | null {
   if (env.LEAN_INTO_IT_AUTHORING === "off") return null;
-  if (env.NODE_TEST_CONTEXT && !env.LEAN_INTO_IT_REPO_ROOT) return null;
+  if (underTest(env, argv) && !env.LEAN_INTO_IT_REPO_ROOT) return null;
   return gitRoot();
+}
+
+/** A test is running: the runner's mark on its children, its flag, or a test file run directly. */
+export function underTest(env: NodeJS.ProcessEnv, argv: string[]): boolean {
+  return Boolean(env.NODE_TEST_CONTEXT) || argv.some((a) => a === "--test" || a.startsWith("--test-") || /\.test\.[cm]?[jt]s$/.test(a));
+}
+
+/** When the server starts: clear away worktrees an earlier server left behind (turn.ts sweepWorkspaces says which). Never throws. */
+export function sweepAuthoring(): void {
+  const root = authoringRoot();
+  if (root && !tutor.running) sweepWorkspaces({ root });
 }
 
 /** The read-only note is said once, not after every question: skipped while it is among the last messages. */
@@ -466,7 +480,9 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
     if (root) {
       sweepWorkspaces({ root });
       const ready = await writable(root, contentDir());
-      if (!ready.ok) readOnly = ready;
+      // Nothing it wrote could be vouched for without the sandboxed Lean: no point in letting it write.
+      if (gate === realGate && !fs.existsSync(SANDBOX_EXEC)) readOnly = { ok: false, reason: "Lean checks everything the Tutor writes in a sandbox, and this machine has none (sandbox-exec is part of macOS)", fix: "Lessons can still be written by hand; docs/CONTENT.md has the format." };
+      else if (!ready.ok) readOnly = ready;
       else {
         try {
           ws = await openWorkspace(ready);
@@ -495,7 +511,15 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
     }
     if (root) {
       // A commit an earlier server kept under a name and stopped before saying so: said now, once.
-      for (const h of (await heldRefs(root, ws?.spec ?? "content")).held) if (!recent.some((m) => m.role === "note" && m.text.includes(h.ref))) await tell(foundHeldNote(h, ws?.spec ?? "content"));
+      const found = await heldRefs(root, ws?.spec ?? "content");
+      if (found.held.length || found.landed.length) {
+        // The whole chat, not its tail: a kept commit is said once, however long ago.
+        const all = await chatFor(db, learner, 100_000);
+        const said = (needle: string) => all.some((m) => m.role === "note" && m.text.includes(needle));
+        for (const h of found.held) if (!said(h.ref)) await tell(foundHeldNote(h, ws?.spec ?? "content"));
+        // On the branch already (the app stopped between moving the branch and saying so).
+        for (const h of found.landed) if (!said(h.hash.slice(0, 7))) await tell(`An earlier change by the Tutor ("${h.summary}") is on your branch as commit ${h.hash.slice(0, 7)}; the app stopped before it could say so. \`git show ${h.hash.slice(0, 7)}\` shows what was written.`);
+      }
     }
     const partner = ctx.page === "playground" && lean !== null;
     const system = systemPrompt(before, partner, { root: ws?.dir ?? REPO_ROOT, ...(ws ? { author: true as const } : readOnly ? { author: readOnly } : {}), lean: lean !== null });
@@ -541,7 +565,7 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
           const changed = await changedPaths(copy);
           if (!changed.length) return [];
           const now = loadContent(copy.content);
-          const shape = [...turnProblems(before, now), ...strayWrites(copy, changed)];
+          const shape = [...turnProblems(before, now), ...strayWrites(copy, changed), ...unloaded(changed.map((c) => c.path), now, (file) => fs.existsSync(path.join(copy.content, file)))];
           // Lean is asked only about what the loader accepts.
           if (shape.length) return shape;
           const judged = await gate({ before, beforeFile, after: now, afterDir: copy.content, stopped });

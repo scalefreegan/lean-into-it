@@ -910,7 +910,7 @@ test("proof partner: a Playground reply's Lean is labelled with what Lean said, 
   assert.ok(!plain.reply.messages.at(-1)!.text.includes("Lean:"));
 });
 
-test("lesson authoring: Lean is given every exercise the Tutor wrote; one whose reference solution fails never lands, and a good one is committed", { skip: skipSandbox }, async (t) => {
+test("lesson authoring with the real Lean: an exercise whose reference solution fails never lands, Lean that runs a program is refused by name, and a good exercise is committed", { skip: skipSandbox }, async (t) => {
   const { db } = await freshDb().then((f) => (t.after(f.close), setDb(f.db as unknown as Db), f));
   const repo = authorRepo();
   t.after(() => {

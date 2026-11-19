@@ -21,8 +21,9 @@
 // is not sandboxed. So before Lean is asked anything, the Lean of a lesson
 // the turn touched is read by the word filter (web/shared/partner.ts
 // scratchProblems): no `#eval`, no IO, no macros, nothing that runs a
-// program or extends Lean. Only what the turn added counts (a person may
-// have written `#eval` in a lesson; the Tutor may not add to it). That
+// program or extends Lean. Only what the turn added counts: a person may
+// have written `#eval` in a lesson, and the Tutor may edit that lesson but
+// not add one more use of it (uses are counted, per name). That
 // filter reads words and is not a sandbox: the commit is the record of what
 // was written, and it is the owner's to read.
 
@@ -83,6 +84,23 @@ export function lostIds(before: Content, after: Content): ContentProblem[] {
   return out;
 }
 
+/**
+ * Lesson files the turn changed that do not load afterwards. A file that
+ * was already refused before the turn and is refused for the same reason
+ * after it shows no NEW loader problem, and Lean is never given a lesson
+ * that does not load: so its change would land unread. It may not.
+ * `changed` are paths relative to content/; `exists` says whether the file is still there.
+ */
+export function unloaded(changed: string[], after: Content, exists: (file: string) => boolean): ContentProblem[] {
+  const loaded = new Set(after.lessons.map((l) => l.file));
+  return changed
+    .filter((p) => p.startsWith("lessons/") && !loaded.has(p) && exists(p))
+    .map((p) => {
+      const why = after.problems.find((x) => x.file === p)?.message;
+      return { file: p, message: `this lesson does not load${why ? ` (${why})` : ""}, so nothing in it can be checked. A file you change must load afterwards: repair it fully or leave it alone.` };
+    });
+}
+
 /** What the loader newly refuses, plus the ids the turn lost. */
 export function turnProblems(before: Content, after: Content): ContentProblem[] {
   return [...newProblems(before.problems, after.problems), ...lostIds(before, after)];
@@ -99,11 +117,12 @@ export function exerciseLean(e: Exercise): string {
   return `${e.given.trim() ? `${e.given.trim()}\n` : ""}example ${e.statement.replace(/\s+/g, " ").trim()} := by\n${indent(answers.join("\n"))}`;
 }
 
-/** What the word filter refuses in a lesson: the names (`#eval`, `IO`, `macro` …), each with its reason. */
-export function refusedLean(lesson: Lesson, raw: string): Map<string, string> {
-  const found = new Map<string, string>();
+/** What the word filter refuses in a lesson: each name (`#eval`, `IO`,
+ *  `macro` …) with how many times it is refused and where it was last seen. */
+export function refusedLean(lesson: Lesson, raw: string): Map<string, { count: number; message: string }> {
+  const found = new Map<string, { count: number; message: string }>();
   const note = (where: string, text: string) => {
-    for (const p of scratchProblems(text)) if (!found.has(p.name)) found.set(p.name, `${where}: ${p.message}`);
+    for (const p of scratchProblems(text)) found.set(p.name, { count: (found.get(p.name)?.count ?? 0) + 1, message: `${where}: ${p.message}` });
   };
   for (const e of lesson.exercises) note(`exercise "${e.id}"`, exerciseLean(e));
   // Snippets Lean compiles (a fragment is only shown, never run).
@@ -138,6 +157,16 @@ export interface GateResult {
   solutions: number;
 }
 
+/** What Lean is asked, as problems in words; a test stands in for it to see which exercises are asked about. */
+export interface Checks {
+  solution: (exercise: Exercise) => Promise<string[]>;
+  snippets: (raw: string) => Promise<string[]>;
+}
+const checksWith = (lean: LeanServer): Checks => ({
+  solution: async (exercise) => (await checkSolution(lean, exercise)).problems,
+  snippets: async (raw) => (await checkSnippets(lean, raw)).problems,
+});
+
 /** At most this many exercises are given to Lean in one turn: past it the turn is refused as too big to vouch for. */
 export const MAX_GATED = 40;
 
@@ -147,7 +176,7 @@ export const MAX_GATED = 40;
  * a lesson's snippets are compiled together, so they are checked whenever
  * its file changed.
  */
-export async function leanGate(lean: LeanServer, run: GateRun): Promise<GateResult> {
+export async function leanGate(lean: LeanServer, run: GateRun, ask: Checks = checksWith(lean)): Promise<GateResult> {
   const problems: ContentProblem[] = [];
   const was = new Map(run.before.lessons.map((l) => [l.id, l]));
   let lessons = 0;
@@ -157,12 +186,17 @@ export async function leanGate(lean: LeanServer, run: GateRun): Promise<GateResu
     const raw = read(run.afterDir, lesson.file);
     const old = was.get(lesson.id);
     const oldRaw = old ? await run.beforeFile(old.file) : null;
-    if (raw === null || raw === oldRaw) continue;
+    if (raw === null) {
+      // It loaded a moment ago: not being able to read it now is a reason to refuse, never to skip.
+      problems.push({ file: lesson.file, message: "the file could not be read again to give its Lean to Lean" });
+      continue;
+    }
+    if (raw === oldRaw) continue;
     // The word filter first: what it newly refuses is not given to Lean at all.
-    const had = old && oldRaw !== null ? refusedLean(old, oldRaw) : new Map<string, string>();
-    const refused = [...refusedLean(lesson, raw)].filter(([name]) => !had.has(name));
+    const had = old && oldRaw !== null ? refusedLean(old, oldRaw) : new Map<string, { count: number; message: string }>();
+    const refused = [...refusedLean(lesson, raw)].filter(([name, now]) => now.count > (had.get(name)?.count ?? 0));
     if (refused.length) {
-      for (const [, message] of refused) problems.push({ file: lesson.file, message: `${message} A lesson the Tutor writes may not use it.` });
+      for (const [, { message }] of refused) problems.push({ file: lesson.file, message: `${message} A lesson the Tutor writes may not use it${had.size ? " (not once more than the lesson already did)" : ""}.` });
       continue;
     }
     const before = new Map((old?.exercises ?? []).map((e) => [e.id, JSON.stringify(e)]));
@@ -175,10 +209,10 @@ export async function leanGate(lean: LeanServer, run: GateRun): Promise<GateResu
     for (const exercise of exercises) {
       if (run.stopped?.()) return { problems, lessons, solutions };
       solutions++;
-      for (const message of (await checkSolution(lean, exercise)).problems) problems.push({ file: lesson.file, message });
+      for (const message of await ask.solution(exercise)) problems.push({ file: lesson.file, message });
     }
     if (run.stopped?.()) return { problems, lessons, solutions };
-    for (const message of (await checkSnippets(lean, raw)).problems) problems.push({ file: lesson.file, message });
+    for (const message of await ask.snippets(raw)) problems.push({ file: lesson.file, message });
   }
   return { problems, lessons, solutions };
 }
