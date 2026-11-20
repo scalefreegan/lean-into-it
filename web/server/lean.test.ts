@@ -648,6 +648,7 @@ test("the exercise examples in the reference are real: Lean accepts each solutio
         id: `${kind}-${i}`,
         ...(tf ? { truefalse: tf.spec, solution: tf.solution } : {}),
         ...(kind === "predict" ? { predict: { before: example.before ?? "", move: example.move } } : {}),
+        ...(kind === "flaw" ? { steps: example.steps, solution: String(example.flaw), statement: "" } : {}),
         ...(kind === "match" ? { pairs: { english: example.english, lean: example.lean }, solution: (example.english as string[]).map((_, j) => j).join(","), statement: "" } : {}),
       } as Exercise;
       assert.deepEqual((await checkSolution(leanServer(), e)).problems, [], `${kind} example ${i + 1}`);
@@ -655,7 +656,7 @@ test("the exercise examples in the reference are real: Lean accepts each solutio
       checked++;
     }
   }
-  assert.ok(checked >= 11);
+  assert.ok(checked >= 12);
 });
 
 test("predict, read and match: Lean decides a prediction, the author's answer a reading, and npm test holds both to Lean", { skip }, async () => {
@@ -709,6 +710,15 @@ test("predict, read and match: Lean decides a prediction, the author's answer a 
   assert.match((await checkExercise(lean, match, "0,0,2")).refusal!, /exactly one sentence/);
   assert.deepEqual((await checkSolution(lean, match)).problems, []);
   assert.match((await checkSolution(lean, { ...match, pairs: { english: m.english, lean: ["∀ n : ℕ, ∃ m, m >", "True", "False"] } })).problems.join("\n"), /Lean cannot read/);
+  // Spot the flaw: the wrong step's number, marked against the author's; rung 3 names it.
+  const f = EXERCISES.flaw.examples[0] as { steps: string[]; flaw: number };
+  const flaw = { ...base, kind: "flaw", id: "fl", statement: "", steps: f.steps, solution: String(f.flaw) } as Exercise;
+  assert.equal((await checkExercise(lean, flaw, "5")).solved, true);
+  assert.equal((await checkExercise(lean, flaw, "6")).solved, false);
+  assert.deepEqual((await checkSolution(lean, flaw)).problems, []);
+  assert.equal(await lineProblem(flaw, "", "Step 5"), null);
+  assert.notEqual(await lineProblem(flaw, "", "Step 6"), null);
+  assert.notEqual(await lineProblem(flaw, "", "Steps 5 and 6"), null);
   // The Tutor's rung 3 is the answer, checked as the app would.
   assert.equal(await lineProblem(p1, "", "p q : Prop; hpq : p → q; hp : p ⊢ p"), null);
   assert.notEqual(await lineProblem(p1, "", "p q : Prop; hp : p ⊢ p"), null, "a fact missing");

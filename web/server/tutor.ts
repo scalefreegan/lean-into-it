@@ -57,7 +57,7 @@ import { localHost } from "./origin.ts";
 import { labelReply, tryLean } from "./partner.ts";
 import { checkExercise, leanError } from "./check.ts";
 import { readAnswer } from "../shared/truefalse.ts";
-import { NO_GOALS, optionGoals, sameState } from "../shared/recognize.ts";
+import { isReading, NO_GOALS, optionGoals, sameState } from "../shared/recognize.ts";
 import { learnerId, rawDb } from "./db.ts";
 import fs from "node:fs";
 import { leanGate, remainingNote, repairAsk, turnProblems, unloaded, type GateResult, type GateRun } from "./author.ts";
@@ -126,10 +126,11 @@ export function contextNote(ctx: TutorContext, where: Where): string {
   const { lesson, exercise } = where;
   if (lesson) lines.push(`Lesson: ${lesson.id} "${lesson.title}", file content/${lesson.file}. Read it before answering about it.`);
   if (exercise) {
-    const reading = exercise.kind === "predict" || exercise.kind === "read" || exercise.kind === "match";
-    lines.push(`Exercise: ${exercise.id} "${exercise.title}" (${exercise.kind === "predict" ? "predict the goal: the learner chooses the state a move leaves, and Lean decides" : exercise.kind === "read" ? "read the Lean: the learner chooses the sentence that says what the statement claims (a fixed answer)" : exercise.kind === "match" ? "match: the learner pairs each sentence with its Lean statement (a fixed answer)" : exercise.kind === "truefalse" ? "true or false: the learner decides whether the claim holds, then proves it or gives a counterexample" : exercise.kind === "fill" ? "fill the gap" : exercise.mode === "board" ? "proof board: the learner clicks moves" : "typed proof"}, concept ${exercise.concept}).`);
+    const reading = isReading(exercise.kind);
+    lines.push(`Exercise: ${exercise.id} "${exercise.title}" (${exercise.kind === "predict" ? "predict the goal: the learner chooses the state a move leaves, and Lean decides" : exercise.kind === "read" ? "read the Lean: the learner chooses the sentence that says what the statement claims (a fixed answer)" : exercise.kind === "match" ? "match: the learner pairs each sentence with its Lean statement (a fixed answer)" : exercise.kind === "flaw" ? "spot the flaw: the learner says which step of an argument in words is wrong (a fixed answer)" : exercise.kind === "truefalse" ? "true or false: the learner decides whether the claim holds, then proves it or gives a counterexample" : exercise.kind === "fill" ? "fill the gap" : exercise.mode === "board" ? "proof board: the learner clicks moves" : "typed proof"}, concept ${exercise.concept}).`);
     lines.push(`It says: ${exercise.says}`);
-    if (exercise.kind !== "match") lines.push(`Lean statement: theorem _ ${exercise.statement} := by`);
+    if (exercise.kind !== "match" && exercise.kind !== "flaw") lines.push(`Lean statement: theorem _ ${exercise.statement} := by`);
+    if (exercise.steps) lines.push(`The argument:\n${exercise.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\nThe wrong step is ${exercise.solution}: ${exercise.why ?? ""}\nDo not give it away before rung 3; at rung 1 ask them to test each step on numbers, at rung 2 say what kind of mistake to look for. At rung 3 the LINE is \`Step ${exercise.solution}\`.`);
     if (exercise.predict) {
       lines.push(`${exercise.predict.before ? `Lines that run first:\n${fence(exercise.predict.before)}\n` : ""}The move: \`${exercise.predict.move}\`. The states offered:\n${exercise.options.map((o, i) => `Option ${i + 1}:\n${fence(o)}`).join("\n")}\nThe right one (Lean has checked it) is:\n${fence(exercise.solution)}\nDo not give it away before rung 3; at rung 1 ask what the move does to the goal, at rung 2 name what changes. At rung 3 the LINE is the first goal after the move on one line, its facts separated by semicolons, then ⊢ and the target: \`P Q : Prop; hp : P; hq : Q ⊢ Q ∧ P\` (or \`no goals\`).`);
     }
@@ -277,6 +278,8 @@ export async function lineProblem(exercise: Exercise, body: string, line: string
     // The reply's line has lost backticks at its ends (splitLine), so the answer is compared without them too.
     const plain = (s: string) => s.replace(/\s+/g, " ").trim().replace(/^`+|`+$/g, "").trim();
     if (exercise.kind === "read") return plain(line) === plain(exercise.solution) ? null : "that is not the sentence that says what the statement claims";
+    // One step, named alone: "Step 5" or "5", not "Steps 5 and 6".
+    if (exercise.kind === "flaw") return /^\s*(?:step\s*)?(\d+)\.?\s*$/i.exec(plain(line))?.[1] === exercise.solution ? null : "give the wrong step alone, as `Step N`";
     if (exercise.pairs) {
       const { english, lean: leans } = exercise.pairs;
       const pair = (i: number) => plain(`${english[i]} ↔ ${leans[i]}`);
@@ -346,7 +349,7 @@ export async function lineProblem(exercise: Exercise, body: string, line: string
  */
 export async function acceptedPart(exercise: Exercise, body: string): Promise<string> {
   // A fill, and the reading kinds, have no lines to build on.
-  if (exercise.kind === "fill" || exercise.kind === "predict" || exercise.kind === "read" || exercise.kind === "match" || !body.trim()) return "";
+  if (exercise.kind === "fill" || isReading(exercise.kind) || !body.trim()) return "";
   // A true-or-false: only a true claim's proof has lines to build on (the page sends the proof lines alone).
   if (exercise.truefalse) {
     if (!exercise.truefalse.truth) return "";

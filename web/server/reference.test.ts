@@ -55,6 +55,7 @@ function fieldOf(exercise: Exercise, key: string): unknown {
   if (answer && typeof answer !== "string" && key === "solution") return answer.body;
   if (exercise.predict && (key === "before" || key === "move")) return exercise.predict[key];
   if (exercise.pairs && (key === "english" || key === "lean")) return exercise.pairs[key];
+  if (exercise.kind === "flaw" && key === "flaw") return Number(exercise.solution);
   return (exercise as unknown as Record<string, unknown>)[key];
 }
 

@@ -46,6 +46,11 @@ test("the registry refuses reading exercises that cannot be marked", () => {
   const read = { statement: ": True", options: ["a", "b"], solution: "a" };
   assert.equal(says("read", read), "");
   assert.match(says("read", { ...read, options: ["a"] }), /two to 5/);
+  const flaw = { says: "s", steps: ["a", "b", "c"], flaw: 2, why: "w" };
+  assert.equal(checkParams(EXERCISES.flaw, flaw, EXERCISE_KEYS).join("\n"), "");
+  assert.match(checkParams(EXERCISES.flaw, { ...flaw, flaw: 4 }, EXERCISE_KEYS).join("\n"), /only 3 steps/);
+  assert.match(checkParams(EXERCISES.flaw, { ...flaw, steps: ["a"], flaw: 1 }, EXERCISE_KEYS).join("\n"), /two to eight/);
+  assert.notEqual(checkParams(EXERCISES.flaw, { ...flaw, flaw: 1.5 }, EXERCISE_KEYS).join(""), "");
   const match = { says: "s", english: ["a", "b"], lean: ["True", "False"] };
   assert.equal(says("match", match), "");
   assert.match(says("match", { ...match, lean: ["True"] }), /one statement for each sentence/);

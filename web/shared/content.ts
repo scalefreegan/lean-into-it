@@ -63,8 +63,10 @@ export interface Exercise {
   predict?: { before: string; move: string };
   /** Kind `match` only: the sentences and their Lean, paired by position. */
   pairs?: { english: string[]; lean: string[] };
-  /** Kind `read`: how to read the statement, shown after an answer. */
+  /** Kinds `read` and `flaw`: shown after an answer. */
   why?: string;
+  /** Kind `flaw` only: the argument's steps (its `solution` is the wrong step's number). */
+  steps?: string[];
 }
 
 /** What a `truefalse` exercise says beyond its statement. */

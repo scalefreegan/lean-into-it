@@ -431,6 +431,29 @@ exercises:
       ∀ n, ∃ m: the m may depend on n. With ∃ m, ∀ n one m would have to beat every n at once.
 ```
 
+### `flaw` (shown as “Spot the flaw”)
+
+A plausible argument with one wrong step; the learner says which. A fixed answer: marked against `flaw`, and `why` is shown once the right step is found. For an argument written in words, where Lean has nothing to check.
+
+| Parameter | Value | |
+|---|---|---|
+| `says` (required) | one line of text | What the argument claims to show. Shown above it. |
+| `steps` (required) | a list of text: `[a, b]` | The argument, two to eight steps in order, each a sentence or two. Exactly one is wrong. |
+| `flaw` (required) | a number | The number of the wrong step, counting from 1. Must be a whole number, 1 to 8. |
+| `why` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | What is wrong with that step, shown once the learner finds it (after a wrong pick they are only told that step holds up). |
+
+```yaml
+exercises:
+  - id: flaw-example-1
+    kind: flaw
+    title: An example
+    says: "A proof that 2 = 1."
+    steps: ["Let a and b be numbers with a = b.", "Multiply both sides by a: a² = ab.", "Subtract b² from both sides: a² − b² = ab − b².", "Factor both sides: (a + b)(a − b) = b(a − b).", "Divide both sides by a − b: a + b = b.", "Since a = b, that says 2b = b, and dividing by b gives 2 = 1."]
+    flaw: 5
+    why: |
+      Since a = b, a − b is 0, and dividing by 0 is not allowed: it turns the true 0 = 0 into the false a + b = b. (Step 6 divides by b, which is fine as long as b is not 0; the trouble is already there.)
+```
+
 ### `match` (shown as “Match them up”)
 
 Sentences and Lean statements to pair up, each sentence with the statement that says it. A fixed answer: the pairs as written are the right ones, and the Lean is shown in another order. Lean checks that every statement is one it can read.

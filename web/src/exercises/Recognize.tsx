@@ -9,10 +9,10 @@ import { Button, cx, Notice } from "../ui.tsx";
 import { Claim } from "./Claim.tsx";
 import type { ExerciseProps } from "./types.ts";
 
-// Kinds `predict`, `read` and `match` (web/shared/recognize.ts): reading
-// Lean. A prediction is decided by Lean on the server; a reading and a
-// match are marked against the author's answer, also on the server, so the
-// page never decides.
+// Kinds `predict`, `read`, `match` and `flaw` (web/shared/recognize.ts):
+// reading. A prediction is decided by Lean on the server; the others are
+// marked against the author's answer, also on the server, so the page
+// never decides.
 
 /** Send an answer and keep the reply; tell the lesson once it is solved. */
 function useAnswer({ lessonId, exercise, onSolved }: ExerciseProps) {
@@ -240,6 +240,61 @@ export function Match(props: ExerciseProps) {
                   </Closed>
                 ) : (
                   <Notice tone="warn">{`${pairs.filter((p, i) => p === i).length} of ${english.length} pairs are right. Look again at the order of ∀ and ∃, and at which way each arrow points.`}</Notice>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/** Kind `flaw`: an argument in steps; choose the step that is wrong. */
+export function Flaw(props: ExerciseProps) {
+  const { lessonId, exercise, solution } = props;
+  const steps = exercise.steps!;
+  const { reply, busy, trouble, send } = useAnswer(props);
+  const picked = reply?.answer ?? solution ?? null;
+  useTutorWork(lessonId, exercise.id, { body: picked ? `(chose step ${picked})` : "", goals: null, error: reply && !reply.reply.solved ? "That step is fine." : null });
+  return (
+    <>
+      <Claim exercise={exercise} />
+      <div data-flaw={exercise.id} className={card}>
+        <div className="flex flex-col gap-3 p-4 sm:p-5">
+          <p className="text-sm text-fg-2">One step of this argument is wrong. Which?</p>
+          <ol className="flex flex-col gap-2" aria-label="The steps of the argument">
+            {steps.map((step, i) => {
+              const n = String(i + 1);
+              const chosen = picked === n;
+              const right = chosen && (reply ? reply.reply.solved : !!solution);
+              return (
+                <li key={i}>
+                  <button
+                    type="button"
+                    data-step={n}
+                    aria-pressed={chosen}
+                    disabled={busy}
+                    onClick={() => void send(n)}
+                    className={cx("flex w-full gap-3 rounded-xl border-2 px-3 py-2 text-left text-fg transition-colors hover:border-accent", chosen ? (right ? "border-good" : "border-bad") : "border-line")}
+                  >
+                    <span className="font-semibold text-fg-3">{n}.</span>
+                    <span>{step}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          <div aria-live="polite" className="flex flex-col gap-2 empty:hidden">
+            {trouble && <Notice tone="warn">{trouble}</Notice>}
+            {reply && (
+              <div data-verdict={reply.reply.solved ? "right" : "wrong"}>
+                {reply.reply.solved ? (
+                  <Closed>
+                    <strong>Right, step {exercise.solution}.</strong> {exercise.why}
+                  </Closed>
+                ) : (
+                  <Notice tone="warn">{`Step ${reply.answer} holds up. Check each step against the one before it: what does it assume that was never shown?`}</Notice>
                 )}
               </div>
             )}

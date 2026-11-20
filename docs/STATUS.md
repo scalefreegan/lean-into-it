@@ -81,6 +81,9 @@ Landed in the first PR, the foundation slice:
   `match` (pair sentences with Lean) are marked against the author's answer,
   the one exception to "Lean decides" (decided 2026-11-19); Lean checks
   that their Lean is readable. No lesson uses them yet.
+- Spot the flaw (`lii-6xv.4`): the kind `flaw`, an argument in words with
+  one wrong step to find, marked against the author's answer; the
+  explanation shows once the step is found. No lesson uses it yet.
 - Pictures for Level 3 (`lii-dvy.11`): three more widgets. `plot` graphs
   functions of x from a small expression parser of its own
   (`web/shared/expr.ts`, never `eval`), with a point to move along the
@@ -445,7 +448,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-23 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+23 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -454,6 +457,7 @@ land first.
 |---|---|---|---|
 | `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
+| `lii-a7b` | Flaky test: "loading a library never counts against a proof's time" (2 s budget under load) | 2 | |
 | `lii-m2l` | Lean timing tests fail in the full suite when the machine is loaded | 3 | |
 
 ### Proof board (epic `lii-8wq`)
@@ -478,12 +482,6 @@ land first.
 | `lii-53v.3` | Informal beside formal widget | 2 | |
 | `lii-53v.4` | Program stepper | 3 | |
 | `lii-53v.5` | Small widgets: truth table, induction dominoes (the number line is done) | 2 | |
-
-### Exercises (epic `lii-6xv`)
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-6xv.4` | True or false: spot the flawed step in a plausible argument (needs a decision: graded by a fixed answer, not Lean) | 2 | |
 
 ### Progress (epic `lii-zjf`)
 

@@ -41,6 +41,7 @@
 // Never change a concept id or a move id once live: these scores are keyed
 // on them, through the lesson files.
 
+import { isReading } from "./recognize.ts";
 import type { Content, Exercise } from "./content.ts";
 import { lex } from "./proof.ts";
 
@@ -230,7 +231,7 @@ export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: 
     const right = row.assisted ? null : row.solved;
     answer(concepts, exercise.concept, right, at);
     // A reading answer is a sentence or a state: words in it are not moves used.
-    const reading = exercise.kind === "predict" || exercise.kind === "read" || exercise.kind === "match";
+    const reading = isReading(exercise.kind);
     const moves = reading ? [] : row.solved ? used(row.body) : exercise.mode === "board" ? used(lastLine(row.body)) : [];
     for (const t of moves) answer(byTactic, t, right, at);
   }

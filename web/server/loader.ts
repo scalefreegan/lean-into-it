@@ -229,6 +229,8 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
       ? truefalse.solution
       : kind === "match"
         ? strings(e.english).map((_, i) => i).join(",")
+        : kind === "flaw"
+          ? String(e.flaw)
         : typeof e.solution !== "string"
           ? ""
           : kind === "fill" || kind === "predict" || kind === "read"
@@ -238,7 +240,8 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
     ...(truefalse ? { truefalse: truefalse.spec } : {}),
     ...(kind === "predict" ? { predict: { before: typeof e.before === "string" ? e.before.replace(/\s+$/, "") : "", move: str(e.move).trim() } } : {}),
     ...(kind === "match" ? { pairs: { english: strings(e.english).map((x) => x.trim()), lean: strings(e.lean).map((x) => x.trim()) } } : {}),
-    ...(kind === "read" && typeof e.why === "string" ? { why: e.why.trim() } : {}),
+    ...((kind === "read" || kind === "flaw") && typeof e.why === "string" ? { why: e.why.trim() } : {}),
+    ...(kind === "flaw" ? { steps: strings(e.steps).map((x) => x.trim()) } : {}),
   };
 }
 
