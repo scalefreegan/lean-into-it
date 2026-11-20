@@ -34,7 +34,7 @@ Landed in the first PR, the foundation slice:
   divides", "Leaning on more than one" on the math track and "Theorems have
   names" on the Lean track; 41 exercises, on Mathlib's own natural numbers.
   "Leaning on more than one" is typed only: the board has no strong
-  induction. Not yet: the induction dominoes widget (`lii-dvy.9`).
+  induction. The dominoes widget is under Dominoes in "Induction" (`lii-dvy.9`).
 - First verified programs written (`lii-dvy.4`), in Level 2 on the programs
   track: "A first function", "Saying what it should do", "Induction on a
   list", "A test is not a proof", "The whole of rev"; 23 exercises about
@@ -81,6 +81,14 @@ Landed in the first PR, the foundation slice:
   `match` (pair sentences with Lean) are marked against the author's answer,
   the one exception to "Lean decides" (decided 2026-11-19); Lean checks
   that their Lean is readable. No lesson uses them yet.
+- Truth tables and induction dominoes (`lii-53v.5`, `lii-dvy.9`): two more
+  widgets. `truth-table` draws every row of a formula in and, or, not,
+  implies and iff (its own parser, `web/shared/truthtable.ts`, never
+  `eval`), with a column for each part, and can ask the learner to fill in
+  the last column. `induction-dominoes` pushes a row of dominoes; taking
+  away the base case or the step stops the chain, and `gap` breaks the
+  step at one n. In the lessons: the table of p → q in "If… then", the
+  dominoes under Dominoes in "Induction", and both in a Lab explorer.
 - A file with no imports no longer pays for Lean's core library under the
   proof's time limit (`lii-a7b`): when a document is new or its imports
   change, even to none, the load is a step of its own under the long
@@ -99,7 +107,8 @@ Landed in the first PR, the foundation slice:
   pieces. They are in "The real numbers", "Identities", "Inequalities",
   "Absolute value and distance" and "Functions, increasing and bounded".
   This is the plotter and number-line part of `lii-53v.2` and `lii-53v.5`;
-  the limit explorers, truth table and dominoes are still to build.
+  the limit explorers are still to build (the truth table and dominoes are
+  done, below).
 - Board moves: `rfl`, `norm_num`, `intro`, `exact`, `apply`, `constructor`,
   `obtain` (writes the pattern and names for the fact's shape), `left`,
   `right`, `exfalso`, `contradiction`, `by_contra`, `use` (the witness is
@@ -278,8 +287,7 @@ Landed in the first PR, the foundation slice:
   `web/shared/lab.ts`; tests hold it to the curriculum (every move has an
   example), to the registry, and to Lean (every example is accepted). The
   Tutor is told the page and the example open. Not yet, each with its own
-  bead: truth tables and induction dominoes (`lii-53v.5`), limits
-  (`lii-53v.2`), the proof map (`lii-8wq.2`), the program stepper
+  bead: limits (`lii-53v.2`), the proof map (`lii-8wq.2`), the program stepper
   (`lii-53v.4`), the Famous Proofs gallery (`lii-kqz.2`).
 - Listen mode (`lii-1gs.1`), ported from Fret Not: a Listen button in the
   header opens the switch, the voice and the quality; with it on and a
@@ -423,7 +431,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 472, including every reference solution checked by the real Lean,
+- Tests: 480, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -454,7 +462,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-23 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+21 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -487,7 +495,6 @@ land first.
 | `lii-53v.2` | Function and limit explorers (the plotter and number line are done) | 2 | |
 | `lii-53v.3` | Informal beside formal widget | 2 | |
 | `lii-53v.4` | Program stepper | 3 | |
-| `lii-53v.5` | Small widgets: truth table, induction dominoes (the number line is done) | 2 | |
 
 ### Progress (epic `lii-zjf`)
 
@@ -507,8 +514,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-dvy.8` | Level 1: truth tables against proofs; True-or-false and Fill-the-gap exercises | 2 | `lii-53v.5` |
-| `lii-dvy.9` | Level 2: the induction dominoes widget in the Induction lesson | 2 | `lii-53v.5` |
+| `lii-dvy.8` | Level 1: truth tables against proofs; True-or-false and Fill-the-gap exercises | 2 | |
 | `lii-oip` | A calc chain that proves ≤ where < is wanted leaves an unexplained goal like c < c | 3 | |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
 | `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3`, `lii-53v.3` |

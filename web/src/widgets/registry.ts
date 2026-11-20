@@ -3,7 +3,9 @@ import { MoveList } from "./MoveList.tsx";
 import { NumberLine } from "./NumberLine.tsx";
 import { Plot } from "./Plot.tsx";
 import { ProofState } from "./ProofState.tsx";
+import { InductionDominoes } from "./InductionDominoes.tsx";
 import { SquareOfSum } from "./SquareOfSum.tsx";
+import { TruthTable } from "./TruthTable.tsx";
 import type { Widget } from "./types.ts";
 
 // Widget type (as written in a lesson's ```widget block) → component. The
@@ -15,4 +17,6 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Widget> = {
   plot: Plot,
   "number-line": NumberLine,
   "square-of-sum": SquareOfSum,
+  "truth-table": TruthTable,
+  "induction-dominoes": InductionDominoes,
 };

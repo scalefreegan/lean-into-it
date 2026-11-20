@@ -332,6 +332,8 @@ caption: Where the proof starts.
 | `plot` | Graphs of up to four functions of x, with a point that can be moved along them and a view that can be dragged and zoomed. | `functions` (required): expressions in x, like `["2x + 1", "x^2"]`. `x`, `y`: the stretch of each axis shown, like `[-3, 3]`. `domain`: draw only between two values of x. `trace`: where the point starts. `caption`. |
 | `number-line` | Points, shaded intervals and a distance on a line, and optionally a point x that can be moved, with a sentence saying where it is. | `range`. `points`: numbers, or `"sqrt(2): √2"` for a number and its label. `intervals`: `["(2, 4)", "[0, inf)"]`. `distance`: two numbers; `via`: a third, for the detour through it. `near`: a centre and a radius, the window \|x − c\| < r. `probe`: where x starts. `caption`. |
 | `square-of-sum` | A square of side a + b in four pieces, with sliders: the picture behind (a + b)² = a² + 2ab + b². | `a`, `b`: the lengths at the start. |
+| `truth-table` | Every row of a formula's truth table, a column for each part, and optionally a last column for the learner to fill in and check. | `formula` (required): one-letter propositions with `∧ ∨ ¬ → ↔`, as in `(P → Q) ∧ ¬Q → ¬P`; a chain of ↔ needs brackets, as in Lean. `steps`: a column per part (default true). `fill`: the learner fills the last column. `caption`. |
+| `induction-dominoes` | A row of dominoes to push; taking away the base case or the step stops the chain. | `count`, `start` (the first domino's number), `claim` (what P(n) says), `gap` (the step fails from this n to the next), `caption`. |
 
 The Gallery (`#/gallery`) has the full list of parameters, drawn examples
 and the block that produces each.

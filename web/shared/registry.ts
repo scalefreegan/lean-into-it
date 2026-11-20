@@ -4,6 +4,7 @@ import { isMove } from "./moves.ts";
 import { readInterval, readPoint } from "./numberline.ts";
 import { escapesIn, fillBody, fillProblem, GAP, lex } from "./proof.ts";
 import { splitStatement, valuesProblem } from "./truefalse.ts";
+import { lettersOf, MAX_LETTERS, parseFormula } from "./truthtable.ts";
 import { optionProblem } from "./recognize.ts";
 
 // The catalogue of widgets a lesson may embed and exercise kinds it may
@@ -76,7 +77,7 @@ export const WIDGET_KEYS = ["type"] as const;
  *  not reuse these names. */
 export const EXERCISE_KEYS = ["id", "kind", "title", "concept"] as const;
 
-export type WidgetType = "proof-state" | "move-list" | "plot" | "number-line" | "square-of-sum";
+export type WidgetType = "proof-state" | "move-list" | "plot" | "number-line" | "square-of-sum" | "truth-table" | "induction-dominoes";
 
 /** At most this many curves on one plot: each has its own line style. */
 export const MAX_CURVES = 4;
@@ -176,6 +177,47 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       }
       if (typeof p.probe === "number" && !on(p.probe)) out.push(off(`\`probe\` ${p.probe}`));
       return out;
+    },
+  },
+  "truth-table": {
+    doc: "The truth table of a formula built from letters with and, or, not, implies and iff: one row for every way of making the letters true or false. With `fill`, the learner fills in the formula's column and checks it. A table checks every case, one by one; a proof argues once for all of them.",
+    params: {
+      formula: { type: "string", required: true, doc: "The formula: one-letter propositions (not T or F) with `∧ ∨ ¬ → ↔`, or `/\\ \\/ ~ -> <->`, `True`, `False` and brackets, as in `(p → q) ∧ ¬q → ¬p`. At least one connective, at most five letters. As in Lean, a chain of ↔ needs brackets." },
+      steps: { type: "boolean", doc: "Show a column for each part of the formula, innermost first, before the whole. Default true." },
+      fill: { type: "boolean", doc: "The learner fills in the formula's own column (each cell T or F), then checks it against the table. Default false: the table is shown complete." },
+      caption: { type: "string", doc: "One line shown under the table." },
+    },
+    examples: [
+      { formula: "p → q", steps: false, caption: "An implication is false in one row only: true, then false." },
+      { formula: "(p → q) ∧ ¬q → ¬p", caption: "True in every row: modus tollens holds whatever p and q are." },
+      { formula: "¬(p ∧ q) ↔ ¬p ∨ ¬q", fill: true },
+    ],
+    check: (p) => {
+      if (typeof p.formula !== "string") return [];
+      const f = parseFormula(p.formula);
+      if (typeof f === "string") return [`\`formula\`: ${f}`];
+      if (f.op === "var" || f.op === "const") return ["`formula` needs at least one connective: a single letter's table is just the letter"];
+      const letters = lettersOf(f);
+      return letters.length > MAX_LETTERS ? [`\`formula\` has ${letters.length} letters; at most ${MAX_LETTERS} (${2 ** MAX_LETTERS} rows) fit`] : [];
+    },
+  },
+  "induction-dominoes": {
+    doc: "Induction as a row of dominoes. The base case knocks over the first; the step is the rule that if domino n falls, so does domino n + 1. The learner can take either away and push again: without the base nothing falls, without the step only the first does.",
+    params: {
+      count: { type: "number", integer: true, min: 4, max: 12, doc: "How many dominoes are drawn (the row stands for all of ℕ). Default 8." },
+      claim: { type: "string", doc: "What P(n) says, shown with the dominoes: `2⁰ + … + 2ⁿ = 2ⁿ⁺¹ − 1`." },
+      start: { type: "number", integer: true, min: 0, max: 5, doc: "The number on the first domino, where the base case is. Default 0." },
+      gap: { type: "number", integer: true, min: 0, max: 16, doc: "Leave the step out at this domino only: the one numbered `gap` falls but does not knock the next. For a proof whose step fails at one n." },
+      caption: { type: "string", doc: "One line shown under the dominoes." },
+    },
+    examples: [
+      { claim: "0 + 1 + … + n = n(n + 1)/2", caption: "Push the first. Then take away the base case, or the step, and push again." },
+      { count: 6, start: 1, gap: 2, caption: "A step that holds everywhere but from 2 to 3: the chain stops at 2." },
+    ],
+    check: (p) => {
+      const count = typeof p.count === "number" ? p.count : 8;
+      const start = typeof p.start === "number" ? p.start : 0;
+      return typeof p.gap === "number" && (p.gap < start || p.gap >= start + count - 1) ? [`\`gap\` must be the number of a domino with another after it: ${start} to ${start + count - 2}`] : [];
     },
   },
   "square-of-sum": {

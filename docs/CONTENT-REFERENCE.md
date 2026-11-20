@@ -184,6 +184,72 @@ probe: 0
 ```
 ````
 
+### `truth-table`
+
+The truth table of a formula built from letters with and, or, not, implies and iff: one row for every way of making the letters true or false. With `fill`, the learner fills in the formula's column and checks it. A table checks every case, one by one; a proof argues once for all of them.
+
+| Parameter | Value | |
+|---|---|---|
+| `formula` (required) | one line of text | The formula: one-letter propositions (not T or F) with `∧ ∨ ¬ → ↔`, or `/\ \/ ~ -> <->`, `True`, `False` and brackets, as in `(p → q) ∧ ¬q → ¬p`. At least one connective, at most five letters. As in Lean, a chain of ↔ needs brackets. |
+| `steps` | `true` or `false` | Show a column for each part of the formula, innermost first, before the whole. Default true. |
+| `fill` | `true` or `false` | The learner fills in the formula's own column (each cell T or F), then checks it against the table. Default false: the table is shown complete. |
+| `caption` | one line of text | One line shown under the table. |
+
+````
+```widget
+type: truth-table
+formula: "p → q"
+steps: false
+caption: "An implication is false in one row only: true, then false."
+```
+````
+
+````
+```widget
+type: truth-table
+formula: "(p → q) ∧ ¬q → ¬p"
+caption: "True in every row: modus tollens holds whatever p and q are."
+```
+````
+
+````
+```widget
+type: truth-table
+formula: "¬(p ∧ q) ↔ ¬p ∨ ¬q"
+fill: true
+```
+````
+
+### `induction-dominoes`
+
+Induction as a row of dominoes. The base case knocks over the first; the step is the rule that if domino n falls, so does domino n + 1. The learner can take either away and push again: without the base nothing falls, without the step only the first does.
+
+| Parameter | Value | |
+|---|---|---|
+| `count` | a number | How many dominoes are drawn (the row stands for all of ℕ). Default 8. Must be a whole number, 4 to 12. |
+| `claim` | one line of text | What P(n) says, shown with the dominoes: `2⁰ + … + 2ⁿ = 2ⁿ⁺¹ − 1`. |
+| `start` | a number | The number on the first domino, where the base case is. Default 0. Must be a whole number, 0 to 5. |
+| `gap` | a number | Leave the step out at this domino only: the one numbered `gap` falls but does not knock the next. For a proof whose step fails at one n. Must be a whole number, 0 to 16. |
+| `caption` | one line of text | One line shown under the dominoes. |
+
+````
+```widget
+type: induction-dominoes
+claim: "0 + 1 + … + n = n(n + 1)/2"
+caption: "Push the first. Then take away the base case, or the step, and push again."
+```
+````
+
+````
+```widget
+type: induction-dominoes
+count: 6
+start: 1
+gap: 2
+caption: "A step that holds everywhere but from 2 to 3: the chain stops at 2."
+```
+````
+
 ### `square-of-sum`
 
 A square of side a + b cut into a square of side a, a square of side b and two a-by-b rectangles, with sliders for a and b: the picture behind (a + b)² = a² + 2ab + b².
