@@ -184,6 +184,7 @@ test("the header of a file is its imports with the comments around them", () => 
   assert.equal(headerOf("/- never closed\nimport Mathlib\n"), "");
   assert.equal(headerOf("example : True := trivial\nimport Mathlib\n"), "", "an import after a command is not a header");
   assert.equal(headerOf(""), "");
+  assert.equal(headerOf("module\nexample : True := trivial\n"), "module", "module alone is a header: what is loaded must match the body's");
 });
 
 test("loading a library never counts against a proof's time, wherever the imports sit and whenever they change", { skip }, async (t) => {
@@ -202,6 +203,18 @@ test("loading a library never counts against a proof's time, wherever the import
   await clean("/- other notes -/\n\nimport Mathlib\nexample : (2 : ℝ) + 2 = 4 := by norm_num\n");
   // And an endless file with such a header is still stopped by the short limit.
   await assert.rejects(lean.check("lsp-header", "/- other notes -/\n\nimport Mathlib\npartial def spin (n : Nat) : Nat := spin (n + 1)\n#eval spin 0\n"), (e: Error) => e instanceof LeanTimeout && /2 seconds on this/.test(e.message));
+});
+
+test("a file with no imports still loads Lean's core library, and that load does not count against a proof's time either", { skip }, async (t) => {
+  // One second is less than the core library takes to load (about two here).
+  const lean = new LeanServer({ timeoutMs: 1000 });
+  t.after(() => lean.stop());
+  const clean = async (key: string, text: string) => assert.deepEqual((await lean.check(key, text)).diagnostics, []);
+  // A new document with no imports at all.
+  await clean("lsp-bare", "example : True := trivial\n");
+  // Its imports removed: Lean starts the document over on the core library alone.
+  await clean("lsp-unimport", "import Mathlib\nexample : True := trivial\n");
+  await clean("lsp-unimport", "example : 1 + 1 = 2 := rfl\n");
 });
 
 test("a file that crashes its Lean worker is reported, not run again, and the next check works", { skip }, async (t) => {

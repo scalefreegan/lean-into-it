@@ -81,6 +81,12 @@ Landed in the first PR, the foundation slice:
   `match` (pair sentences with Lean) are marked against the author's answer,
   the one exception to "Lean decides" (decided 2026-11-19); Lean checks
   that their Lean is readable. No lesson uses them yet.
+- A file with no imports no longer pays for Lean's core library under the
+  proof's time limit (`lii-a7b`): when a document is new or its imports
+  change, even to none, the load is a step of its own under the long
+  limit. This was what made "loading a library never counts against a
+  proof's time" fail now and then (a fresh worker on the core library takes
+  about 2 s here).
 - Spot the flaw (`lii-6xv.4`): the kind `flaw`, an argument in words with
   one wrong step to find, marked against the author's answer; the
   explanation shows once the step is found. No lesson uses it yet.
@@ -417,7 +423,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 471, including every reference solution checked by the real Lean,
+- Tests: 472, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -457,7 +463,7 @@ land first.
 |---|---|---|---|
 | `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
-| `lii-a7b` | Flaky test: "loading a library never counts against a proof's time" (2 s budget under load) | 2 | |
+| `lii-5pa` | Flaky test under load: "a check that never ends is given up on inside the limit" (tight timing bounds) | 3 | |
 | `lii-m2l` | Lean timing tests fail in the full suite when the machine is loaded | 3 | |
 
 ### Proof board (epic `lii-8wq`)

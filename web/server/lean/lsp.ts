@@ -133,7 +133,10 @@ export function headerOf(source: string): string {
     const rest = source.slice(i);
     const word = /^(module|prelude)(?![\w.])/.exec(rest);
     if (word) {
+      // Part of the header too: the load step must send it, or the body's
+      // header would differ from what was loaded and load again.
       i += word[0].length;
+      end = i;
       continue;
     }
     const line = /^((public|private|meta)\s+)*import(?![\w.])[^\n]*\n?/.exec(rest);
@@ -337,7 +340,8 @@ export class LeanServer {
   private lost(why: string, error: LeanUnavailable): boolean {
     this.failures++;
     this.lastFailure = why;
-    const open = [...this.docs.values()].flatMap((d) => (d.header ? [[d.key, d.header] as const] : []));
+    // A document with no imports ("") loads Lean's core library too: it is re-warmed as well.
+    const open = [...this.docs.values()].flatMap((d) => (d.header !== null ? [[d.key, d.header] as const] : []));
     this.stop(error);
     if (this.failures > 1 || this.closed) return false;
     this.start().then(
@@ -363,8 +367,7 @@ export class LeanServer {
    *  reads what happened. */
   private replace(doc: Doc, source: string): void {
     this.drop(doc);
-    const header = headerOf(source);
-    if (header && !this.closed) this.check(doc.key, header).catch(() => {});
+    if (!this.closed) this.check(doc.key, headerOf(source)).catch(() => {});
   }
 
   /** For tests: end the server process the way a crash would, with none of
@@ -497,8 +500,12 @@ export class LeanServer {
     // change (Lean then starts the document over). The text after them
     // always runs under the short limit: Lean keeps the loaded imports when
     // only that text changes.
+    // A file with no imports still costs a load (a second or two: a fresh
+    // worker and Lean's own core library) when it is new or its imports were
+    // just removed: that load is a step of its own too, so it never counts
+    // against the proof.
     const header = headerOf(source);
-    if (header && header !== doc.header) {
+    if (header !== doc.header) {
       const loaded = await this.timed(doc, proc, header, header === source ? positions : [], true);
       doc.header = header;
       if (header === source) return loaded;
