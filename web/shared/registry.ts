@@ -7,6 +7,8 @@ import { splitStatement, valuesProblem } from "./truefalse.ts";
 import { lettersOf, MAX_LETTERS, parseFormula } from "./truthtable.ts";
 import { optionProblem } from "./recognize.ts";
 import { readSteps } from "./paired.ts";
+import { parseTerm, unboundedNear } from "./limits.ts";
+import { evaluate as evalExpr, parseExpr } from "./expr.ts";
 
 // The catalogue of widgets a lesson may embed and exercise kinds it may
 // declare, with the parameters each accepts. This file is the single source
@@ -71,6 +73,26 @@ export interface ExerciseSpec {
   check?: (params: Params) => string[];
 }
 
+/** An expression in x, or why it cannot be read. */
+function readFunction(source: string): ReturnType<typeof parseExpr> | string {
+  try {
+    return parseExpr(source);
+  } catch (e) {
+    return `\`function\`: ${(e as Error).message}`;
+  }
+}
+
+/** For the limit explorers: the function reads, and f(a) exists when no limit is given. */
+function limitAt(p: Params): string[] {
+  if (typeof p.function !== "string" || typeof p.at !== "number") return [];
+  const f = readFunction(p.function);
+  if (typeof f === "string") return [f];
+  if (typeof p.limit !== "number" && !Number.isFinite(evalExpr(f, p.at))) return [`\`function\` has no value at x = ${p.at}: give the \`limit\` it approaches there`];
+  const x = p.x;
+  if (Array.isArray(x) && typeof x[0] === "number" && typeof x[1] === "number" && !(x[0] < p.at && p.at < x[1])) return [`\`at\` (${p.at}) must be inside the \`x\` range shown`];
+  return [];
+}
+
 /** A widget block's own key: `type:` names the widget, so no parameter may
  *  be called that (YAML would refuse the duplicate key). */
 export const WIDGET_KEYS = ["type"] as const;
@@ -78,7 +100,7 @@ export const WIDGET_KEYS = ["type"] as const;
  *  not reuse these names. */
 export const EXERCISE_KEYS = ["id", "kind", "title", "concept"] as const;
 
-export type WidgetType = "proof-state" | "move-list" | "plot" | "number-line" | "square-of-sum" | "truth-table" | "induction-dominoes" | "informal-formal";
+export type WidgetType = "proof-state" | "move-list" | "plot" | "number-line" | "square-of-sum" | "truth-table" | "induction-dominoes" | "informal-formal" | "epsilon-delta" | "secant-tangent" | "riemann-sum" | "sequence-limit";
 
 /** At most this many curves on one plot: each has its own line style. */
 export const MAX_CURVES = 4;
@@ -219,6 +241,88 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       },
     ],
     check: (p) => readSteps(p.steps).problems.map((m) => `\`steps\`: ${m}`),
+  },
+  "epsilon-delta": {
+    doc: "The definition of a limit, to play with: the learner sets ε (a band around the limit L) and δ (a strip around a), and the box turns green when every x in the strip, except a itself, has f(x) inside the band. Decided by sampling the strip finely: a picture of the definition, not a proof.",
+    params: {
+      function: { type: "string", required: true, doc: "f, an expression in x: `x^2`, `sin(x)/x`." },
+      at: { type: "number", required: true, doc: "a, where the limit is taken." },
+      limit: { type: "number", doc: "L, the limit. Default f(a), which must then exist; give it for a hole like sin(x)/x at 0." },
+      epsilon: { type: "number", min: 0.001, doc: "Where the ε slider starts. Default 0.5." },
+      delta: { type: "number", min: 0.001, doc: "Where the δ slider starts. Default 1." },
+      x: { type: "range", doc: "The stretch of x shown. Default a − 3 to a + 3." },
+      y: { type: "range", doc: "The stretch of y shown. Default L − 3 to L + 3." },
+      caption: { type: "string", doc: "One line under the picture." },
+    },
+    examples: [
+      { function: "x^2", at: 2, epsilon: 1, delta: 0.5, caption: "Shrink δ until the box turns green. The smaller ε, the smaller δ must be." },
+      { function: "sin(x)/x", at: 0, limit: 1, epsilon: 0.2, delta: 2, x: [-4, 4], y: [-0.5, 1.5], caption: "No value at 0, and still a limit: the hole is left out." },
+    ],
+    check: (p) => limitAt(p),
+  },
+  "secant-tangent": {
+    doc: "A secant through (a, f(a)) and (a + h, f(a + h)), with a slider for h: as h shrinks toward 0 from either side, the secant turns into the tangent and its slope settles. The slope (f(a + h) − f(a))/h is shown as it changes.",
+    params: {
+      function: { type: "string", required: true, doc: "f, an expression in x." },
+      at: { type: "number", required: true, doc: "a, where the tangent touches; f(a) must exist." },
+      h: { type: "number", doc: "Where the h slider starts, not 0. Default 1." },
+      x: { type: "range", doc: "The stretch of x shown. Default a − 3 to a + 3." },
+      y: { type: "range", doc: "The stretch of y shown. Default fitted to the curve." },
+      caption: { type: "string", doc: "One line under the picture." },
+    },
+    examples: [{ function: "x^2", at: 1, h: 1.5, caption: "The slope is 2 + h: as h goes to 0 it goes to 2, the derivative of x² at 1." }],
+    check: (p) => {
+      const wrong = limitAt({ ...p, limit: undefined });
+      if (p.h === 0) wrong.push("`h` cannot start at 0: there is no secant through one point");
+      return wrong;
+    },
+  },
+  "riemann-sum": {
+    doc: "Rectangles under a curve from a to b, as tall as the function at each one's left end, right end or middle, with a slider for how many. Their total area is shown beside the area itself (to a few places, from a thousand thin rectangles): more rectangles, closer.",
+    params: {
+      function: { type: "string", required: true, doc: "f, an expression in x, defined on all of [from, to]." },
+      from: { type: "number", required: true, doc: "a, where the area starts." },
+      to: { type: "number", required: true, doc: "b, where it ends; more than `from`." },
+      n: { type: "number", integer: true, min: 1, max: 100, doc: "How many rectangles at the start. Default 4." },
+      rule: { type: "enum:left|right|midpoint", doc: "Where each rectangle meets the curve. Default left; the learner can change it." },
+      caption: { type: "string", doc: "One line under the picture." },
+    },
+    examples: [{ function: "x^2", from: 0, to: 2, n: 4, caption: "The area under x² from 0 to 2 is 8/3. Watch the sum close in on it." }],
+    check: (p) => {
+      if (typeof p.function !== "string" || typeof p.from !== "number" || typeof p.to !== "number") return [];
+      if (p.to <= p.from) return ["`to` must be more than `from`"];
+      const f = readFunction(p.function);
+      if (typeof f === "string") return [f];
+      const bad = [...Array(201).keys()].map((i) => p.from as number + ((p.to as number) - (p.from as number)) * (i / 200)).find((x) => !Number.isFinite(evalExpr(f, x)));
+      if (bad !== undefined) return [`\`function\` has no value at x = ${+bad.toFixed(4)}, inside [${p.from}, ${p.to}]`];
+      const pole = unboundedNear(f, p.from as number, p.to as number);
+      return pole === null ? [] : [`\`function\` seems unbounded near x = ${+pole.toFixed(3)}: its area there does not settle`];
+    },
+  },
+  "sequence-limit": {
+    doc: "The terms of a sequence as dots, with a band of width ε around its limit and a slider for ε. The widget finds the first N from which every term shown stays in the band; past the last term shown it claims nothing, which is what a proof is for.",
+    params: {
+      term: { type: "string", required: true, doc: "The n-th term, an expression in n: `1/n`, `(-1)^n/n`, `(n+1)/n`." },
+      limit: { type: "number", required: true, doc: "L, the limit the band is drawn around." },
+      epsilon: { type: "number", min: 0.001, doc: "Where the ε slider starts. Default 0.2." },
+      start: { type: "number", integer: true, min: 0, max: 10, doc: "The first n. Default 1." },
+      count: { type: "number", integer: true, min: 10, max: 200, doc: "How many terms are drawn. Default 40." },
+      caption: { type: "string", doc: "One line under the picture." },
+    },
+    examples: [
+      { term: "(-1)^n/n", limit: 0, epsilon: 0.2, caption: "The terms swing either side of 0 and close in. Make ε smaller: N grows, but there always is one." },
+      { term: "(n+1)/n", limit: 1, epsilon: 0.1, count: 30 },
+    ],
+    check: (p) => {
+      if (typeof p.term !== "string") return [];
+      try {
+        const t = parseTerm(p.term);
+        const from = typeof p.start === "number" ? p.start : 1;
+        return Number.isFinite(evalExpr(t, from)) ? [] : [`\`term\` has no value at n = ${from}`];
+      } catch (e) {
+        return [`\`term\`: ${(e as Error).message}`];
+      }
+    },
   },
   "induction-dominoes": {
     doc: "Induction as a row of dominoes. The base case knocks over the first; the step is the rule that if domino n falls, so does domino n + 1. The learner can take either away and push again: without the base nothing falls, without the step only the first does.",

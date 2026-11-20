@@ -82,6 +82,15 @@ Landed in the first PR, the foundation slice:
   `match` (pair sentences with Lean) are marked against the author's answer,
   the one exception to "Lean decides" (decided 2026-11-19); Lean checks
   that their Lean is readable. No lesson uses them yet.
+- Limit explorers (`lii-53v.2`): four widgets on the arithmetic of
+  `web/shared/limits.ts`. `epsilon-delta` (sliders for ε and δ; the box
+  turns green when every x in the strip but a has f(x) in the band, decided
+  by sampling; "Largest δ" finds it, or says none works),
+  `secant-tangent` (h to 0 from either side, the slope beside the
+  tangent's), `riemann-sum` (n rectangles, left, right or midpoint, beside
+  the area) and `sequence-limit` (an ε band and the first N from which
+  every term drawn stays inside). Each says it is a picture, not a proof.
+  In the Lab under Limits; no lesson yet (Levels 5 and 6 are outlines).
 - Informal beside formal (`lii-53v.3`): the widget `informal-formal` sets a
   proof in sentences beside the Lean of one of the lesson's exercises (its
   reference solution, so Lean has accepted it). Each sentence names the
@@ -118,8 +127,7 @@ Landed in the first PR, the foundation slice:
   pieces. They are in "The real numbers", "Identities", "Inequalities",
   "Absolute value and distance" and "Functions, increasing and bounded".
   This is the plotter and number-line part of `lii-53v.2` and `lii-53v.5`;
-  the limit explorers are still to build (the truth table and dominoes are
-  done, below).
+  the limit explorers, truth table and dominoes are done (below).
 - Board moves: `rfl`, `norm_num`, `intro`, `exact`, `apply`, `constructor`,
   `obtain` (writes the pattern and names for the fact's shape), `left`,
   `right`, `exfalso`, `contradiction`, `by_contra`, `use` (the witness is
@@ -298,7 +306,7 @@ Landed in the first PR, the foundation slice:
   `web/shared/lab.ts`; tests hold it to the curriculum (every move has an
   example), to the registry, and to Lean (every example is accepted). The
   Tutor is told the page and the example open. Not yet, each with its own
-  bead: limits (`lii-53v.2`), the proof map (`lii-8wq.2`), the program stepper
+  bead: the proof map (`lii-8wq.2`), the program stepper
   (`lii-53v.4`), the Famous Proofs gallery (`lii-kqz.2`).
 - Listen mode (`lii-1gs.1`), ported from Fret Not: a Listen button in the
   header opens the switch, the voice and the quality; with it on and a
@@ -442,7 +450,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 490, including every reference solution checked by the real Lean,
+- Tests: 500, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -483,6 +491,7 @@ land first.
 | `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
 | `lii-5pa` | Flaky test under load: "a check that never ends is given up on inside the limit" (tight timing bounds) | 3 | |
+| `lii-z19` | The contentcheck test of a broken lesson can time out (6 s) under the full suite | 3 | |
 | `lii-m2l` | Lean timing tests fail in the full suite when the machine is loaded | 3 | |
 
 ### Proof board (epic `lii-8wq`)
@@ -503,7 +512,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-53v.2` | Function and limit explorers (the plotter and number line are done) | 2 | |
 | `lii-53v.4` | Program stepper | 3 | |
 
 ### Progress (epic `lii-zjf`)

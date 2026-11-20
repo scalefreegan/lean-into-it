@@ -241,6 +241,126 @@ caption: "Each sentence is one line of Lean here; often one sentence is several.
 ```
 ````
 
+### `epsilon-delta`
+
+The definition of a limit, to play with: the learner sets ε (a band around the limit L) and δ (a strip around a), and the box turns green when every x in the strip, except a itself, has f(x) inside the band. Decided by sampling the strip finely: a picture of the definition, not a proof.
+
+| Parameter | Value | |
+|---|---|---|
+| `function` (required) | one line of text | f, an expression in x: `x^2`, `sin(x)/x`. |
+| `at` (required) | a number | a, where the limit is taken. |
+| `limit` | a number | L, the limit. Default f(a), which must then exist; give it for a hole like sin(x)/x at 0. |
+| `epsilon` | a number | Where the ε slider starts. Default 0.5. Must be at least 0.001. |
+| `delta` | a number | Where the δ slider starts. Default 1. Must be at least 0.001. |
+| `x` | two numbers, the smaller first: `[-5, 5]` | The stretch of x shown. Default a − 3 to a + 3. |
+| `y` | two numbers, the smaller first: `[-5, 5]` | The stretch of y shown. Default L − 3 to L + 3. |
+| `caption` | one line of text | One line under the picture. |
+
+````
+```widget
+type: epsilon-delta
+function: "x^2"
+at: 2
+epsilon: 1
+delta: 0.5
+caption: "Shrink δ until the box turns green. The smaller ε, the smaller δ must be."
+```
+````
+
+````
+```widget
+type: epsilon-delta
+function: "sin(x)/x"
+at: 0
+limit: 1
+epsilon: 0.2
+delta: 2
+x: [-4, 4]
+y: [-0.5, 1.5]
+caption: "No value at 0, and still a limit: the hole is left out."
+```
+````
+
+### `secant-tangent`
+
+A secant through (a, f(a)) and (a + h, f(a + h)), with a slider for h: as h shrinks toward 0 from either side, the secant turns into the tangent and its slope settles. The slope (f(a + h) − f(a))/h is shown as it changes.
+
+| Parameter | Value | |
+|---|---|---|
+| `function` (required) | one line of text | f, an expression in x. |
+| `at` (required) | a number | a, where the tangent touches; f(a) must exist. |
+| `h` | a number | Where the h slider starts, not 0. Default 1. |
+| `x` | two numbers, the smaller first: `[-5, 5]` | The stretch of x shown. Default a − 3 to a + 3. |
+| `y` | two numbers, the smaller first: `[-5, 5]` | The stretch of y shown. Default fitted to the curve. |
+| `caption` | one line of text | One line under the picture. |
+
+````
+```widget
+type: secant-tangent
+function: "x^2"
+at: 1
+h: 1.5
+caption: "The slope is 2 + h: as h goes to 0 it goes to 2, the derivative of x² at 1."
+```
+````
+
+### `riemann-sum`
+
+Rectangles under a curve from a to b, as tall as the function at each one's left end, right end or middle, with a slider for how many. Their total area is shown beside the area itself (to a few places, from a thousand thin rectangles): more rectangles, closer.
+
+| Parameter | Value | |
+|---|---|---|
+| `function` (required) | one line of text | f, an expression in x, defined on all of [from, to]. |
+| `from` (required) | a number | a, where the area starts. |
+| `to` (required) | a number | b, where it ends; more than `from`. |
+| `n` | a number | How many rectangles at the start. Default 4. Must be a whole number, 1 to 100. |
+| `rule` | one of `left`, `right`, `midpoint` | Where each rectangle meets the curve. Default left; the learner can change it. |
+| `caption` | one line of text | One line under the picture. |
+
+````
+```widget
+type: riemann-sum
+function: "x^2"
+from: 0
+to: 2
+n: 4
+caption: "The area under x² from 0 to 2 is 8/3. Watch the sum close in on it."
+```
+````
+
+### `sequence-limit`
+
+The terms of a sequence as dots, with a band of width ε around its limit and a slider for ε. The widget finds the first N from which every term shown stays in the band; past the last term shown it claims nothing, which is what a proof is for.
+
+| Parameter | Value | |
+|---|---|---|
+| `term` (required) | one line of text | The n-th term, an expression in n: `1/n`, `(-1)^n/n`, `(n+1)/n`. |
+| `limit` (required) | a number | L, the limit the band is drawn around. |
+| `epsilon` | a number | Where the ε slider starts. Default 0.2. Must be at least 0.001. |
+| `start` | a number | The first n. Default 1. Must be a whole number, 0 to 10. |
+| `count` | a number | How many terms are drawn. Default 40. Must be a whole number, 10 to 200. |
+| `caption` | one line of text | One line under the picture. |
+
+````
+```widget
+type: sequence-limit
+term: "(-1)^n/n"
+limit: 0
+epsilon: 0.2
+caption: "The terms swing either side of 0 and close in. Make ε smaller: N grows, but there always is one."
+```
+````
+
+````
+```widget
+type: sequence-limit
+term: "(n+1)/n"
+limit: 1
+epsilon: 0.1
+count: 30
+```
+````
+
 ### `induction-dominoes`
 
 Induction as a row of dominoes. The base case knocks over the first; the step is the rule that if domino n falls, so does domino n + 1. The learner can take either away and push again: without the base nothing falls, without the step only the first does.
