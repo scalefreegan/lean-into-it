@@ -30,14 +30,10 @@ levels:
     title: Numbers and induction
     summary: The natural numbers from the ground up, equality and rewriting, proof by induction, and the first programs proved correct.
     moves: [decide, rw, simp, induction, omega, calc, exact?]
-    topics:
-      - "Proof craft: try small cases, guess the pattern, then prove it"
   - id: 3
     title: Algebra and inequalities
     summary: The real numbers, equations and inequalities, absolute value and functions, proved the way a textbook argues them.
     moves: [ring, linarith, field_simp, nlinarith, positivity, have, calc, gcongr]
-    topics:
-      - "Proof craft: reading a textbook proof beside its Lean proof"
   - id: 4
     title: Sets and functions
     status: outline

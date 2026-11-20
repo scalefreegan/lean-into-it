@@ -86,6 +86,15 @@ test("a lesson's exercises are placed where the file puts them, the rest after",
   assert.equal(content.levels[1].status, "outline");
 });
 
+test("a proof-craft lesson is marked; others are not, and `craft` must be true or false", () => {
+  const craft = LESSON.replace("order: 1", "order: 1.5\ncraft: true").replace("id: logic-1-a", "id: logic-1-craft");
+  const content = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": LESSON, "lessons/logic/b.md": craft }));
+  assert.deepEqual(content.problems, []);
+  assert.deepEqual(content.lessons.map((l) => [l.id, l.order, l.craft]), [["logic-1-a", 1, false], ["logic-1-craft", 1.5, true]]);
+  const bad = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": LESSON.replace("order: 1", 'order: 1\ncraft: "yes"') }));
+  assert.deepEqual(bad.problems.map((p) => p.message), ["`craft` must be true or false"]);
+});
+
 test("a widget block becomes a block with its checked parameters, in its place", () => {
   const withWidgets = LESSON.replace(
     "Closing prose.",

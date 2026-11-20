@@ -84,7 +84,9 @@ test("every exercise's reference solution is accepted by Lean", { skip }, async 
     for (const e of l.exercises) {
       const reply = await checkExercise(leanServer(), e, e.solution);
       assert.equal(reply.solved, true, `${l.id}/${e.id}: ${JSON.stringify(reply.diagnostics)}`);
-      assert.deepEqual(reply.goals, [], `${l.id}/${e.id} leaves no goal`);
+      // A prediction is solved when Lean's state after the move is the one
+      // picked, so it leaves goals; every other kind leaves none.
+      if (e.kind !== "predict") assert.deepEqual(reply.goals, [], `${l.id}/${e.id} leaves no goal`);
       checked++;
     }
   }

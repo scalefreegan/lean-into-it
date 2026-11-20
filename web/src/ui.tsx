@@ -28,6 +28,15 @@ export function Notice({ tone, children }: { tone: "bad" | "warn" | "good"; chil
   return <div className={cx("rounded-xl border px-4 py-3 text-sm text-fg", tones[tone])}>{children}</div>;
 }
 
+/** The mark of a proof-craft lesson, on the Path and its own page. */
+export function CraftBadge({ className }: { className?: string }) {
+  return (
+    <span data-craft className={cx("inline-block rounded-md border border-line-strong px-2 py-0.5 align-middle text-xs font-semibold uppercase tracking-wide text-fg-2", className)}>
+      Proof craft
+    </span>
+  );
+}
+
 /** A tick in a circle: solved. */
 export function Tick({ className }: { className?: string }) {
   return (

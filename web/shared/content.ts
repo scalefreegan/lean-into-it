@@ -95,6 +95,8 @@ export interface Lesson {
   order: number;
   concepts: string[];
   summary: string;
+  /** A proof-craft lesson: how mathematicians work, round one worked problem. */
+  craft: boolean;
   blocks: Block[];
   exercises: Exercise[];
   /** Path relative to content/, for error messages. */

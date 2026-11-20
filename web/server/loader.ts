@@ -148,6 +148,7 @@ export function parseLesson(
   if (!known.tracks.some((t) => t.id === track)) problem(file, `track "${track}" is not in curriculum.yaml`);
   if (typeof level !== "number" || !known.levels.some((l) => l.id === level)) problem(file, `level ${JSON.stringify(level)} is not in curriculum.yaml`);
   const concepts = strings(front.concepts);
+  if (front.craft !== undefined && typeof front.craft !== "boolean") problem(file, "`craft` must be true or false");
   // Definitions every exercise of the lesson is about; an exercise may add its own.
   if (front.given !== undefined && typeof front.given !== "string") problem(file, "`given` must be text: Lean code after `given: |`");
   const lessonGiven = typeof front.given === "string" ? front.given.replace(/\s+$/, "") : "";
@@ -175,6 +176,7 @@ export function parseLesson(
     order: typeof front.order === "number" ? front.order : 0,
     concepts,
     summary: str(front.summary),
+    craft: front.craft === true,
     blocks,
     exercises,
     file,
