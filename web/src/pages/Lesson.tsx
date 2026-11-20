@@ -79,7 +79,7 @@ export function Lesson({ id }: { id: string }) {
         if (block.type === "widget") {
           return (
             <div key={i} className="min-w-0 scroll-my-24" data-reading-block={i}>
-              <RenderWidget type={block.widget} params={block.params} />
+              <RenderWidget type={block.widget} params={block.params} lessonId={lesson.id} />
               {waitNote(i)}
             </div>
           );

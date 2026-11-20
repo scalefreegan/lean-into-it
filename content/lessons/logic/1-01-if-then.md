@@ -116,6 +116,19 @@ id: chain
 
 Read the Lean you just wrote from the bottom up and it is the forward argument: P holds, so Q holds, so R holds. Read it top down and it is how you found it: to get R, enough to get Q; to get Q, enough to get P; and P is what was assumed. The same proof, in two directions.
 
+Here is that proof as a textbook would write it, beside the Lean. Select a sentence to see the lines that say it, or a line to see the board after it.
+
+```widget
+type: informal-formal
+exercise: chain
+steps:
+  - "1: Suppose P. We must show R."
+  - "2: Since Q implies R, it is enough to show Q."
+  - "3: Since P implies Q, it is enough to show P."
+  - "4: And P is what we supposed."
+caption: Here each sentence is one line of Lean. Later, one sentence will often be several.
+```
+
 Sometimes an assumption turns out not to be needed. That is fine: you assumed it, you are not obliged to use it.
 
 ```exercise
