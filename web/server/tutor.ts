@@ -40,6 +40,7 @@
 // rebuilt field by field (`sanitizeContext`): the lesson and exercise are
 // looked up by id in the content on disk, never taken from the page.
 
+import { isLadder, learnedMoves, onBoard, type Ladder } from "../shared/ladder.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
@@ -92,6 +93,7 @@ export function sanitizeContext(raw: unknown): TutorContext {
     out.body = keep(r.body, 4000);
     out.goals = keep(r.goals, 4000);
     out.error = keep(r.error, 2000);
+    if (isLadder(r.ladder)) out.ladder = r.ladder;
   }
   if (out.page === "playground" || out.page === "lab") out.source = keep(r.source, 8000);
   return out;
@@ -100,13 +102,18 @@ export function sanitizeContext(raw: unknown): TutorContext {
 export interface Where {
   lesson: Lesson | null;
   exercise: Exercise | null;
+  /** A \`prove\` exercise on the board: the moves its rung offers (null when typed). */
+  offered?: string[] | null;
 }
 
 /** The lesson and exercise the context names, from the content on disk. */
 export function locate(content: Content, ctx: TutorContext): Where {
   const lesson = content.lessons.find((l) => l.id === ctx.lessonId) ?? null;
   const exercise = lesson?.exercises.find((e) => e.id === ctx.exerciseId) ?? null;
-  return { lesson, exercise };
+  if (!lesson || exercise?.kind !== "prove") return { lesson, exercise };
+  const rung = rungOf(exercise, ctx);
+  const offered = !onBoard(rung) ? null : rung === 1 ? exercise.moves : learnedMoves(content.levels, lesson.level, exercise.moves, exercise.forbid);
+  return { lesson, exercise, offered };
 }
 
 const PAGE_WORDS: Record<TutorContext["page"], string> = {
@@ -121,13 +128,19 @@ const PAGE_WORDS: Record<TutorContext["page"], string> = {
 const fence = (text: string) => "```\n" + text.replace(/```/g, "` ` `") + "\n```";
 
 /** The page, lesson and exercise as a few lines for the prompt. */
+/** The rung a \`prove\` exercise is being done at: the one the page sent,
+ *  or the exercise's own. */
+export function rungOf(exercise: Exercise, ctx: TutorContext): Ladder {
+  return isLadder(ctx.ladder) && !(onBoard(ctx.ladder) && exercise.mode === "typed") ? ctx.ladder : exercise.ladder;
+}
+
 export function contextNote(ctx: TutorContext, where: Where): string {
   const lines = [`The learner is on ${PAGE_WORDS[ctx.page]}.`];
   const { lesson, exercise } = where;
   if (lesson) lines.push(`Lesson: ${lesson.id} "${lesson.title}", file content/${lesson.file}. Read it before answering about it.`);
   if (exercise) {
     const reading = isReading(exercise.kind);
-    lines.push(`Exercise: ${exercise.id} "${exercise.title}" (${exercise.kind === "predict" ? "predict the goal: the learner chooses the state a move leaves, and Lean decides" : exercise.kind === "read" ? "read the Lean: the learner chooses the sentence that says what the statement claims (a fixed answer)" : exercise.kind === "match" ? "match: the learner pairs each sentence with its Lean statement (a fixed answer)" : exercise.kind === "flaw" ? "spot the flaw: the learner says which step of an argument in words is wrong (a fixed answer)" : exercise.kind === "truefalse" ? "true or false: the learner decides whether the claim holds, then proves it or gives a counterexample" : exercise.kind === "fill" ? "fill the gap" : exercise.mode === "board" ? "proof board: the learner clicks moves" : "typed proof"}, concept ${exercise.concept}).`);
+    lines.push(`Exercise: ${exercise.id} "${exercise.title}" (${exercise.kind === "predict" ? "predict the goal: the learner chooses the state a move leaves, and Lean decides" : exercise.kind === "read" ? "read the Lean: the learner chooses the sentence that says what the statement claims (a fixed answer)" : exercise.kind === "match" ? "match: the learner pairs each sentence with its Lean statement (a fixed answer)" : exercise.kind === "flaw" ? "spot the flaw: the learner says which step of an argument in words is wrong (a fixed answer)" : exercise.kind === "truefalse" ? "true or false: the learner decides whether the claim holds, then proves it or gives a counterexample" : exercise.kind === "fill" ? "fill the gap" : onBoard(rungOf(exercise, ctx)) ? "proof board: the learner clicks moves" : rungOf(exercise, ctx) === 3 ? "typed proof, with the moves to hand" : "typed proof"}, concept ${exercise.concept}).`);
     lines.push(`It says: ${exercise.says}`);
     if (exercise.kind !== "match" && exercise.kind !== "flaw") lines.push(`Lean statement: theorem _ ${exercise.statement} := by`);
     if (exercise.steps) lines.push(`The argument:\n${exercise.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\nThe wrong step is ${exercise.solution}: ${exercise.why ?? ""}\nDo not give it away before rung 3; at rung 1 ask them to test each step on numbers, at rung 2 say what kind of mistake to look for. At rung 3 the LINE is \`Step ${exercise.solution}\`.`);
@@ -141,7 +154,7 @@ export function contextNote(ctx: TutorContext, where: Where): string {
       const tf = exercise.truefalse;
       lines.push(`The claim is ${tf.truth ? "TRUE" : "FALSE"} (Lean has checked the reference answer): ${tf.why} Do not say which before a hint at rung 2 or a direct question; at rung 1 nudge them to try small cases or to look for why it might hold. ${tf.truth ? "They prove it as a typed proof." : `A counterexample is a value for each of ${tf.names.join(", ")}, ${tf.witness === "proof" ? "then lines proving False from hc, the claim at those values" : "and the app proves the claim fails there"}.`} At rung 3 the LINE is ${tf.truth ? "the next line of the proof" : `the values, separated by commas, like \`1, 2\`${tf.witness === "proof" ? " (the proof that they work stays theirs to write)" : ""}`}.`);
     }
-    if (exercise.mode === "board" && exercise.kind !== "fill") lines.push(`Moves on offer: ${exercise.moves.join(", ")}.`);
+    if (where.offered) lines.push(`Moves on offer: ${where.offered.join(", ")}.`);
     if (exercise.forbid.length) lines.push(`Not allowed in the answer: ${exercise.forbid.join(", ")}.`);
     lines.push(ctx.body?.trim() ? `${exercise.kind === "fill" ? "Their fill so far" : reading ? "Their answer so far" : "Their proof so far"}:\n${fence(ctx.body)}` : "They have written nothing yet.");
     if (ctx.goals?.trim()) lines.push(`Lean's goals now:\n${fence(ctx.goals)}`);
@@ -271,7 +284,8 @@ export function splitLine(reply: string): { text: string; line: string | null } 
  * it must also be a line one of the offered moves writes. Returns null when
  * it works, else why not.
  */
-export async function lineProblem(exercise: Exercise, body: string, line: string): Promise<string | null> {
+/** `offered`: the moves on the learner's board, when they are on one: the line must be one of them. */
+export async function lineProblem(exercise: Exercise, body: string, line: string, offered: string[] | null = null): Promise<string | null> {
   const lean = leanServer();
   try {
     // Reading kinds: the line is the answer itself, checked as the app would.
@@ -323,9 +337,9 @@ export async function lineProblem(exercise: Exercise, body: string, line: string
       const r = await checkExercise(lean, exercise, line);
       return r.solved ? null : (r.error?.message ?? r.refusal ?? (r.forbidden.length ? `it uses ${r.forbidden.join(", ")}, which this exercise does not allow` : "it does not finish the proof"));
     }
-    if (exercise.mode === "board") {
+    if (offered) {
       const read = readLine(line);
-      if (!read || !exercise.moves.includes(read.move.id)) return `it is not a line any of this exercise's moves (${exercise.moves.join(", ")}) writes`;
+      if (!read || !offered.includes(read.move.id)) return `it is not a line any of the moves on their board (${offered.join(", ")}) writes`;
     }
     const before = body.replace(/\s+$/, "");
     const next = before ? `${before}\n${line}` : line;
@@ -605,11 +619,11 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
         // A match is checked against the pairs the learner has, as the page sent them.
         const against = ex.pairs ? (ctx.body ?? "") : base;
         let split = splitLine(text);
-        let why = split.line ? await lineProblem(ex, against, split.line) : "the reply had no LINE: line";
+        let why = split.line ? await lineProblem(ex, against, split.line, where.offered ?? null) : "the reply had no LINE: line";
         if (why) {
           const again = await run(retryPrompt(text, split.line ?? "(none)", why, ctx, where, base));
           split = splitLine(again);
-          why = split.line ? await lineProblem(ex, against, split.line) : "the reply had no LINE: line";
+          why = split.line ? await lineProblem(ex, against, split.line, where.offered ?? null) : "the reply had no LINE: line";
         }
         if (ctrl.signal.aborted) throw new TurnStopped("stopped");
         if (why) {

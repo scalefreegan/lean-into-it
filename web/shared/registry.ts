@@ -1,3 +1,4 @@
+import { isLadder, onBoard } from "./ladder.ts";
 import { checkExpr } from "./expr.ts";
 import { stateBlocks } from "./goals.ts";
 import { isMove } from "./moves.ts";
@@ -379,10 +380,11 @@ function statementProblems(p: Params): string[] {
 
 export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
   prove: {
-    doc: "A statement to prove. Lean decides whether it is solved. In `board` mode the learner clicks moves on the proof board and each click writes one line of Lean; in `typed` mode they write the Lean in an editor with the goals beside it.",
+    doc: "A statement to prove. Lean decides whether it is solved. On the proof board (ladder rungs 1 and 2) the learner clicks moves and each click writes one line of Lean; in the editor (rungs 3 and 4) they write the Lean with the goals beside it, at rung 3 with the moves to hand.",
     label: "Prove it",
     params: {
-      mode: { type: "enum:board|typed", doc: "How the proof is entered. Default board." },
+      mode: { type: "enum:board|typed", doc: "`board`: the solution is lines the board's moves write, so it can be clicked (at rungs 1 and 2) or typed (3 and 4). `typed`: it needs the editor. Default board, or typed for a `ladder` of 3 or 4." },
+      ladder: { type: "number", doc: "How much help the input gives: 1 the board with only `moves`, 2 the board with every move learned so far, 3 the editor with the moves behind a control, 4 the editor alone. Default: the level's `ladder` (curriculum.yaml), and at least 3 for a typed exercise." },
       says: { type: "string", required: true, doc: "The claim in plain English, as a mathematician would say it. Shown above the exercise." },
       statement: { type: "text", required: true, doc: "The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons." },
       given: { type: "text", doc: "Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`." },
@@ -409,7 +411,10 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
     ],
     check: (p) => {
       const out = statementProblems(p);
-      if ((p.mode ?? "board") === "board" && !(Array.isArray(p.moves) && p.moves.length)) out.push("a board exercise needs `moves`");
+      if (p.ladder !== undefined && !isLadder(p.ladder)) out.push("`ladder` must be 1, 2, 3 or 4");
+      const mode = p.mode ?? (isLadder(p.ladder) && !onBoard(p.ladder) ? "typed" : "board");
+      if (isLadder(p.ladder) && onBoard(p.ladder) && mode === "typed") out.push(`\`ladder: ${p.ladder}\` is the board, and the exercise is \`mode: typed\` (make it a board exercise, with \`moves\`, or use 3 or 4)`);
+      if (mode === "board" && !(Array.isArray(p.moves) && p.moves.length)) out.push("a board exercise needs `moves`");
       return out;
     },
   },

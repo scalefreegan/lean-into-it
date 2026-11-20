@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { attemptCount, attemptsFor, solvedSince, ensureLearner, isSolved, recordAttempt, solvedFor } from "../db/progress.ts";
+import { attemptCount, attemptsFor, solvedSince, ensureLearner, isSolved, readerAttempts, readerAttemptsForMastery, recordAttempt, solvedFor } from "../db/progress.ts";
 import { freshDb } from "./testdb.mjs";
 
 // The real migrations on an in-process PGlite: no Postgres server, and
@@ -84,4 +84,17 @@ test("a check made after rung 3 is assisted, and attemptsFor says so; the rung i
   await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: true, rung: 3 });
   await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: true });
   assert.deepEqual((await attemptsFor(db, me)).map((r) => r.assisted), [false, true, false]);
+});
+
+test("the input ladder's rung is kept apart from the hint rung, and every reader of attempts gets it", async (t) => {
+  const { db, query, close } = await freshDb();
+  t.after(close);
+  const me = await ensureLearner(db);
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: false, error: "x", inputRung: 2 });
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: true, rung: 1, inputRung: 4 });
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: true });
+  assert.deepEqual((await attemptsFor(db, me)).map((r) => r.inputRung), [2, 4, null]);
+  const q = (text, params) => query(text, params);
+  assert.deepEqual((await readerAttemptsForMastery(q, me, 10)).map((r) => r.inputRung), [null, 4, 2]);
+  assert.deepEqual((await readerAttempts(q, me, { limit: 10 })).map((r) => [r.rung, r.input_rung]), [[null, null], [1, 4], [null, 2]]);
 });

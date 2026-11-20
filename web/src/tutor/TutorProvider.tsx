@@ -36,7 +36,7 @@ export function TutorProvider({ children }: { children: ReactNode }) {
     if (page === "lesson" && route.arg) ctx.lessonId = route.arg;
     if (active && (page === "lesson" || page === "review")) {
       const w = work.current.get(workKey(active.lessonId, active.exerciseId));
-      Object.assign(ctx, { lessonId: active.lessonId, exerciseId: active.exerciseId, body: w?.body ?? "", goals: goalsText(w?.goals ?? null), error: w?.error ?? "" });
+      Object.assign(ctx, { lessonId: active.lessonId, exerciseId: active.exerciseId, body: w?.body ?? "", goals: goalsText(w?.goals ?? null), error: w?.error ?? "", ...(w?.ladder ? { ladder: w.ladder } : {}) });
     }
     if (page === "playground") ctx.source = work.current.get(PLAYGROUND_KEY)?.body ?? "";
     if (page === "lab") ctx.source = work.current.get(LAB_KEY)?.body ?? "";

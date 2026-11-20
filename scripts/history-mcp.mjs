@@ -46,6 +46,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { READER_ROLE, READER_ROLE_RE } from "./db/config.mjs";
 import { readerAttempts, readerAttemptsForMastery, readerCredits, readerLevelOpens, readerSolved } from "./db/progress.ts";
+import { attemptOnBoard } from "../web/shared/ladder.ts";
 import { isDue, lastLine, levelOpen, levelStatuses, masteryFrom, reviewSession, solvedOf, tacticsIn, tacticsOf } from "../web/shared/progress.ts";
 
 /* ---------------------------------- caps ---------------------------------- */
@@ -179,6 +180,8 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
               proof: cut(r.body, CAPS.proofChars),
               ...(r.error ? { leanSaid: cut(r.error, CAPS.errorChars) } : {}),
               ...(r.rung ? { hintRung: r.rung } : {}),
+              // How it was entered: 1-2 clicked on the proof board, 3-4 typed (web/shared/ladder.ts).
+              ...(r.input_rung ? { enteredAt: r.input_rung <= 2 ? `the proof board (rung ${r.input_rung})` : `typing (rung ${r.input_rung})` } : {}),
               ...(r.assisted ? { assisted: true } : {}),
             })),
           },
@@ -225,7 +228,7 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
           checks++;
           if (!r.solved) failed++;
           bump(byConcept, found.exercise.concept, r, !r.solved);
-          const used = r.solved ? tacticsIn(String(r.body), moves) : found.exercise.mode === "board" ? tacticsIn(lastLine(String(r.body)), moves) : [];
+          const used = r.solved ? tacticsIn(String(r.body), moves) : attemptOnBoard(r.input_rung, found.exercise.mode) ? tacticsIn(lastLine(String(r.body)), moves) : [];
           for (const move of used) bump(byMove, move, r, !r.solved);
         }
         const listed = (map, name) =>

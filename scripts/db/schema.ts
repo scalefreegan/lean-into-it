@@ -51,6 +51,10 @@ export const attempts = pgTable(
     /** The highest Tutor hint rung (1-3) the learner had climbed on this
      *  exercise when they checked it; null when they asked for none. */
     rung: smallint("rung"),
+    /** The input ladder's rung the check was made at (web/shared/ladder.ts):
+     *  1–2 the proof board, 3–4 the editor; null for other kinds, and for
+     *  rows from before it was recorded. Not the hint rung above. */
+    inputRung: smallint("input_rung"),
     /** Rung 3 had given them the line: the check is seen, not credited. */
     assisted: boolean("assisted").notNull().default(false),
     createdAt: tz("created_at").notNull().defaultNow(),

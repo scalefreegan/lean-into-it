@@ -82,6 +82,19 @@ Landed in the first PR, the foundation slice:
   `match` (pair sentences with Lean) are marked against the author's answer,
   the one exception to "Lean decides" (decided 2026-11-19); Lean checks
   that their Lean is readable. No lesson uses them yet.
+- Ladder fading (`lii-8wq.1`): how a proof is entered fades from clicking
+  to typing on four rungs (`web/shared/ladder.ts`): the board with the
+  exercise's own moves, the board with every move learned so far, the
+  editor with those moves behind "Show moves" (a click writes its line at
+  the caret), the editor alone. Each level has a default (`ladder` in
+  curriculum.yaml: Levels 0-1 rung 1, Level 2 rung 2, Level 3 rung 3,
+  Levels 4-8 rung 4); an exercise may set its own. A board exercise takes
+  its level's rung, so Level 3's are now typed with their moves to hand; a
+  typed one takes at least 3, so Level 1's typed exercises are at 3, not
+  1-2. The learner can step down a rung for one exercise and back up; each
+  attempt records its rung (`attempts.input_rung`, migration 0006), and
+  mastery charges a refused board check to its last move only when it was
+  made on the board.
 - Proof-craft lessons (`lii-dvy.7`): six short lessons on how
   mathematicians work, each round one worked problem, marked "Proof craft"
   on the Path and their page (the lesson field `craft: true`): work
@@ -465,7 +478,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 501, including every reference solution checked by the real Lean,
+- Tests: 509, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -496,7 +509,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-17 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+16 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -512,7 +525,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-8wq.1` | Ladder fading: the move palette fades into typed Lean | 2 | |
 | `lii-8wq.2` | Live proof map | 2 | `lii-1ou.3` |
 | `lii-8wq.6` | obtain on a fact that is not an and, or, iff or exists | 3 | |
 

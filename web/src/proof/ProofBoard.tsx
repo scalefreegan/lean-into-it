@@ -25,9 +25,18 @@ interface Props {
   /** The proof that solved it before, to show the finished board. */
   solution?: string;
   onSolved: (body: string) => void;
+  /** The ladder's rung (1 or 2), sent with each move so the attempt records it. */
+  ladder?: number;
+  /** The move ids on offer; default the exercise's own. */
+  moves?: string[];
+  /** Lines to open on when there is no stored solution: the proof so far,
+   *  carried from another rung. Kept if Lean takes them without an error. */
+  resume?: string[];
+  /** Told the lines on the board whenever they change. */
+  onLines?: (lines: string[]) => void;
 }
 
-export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
+export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, moves: offered = exercise.moves, resume, onLines }: Props) {
   // history[history.length - 1] is the board now; undo pops, so it never asks Lean.
   const [history, setHistory] = useState<Step[]>([]);
   const [solved, setSolved] = useState(false);
@@ -42,7 +51,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
   const seq = useRef(0);
 
   const load = useCallback(
-    async (lines: string[]) => {
+    async (lines: string[], resuming = false) => {
       const mine = ++seq.current;
       setBusy(true);
       setTrouble(null);
@@ -51,8 +60,9 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
       try {
         let reply = await check({ lessonId, exerciseId: exercise.id, body: lines.join("\n") });
         if (mine !== seq.current) return;
-        if (lines.length && !reply.solved) {
-          // A stored solution Lean no longer accepts (the exercise changed): start clean.
+        if (lines.length && (resuming ? reply.error !== null || reply.refusal !== null : !reply.solved)) {
+          // A stored solution Lean no longer accepts (the exercise changed), or
+          // carried lines it refuses: start clean.
           lines = [];
           reply = await check({ lessonId, exerciseId: exercise.id, body: "" });
           if (mine !== seq.current) return;
@@ -71,16 +81,22 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
   // The stored solution is read once, when the board opens: solving the
   // exercise changes the prop, and must not reload the board.
   const opening = useRef(solution);
+  const carried = useRef(resume);
   useEffect(() => {
     const counter = seq;
-    void load(opening.current ? opening.current.split("\n").filter((l) => l.trim()) : []);
+    if (opening.current) void load(opening.current.split("\n").filter((l) => l.trim()));
+    else void load(carried.current ?? [], !!carried.current?.length);
     return () => {
       counter.current++;
     };
   }, [load]);
 
   const now = history[history.length - 1];
-  useTutorWork(lessonId, exercise.id, { body: now?.lines.join("\n") ?? "", goals: now?.goals ?? null, error: refusal ? `${refusal.line}: ${refusal.raw}` : null });
+  const lineKey = now?.lines.join("\n");
+  useEffect(() => {
+    if (lineKey !== undefined) onLines?.(lineKey ? lineKey.split("\n") : []);
+  }, [lineKey, onLines]);
+  useTutorWork(lessonId, exercise.id, { ...(ladder ? { ladder } : {}), body: now?.lines.join("\n") ?? "", goals: now?.goals ?? null, error: refusal ? `${refusal.line}: ${refusal.raw}` : null });
   const before = history.length > 1 ? history[history.length - 2] : null;
 
   // `busy` is state, so two clicks in one frame both see it false; this is
@@ -98,7 +114,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
     setTrouble(null);
     setPending(null);
     try {
-      const reply = await check({ lessonId, exerciseId: exercise.id, body: lines.join("\n"), record: "rejected" });
+      const reply = await check({ lessonId, exerciseId: exercise.id, body: lines.join("\n"), record: "rejected", ...(ladder ? { ladder } : {}) });
       if (mine !== seq.current) return;
       // A move Lean accepts but that leaves everything as it was is not a step.
       const refused = reply.error?.message ?? reply.refusal ?? (!reply.solved && JSON.stringify(reply.goals) === JSON.stringify(now.goals) ? UNCHANGED : null);
@@ -175,7 +191,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved }: Props) {
     if (history[0]?.lines.length) void load([]);
   }
 
-  const moves = exercise.moves.map((id) => MOVES[id]).filter(Boolean);
+  const moves = offered.map((id) => MOVES[id]).filter(Boolean);
   const known = before && now && now.goals[0] && before.goals[0] ? new Set(namesIn(before.goals[0])) : undefined;
 
   return (

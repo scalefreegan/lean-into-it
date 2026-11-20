@@ -30,6 +30,9 @@ export interface CheckRequest {
    *  not an attempt (re-checking a stored solution when an exercise opens),
    *  never kept, so opening a lesson is never a review passed. */
   record?: "rejected" | "submitted" | "live";
+  /** Kind `prove`: the input ladder's rung the learner is at (1–4,
+   *  web/shared/ladder.ts), kept on the attempt row. */
+  ladder?: number;
 }
 
 export interface CheckReply {
@@ -128,6 +131,8 @@ export interface TutorContext {
   goals?: string;
   /** Lean's last error, as text. */
   error?: string;
+  /** Kind `prove`: the ladder's rung the learner is on (1–4, web/shared/ladder.ts). */
+  ladder?: number;
   /** A free Lean file: the Playground's, or the example open in the Lab. */
   source?: string;
 }

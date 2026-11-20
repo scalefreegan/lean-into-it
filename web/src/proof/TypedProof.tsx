@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
 import { explain, LEFT_FALSE, leftFalse as isLeftFalse, suggestion } from "../../shared/explain.ts";
-import { stillOpenGoals } from "../../shared/goals.ts";
+import { stillOpenGoals, type Goal } from "../../shared/goals.ts";
+import { insertLine } from "../../shared/ladder.ts";
+import { MOVES, moveLine, type Move } from "../../shared/moves.ts";
 import type { Position } from "../../shared/proof.ts";
 import type { CheckReply } from "../../shared/wire.ts";
 import { ApiError, check } from "../api/client.ts";
 import { Button, Notice } from "../ui.tsx";
 import { Closed, GoalView, Refusal } from "./GoalCards.tsx";
-import { LeanEditor, SymbolHelp } from "./LeanEditor.tsx";
+import { LeanEditor, SymbolHelp, type EditorWrite } from "./LeanEditor.tsx";
 import { useLive } from "./useLive.ts";
 import { useTutorWork } from "../tutor/store.ts";
 
@@ -25,9 +27,61 @@ interface Props {
   encode?: (body: string) => string;
   /** The line above the editor. Default: `example <statement> := by`. */
   header?: string;
+  /** Kind `prove`: the ladder's rung (3 or 4), sent with each check that is an attempt. */
+  ladder?: number;
+  /** Rung 3: the moves behind "Show moves"; a click writes its line at the caret. */
+  palette?: string[];
+  /** Start with the moves shown (the learner stepped down to them). */
+  paletteOpen?: boolean;
 }
 
-export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b) => b, header }: Props) {
+/** The line a palette click writes: the board's own line (`constructor`,
+ *  `intro h`, `rw [?]`, `obtain ⟨x, hx⟩ := ?`), with `?` where the move needs
+ *  something only the learner can say, and the index of that `?` (-1: none). */
+function paletteLine(move: Move, goal: Goal, settled: boolean): { line: string; hole: number } {
+  // A fresh name is chosen from the goals at the caret: only once Lean has answered for this text.
+  if (move.needs === "name" && !settled) return { line: `${move.label} `, hole: -1 };
+  if (move.needs === "none" || move.needs === "name") return { line: moveLine(move, goal), hole: -1 };
+  const line = moveLine(move, goal, "?");
+  return { line, hole: line.indexOf("?", move.label.length) };
+}
+
+/** Rung 3's moves, behind "Show moves". Its own state, so the editor beside
+ *  it keeps its text when the moves are shown or hidden. */
+function Palette({ moves, open, write }: { moves: string[]; open: boolean; write: (move: Move) => void }) {
+  const [shown, setShown] = useState(open);
+  const id = useId();
+  return (
+    <div data-palette className="flex flex-col gap-2">
+      <button type="button" aria-expanded={shown} aria-controls={id} onClick={() => setShown((s) => !s)} className="self-start text-sm font-semibold text-accent underline-offset-2 hover:underline">
+        {shown ? "Hide moves" : "Show moves"}
+      </button>
+      {shown && (
+        <div id={id} className="flex flex-wrap gap-2">
+          {moves
+            .map((m) => MOVES[m])
+            .filter(Boolean)
+            .map((move) => (
+              <button
+                key={move.id}
+                type="button"
+                data-move={move.id}
+                title={move.does}
+                aria-label={`${move.label}: write its line at the caret`}
+                onClick={() => write(move)}
+                className="rounded-full border-2 border-accent bg-panel px-3 py-1 font-mono text-sm font-semibold text-accent hover:bg-accent-soft"
+              >
+                {move.label}
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b) => b, header, ladder, palette, paletteOpen = false }: Props) {
+  const edit = useRef<EditorWrite | null>(null);
   const [body, setBody] = useState(solution ?? "");
   const [caret, setCaret] = useState<Position>({ line: 0, character: 0 });
   const [submitted, setSubmitted] = useState<{ body: string; reply: CheckReply } | null>(null);
@@ -41,7 +95,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b
   // (a counterexample's values), the reply to the old answer is dropped.
   const answer = encode(body);
   const live = useLive({ body, caret, answer }, (k, signal) =>
-    check({ lessonId, exerciseId: exercise.id, body: k.answer, cursor: k.caret, ...(k.body === opening.current ? {} : { record: "live" as const }) }, signal),
+    check({ lessonId, exerciseId: exercise.id, body: k.answer, cursor: k.caret, ...(k.body === opening.current ? {} : { record: "live" as const, ...(ladder ? { ladder } : {}) }) }, signal),
   );
   const reply = live.reply;
 
@@ -57,7 +111,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b
     setSubmitting(true);
     setTrouble(null);
     try {
-      const r = await check({ lessonId, exerciseId: exercise.id, body: answer, record: "submitted" });
+      const r = await check({ lessonId, exerciseId: exercise.id, body: answer, record: "submitted", ...(ladder ? { ladder } : {}) });
       setSubmitted({ body: answer, reply: r });
       if (r.solved && !told.current) {
         told.current = true;
@@ -86,7 +140,16 @@ export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b
   const unsolved = reply?.diagnostics.find((d) => d.severity === "error" && /^unsolved goals/.test(d.message));
   const leftFalse = unsolved && isLeftFalse(unsolved.message) ? LEFT_FALSE : null;
   const empty = !body.trim();
-  useTutorWork(lessonId, exercise.id, { body, goals: stillOpen.length ? stillOpen : goals, error: reply?.error ? `${reply.error.line !== null ? `line ${reply.error.line + 1}: ` : ""}${reply.error.message}` : (reply?.refusal ?? null) });
+  /** A palette click: the move's line at the caret, its \`?\` selected to be typed over. */
+  function writeMove(move: Move) {
+    const { line, hole } = paletteLine(move, (goals ?? [])[0] ?? { hypotheses: [], target: "" }, !live.checking && !!reply);
+    edit.current?.((text, at) => {
+      const w = insertLine(text, at.line, line);
+      const start = w.caret.character - line.length;
+      return hole < 0 ? { text: w.text, anchor: w.caret } : { text: w.text, anchor: { line: w.caret.line, character: start + hole }, head: { line: w.caret.line, character: start + hole + 1 } };
+    });
+  }
+  useTutorWork(lessonId, exercise.id, { ...(ladder ? { ladder } : {}), body, goals: stillOpen.length ? stillOpen : goals, error: reply?.error ? `${reply.error.line !== null ? `line ${reply.error.line + 1}: ` : ""}${reply.error.message}` : (reply?.refusal ?? null) });
 
   return (
     <div data-typed={exercise.id} className="overflow-hidden rounded-2xl border border-line-strong bg-panel shadow-sm">
@@ -110,7 +173,9 @@ export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b
               setCaret(c);
             }}
             onCaret={setCaret}
+            editRef={edit}
           />
+          {palette && <Palette key={paletteOpen ? "open" : "shut"} moves={palette} open={paletteOpen} write={(move) => writeMove(move)} />}
           <SymbolHelp />
           <div className="flex items-center gap-3">
             <Button variant="primary" onClick={submit} disabled={submitting || empty}>

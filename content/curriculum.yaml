@@ -1,7 +1,9 @@
 # The map of the whole curriculum: tracks and levels. Lessons live in
 # content/lessons/<track>/ and say which track and level they belong to.
 # Format: docs/CONTENT.md. A level marked `status: outline` has no lessons
-# yet; its topics say what it will cover.
+# yet; its topics say what it will cover. A level's `ladder` is the rung its
+# proofs default to: 1 cards with the proof's own moves, 2 cards with every
+# move learned so far, 3 typing with the moves to hand, 4 typing alone.
 
 tracks:
   - id: logic
@@ -20,22 +22,27 @@ tracks:
 levels:
   - id: 0
     title: What a proof is
+    ladder: 1
     summary: The difference between evidence and proof, what it means that Lean "accepts" one, and first proofs made by clicking.
     moves: [exact, rfl, norm_num]
   - id: 1
     title: Logic you can see
+    ladder: 1
     summary: And, or, not, if-then, for-all and there-exists, each with the moves that prove it and the moves that use it.
     moves: [intro, apply, constructor, obtain, left, right, exfalso, contradiction, by_contra, use]
   - id: 2
     title: Numbers and induction
+    ladder: 2
     summary: The natural numbers from the ground up, equality and rewriting, proof by induction, and the first programs proved correct.
     moves: [decide, rw, simp, induction, omega, calc, exact?]
   - id: 3
     title: Algebra and inequalities
+    ladder: 3
     summary: The real numbers, equations and inequalities, absolute value and functions, proved the way a textbook argues them.
     moves: [ring, linarith, field_simp, nlinarith, positivity, have, calc, gcongr]
   - id: 4
     title: Sets and functions
+    ladder: 4
     status: outline
     summary: Sets, subsets, unions and intersections, and what it means for a function to be injective or surjective.
     topics:
@@ -47,6 +54,7 @@ levels:
       - Cantor's diagonal argument
   - id: 5
     title: Sequences and limits
+    ladder: 4
     status: outline
     summary: What it means for a sequence to converge, with epsilon and N you can drag.
     topics:
@@ -58,6 +66,7 @@ levels:
       - The squeeze theorem
   - id: 6
     title: Continuity, derivatives, integrals
+    ladder: 4
     status: outline
     summary: Calculus revisited, this time with every step justified.
     topics:
@@ -70,6 +79,7 @@ levels:
       - The fundamental theorem of calculus
   - id: 7
     title: Verified programs
+    ladder: 4
     status: outline
     summary: Specifications, invariants, and proofs that sorting and searching code is correct.
     topics:
@@ -81,6 +91,7 @@ levels:
       - What "verified" does and does not promise about real software
   - id: 8
     title: How large formalisations are built
+    ladder: 4
     status: outline
     summary: How a long research proof becomes thousands of small checked steps.
     topics:

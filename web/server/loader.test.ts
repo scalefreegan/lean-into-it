@@ -95,6 +95,25 @@ test("a proof-craft lesson is marked; others are not, and `craft` must be true o
   assert.deepEqual(bad.problems.map((p) => p.message), ["`craft` must be true or false"]);
 });
 
+test("an exercise's rung on the ladder: its own, or its level's within what it can be; a board rung on a typed exercise is refused", () => {
+  const curriculum = CURRICULUM.replace("{ id: 1, title: One, summary: s }", "{ id: 1, title: One, summary: s, ladder: 3 }");
+  const lesson = LESSON.replace("    mode: board\n", "").replace("    mode: typed\n", "    mode: typed\n    ladder: 4\n");
+  const content = loadContent(fixture({ "curriculum.yaml": curriculum, "lessons/logic/a.md": lesson }));
+  assert.deepEqual(content.problems, []);
+  assert.equal(content.levels[0].ladder, 3);
+  // \`first\` can be done on the board (no mode, moves given): the level types it, with its moves to hand.
+  assert.deepEqual(content.lessons[0].exercises.map((e) => [e.id, e.mode, e.ladder]), [["first", "board", 3], ["second", "typed", 4]]);
+  // With no ladder the level is 1, and a typed exercise still types: 3.
+  const plain = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": LESSON }));
+  assert.deepEqual(plain.lessons[0].exercises.map((e) => e.ladder), [1, 3]);
+  const bad = loadContent(fixture({ "curriculum.yaml": CURRICULUM.replace("{ id: 1, title: One, summary: s }", "{ id: 1, title: One, summary: s, ladder: 7 }"), "lessons/logic/a.md": LESSON.replace("    mode: typed\n", "    mode: typed\n    ladder: 2\n") }));
+  assert.deepEqual(bad.problems.map((p) => p.message), [
+    "level 1: `ladder` must be 1, 2, 3 or 4",
+    'exercise "second": `ladder: 2` is the board, and the exercise is `mode: typed` (make it a board exercise, with `moves`, or use 3 or 4)',
+    'an exercise block names "second", which is not in the frontmatter\'s exercises',
+  ]);
+});
+
 test("a widget block becomes a block with its checked parameters, in its place", () => {
   const withWidgets = LESSON.replace(
     "Closing prose.",

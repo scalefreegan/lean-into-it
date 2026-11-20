@@ -42,6 +42,20 @@ interface Props {
   label: string;
   /** Shown before the first line, not editable (an exercise's statement). */
   header?: string;
+  /** Filled with a way for the page to write into the editor at the caret
+   *  (the move palette): the change, the selection after it, and focus. */
+  editRef?: React.RefObject<EditorWrite | null>;
+}
+
+/** An edit the page makes at the caret: from the text and the caret, the
+ *  new text and what to select in it (\`head\` absent: a caret). */
+export type EditorWrite = (edit: (text: string, caret: Position) => { text: string; anchor: Position; head?: Position }) => void;
+
+/** A position as an offset into \`text\`. */
+function offsetIn(text: string, p: Position): number {
+  const lines = text.split("\n");
+  const line = Math.min(Math.max(p.line, 0), lines.length - 1);
+  return lines.slice(0, line).reduce((n, l) => n + l.length + 1, 0) + Math.min(Math.max(p.character, 0), lines[line].length);
 }
 
 const lean = StreamLanguage.define<LexState>({
@@ -179,7 +193,7 @@ function expand(view: EditorView): boolean {
   return true;
 }
 
-export function LeanEditor({ value, onChange, onCaret, startAt, errorLines = [], marks = [], stale = false, names = [], rows = 8, label, header }: Props) {
+export function LeanEditor({ value, onChange, onCaret, startAt, errorLines = [], marks = [], stale = false, names = [], rows = 8, label, header, editRef }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   // The latest props, for the editor's own callbacks (it is made once).
@@ -234,7 +248,18 @@ export function LeanEditor({ value, onChange, onCaret, startAt, errorLines = [],
       latest.current.onCaret(positionOf(made.state));
     }
     view.current = made;
+    if (editRef) {
+      // A typed edit, not one from outside: the page hears of it as of typing (text and caret).
+      editRef.current = (edit) => {
+        const text = made.state.doc.toString();
+        const next = edit(text, positionOf(made.state));
+        const anchor = offsetIn(next.text, next.anchor);
+        made.dispatch({ changes: changeBetween(text, next.text), selection: { anchor, head: next.head ? offsetIn(next.text, next.head) : anchor }, userEvent: "input", scrollIntoView: true });
+        made.focus();
+      };
+    }
     return () => {
+      if (editRef) editRef.current = null;
       made.destroy();
       view.current = null;
     };
