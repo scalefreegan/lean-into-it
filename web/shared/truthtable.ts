@@ -186,7 +186,10 @@ const LEVEL = { iff: 0, implies: 1, or: 2, and: 3, not: 4, var: 5, const: 5 } as
 export function show(f: Formula): string {
   if (f.op === "var") return f.name;
   if (f.op === "const") return f.value ? "True" : "False";
-  const wrap = (g: Formula, tighter: boolean) => (LEVEL[g.op] < LEVEL[f.op] || (tighter && LEVEL[g.op] === LEVEL[f.op]) ? `(${show(g)})` : show(g));
+  // Lean reads `P → Q ↔ Q → P` as (P → Q) ↔ (Q → P), but a reader may not:
+  // an → inside a ↔ keeps its brackets.
+  const wrap = (g: Formula, tighter: boolean) =>
+    LEVEL[g.op] < LEVEL[f.op] || (tighter && LEVEL[g.op] === LEVEL[f.op]) || (f.op === "iff" && g.op === "implies") ? `(${show(g)})` : show(g);
   if (f.op === "not") return `¬${wrap(f.a, false)}`;
   // → ∨ ∧ group to the right: a same-level left part needs brackets. ↔ does
   // not group, so a same-level part on either side does.
