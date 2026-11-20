@@ -91,6 +91,8 @@ Landed in the first PR, the foundation slice:
   the area) and `sequence-limit` (an ε band and the first N from which
   every term drawn stays inside). Each says it is a picture, not a proof.
   In the Lab under Limits; no lesson yet (Levels 5 and 6 are outlines).
+- The content-check tests' Lean has the app's 20 s limit (`lii-z19`): with
+  6 s an ordinary check timed out when the full suite loaded the machine.
 - Informal beside formal (`lii-53v.3`): the widget `informal-formal` sets a
   proof in sentences beside the Lean of one of the lesson's exercises (its
   reference solution, so Lean has accepted it). Each sentence names the
@@ -481,7 +483,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-19 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+18 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -491,7 +493,6 @@ land first.
 | `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
 | `lii-5pa` | Flaky test under load: "a check that never ends is given up on inside the limit" (tight timing bounds) | 3 | |
-| `lii-z19` | The contentcheck test of a broken lesson can time out (6 s) under the full suite | 3 | |
 | `lii-m2l` | Lean timing tests fail in the full suite when the machine is loaded | 3 | |
 
 ### Proof board (epic `lii-8wq`)
