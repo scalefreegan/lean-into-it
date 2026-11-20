@@ -27,8 +27,8 @@ Landed in the first PR, the foundation slice:
 - Level 1 written (`lii-dvy.2`): "If… then", "And", "Or", "Not, and
   contradiction", "If and only if", "For all", "There exists" on the logic
   track and "Reading a goal, and proofs as things" on the Lean track; 45
-  exercises. Then "Truth tables and proofs" (`lii-dvy.8`): three tables
-  beside proofs, a True-or-false claim with a proof, one with a
+  exercises. Then "Truth tables and proofs" (`lii-dvy.8`), three more: tables
+  beside proofs, a True-or-false claim to prove, one to refute with a
   counterexample, and a Fill-the-gap.
 - Level 2 written (`lii-dvy.3`): "Counting from zero", "Equal things can be
   swapped", "Addition, defined", "Induction", "Adding up", "Even, odd,

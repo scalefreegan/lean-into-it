@@ -12,6 +12,7 @@ exercises:
     title: Modus tollens
     says: For any statements P and Q, if P implies Q, and Q is not true, then P is not true.
     statement: "(P Q : Prop) : (P → Q) → ¬Q → ¬P"
+    forbid: [tauto, aesop, simp, simp_all, grind, itauto, exact?, apply?, decide, mt, Not.imp, Function.mt, absurd]
     truth: true
     why: The truth table has T in every row. Suppose P were true; then Q would be, and Q is not.
     solution: |
@@ -24,6 +25,7 @@ exercises:
   - id: converse
     kind: truefalse
     title: The converse
+    concept: implication
     says: For every natural number n, if n is greater than 2, then n is greater than 5.
     statement: "(n : ℕ) : n > 2 → n > 5"
     truth: false
@@ -32,20 +34,19 @@ exercises:
   - id: neither
     kind: fill
     title: Neither one
-    says: Suppose it is not the case that P or Q. Then P is not true, and Q is not true.
-    statement: "(P Q : Prop) (h : ¬(P ∨ Q)) : ¬P ∧ ¬Q"
+    concept: negation
+    says: Suppose P is not true, and Q is not true. Then it is not the case that P or Q.
+    statement: "(P Q : Prop) (h : ¬P ∧ ¬Q) : ¬(P ∨ Q)"
     proof: |
-      constructor
-      · intro hP
-        apply h
-        <gap>
-        exact hP
-      · intro hQ
-        apply h
-        right
-        exact hQ
-    options: [left, right, exfalso, intro hQ]
-    solution: left
+      obtain ⟨hnP, hnQ⟩ := h
+      intro hPQ
+      obtain hP | hQ := hPQ
+      <gap>
+      exact hP
+      apply hnQ
+      exact hQ
+    options: [apply hnP, exact hnP, left, intro hP]
+    solution: apply hnP
 ---
 
 Since the start of this level you have proved statements about P and Q without ever knowing whether P or Q is true. There is another way to be sure of such a statement: try every case.
@@ -98,11 +99,10 @@ The table of "not (P or Q)" and "not P and not Q" agrees in every row. This is o
 ```widget
 type: truth-table
 formula: "¬(P ∨ Q) ↔ ¬P ∧ ¬Q"
-steps: false
-caption: The same value in every row, so the two say the same thing.
+caption: The two sides have the same value in every row, so they say the same thing.
 ```
 
-Here is half of it as a proof, with one step missing. In the first case you have supposed P, and the goal is P ∨ Q. Which move makes it P?
+In "Not, and contradiction" you proved it from left to right. Here is the other half, with one step missing. After the split into cases, in the first you have P, you know P is not true, and the goal is False. Which move turns the goal into P?
 
 ```exercise
 id: neither
