@@ -219,7 +219,7 @@ other side cannot be backed up: picking it is answered at once with `why`
 and kept as an attempt that failed, and the learner can switch. Nothing is
 solved except by Lean. The true side is a typed proof (no board). The
 second form of this kind in docs/PRD.md, finding the flawed step in an
-argument, is not built (`lii-6xv.4`).
+argument, is its own kind, `flaw` (below).
 
 ### Predict, read and match
 
@@ -265,6 +265,28 @@ in another order. These two are fixed answers, marked against what the
 author wrote, not by Lean: the one exception to "Lean decides", for
 recognising what a statement says. Lean still checks that every statement
 they show is one it can read (`npm test`, `check:content`).
+
+`kind: flaw` is a plausible argument in words with one wrong step; the
+learner says which. It has `says` (what the argument claims to show),
+`steps` (two to eight, in order), `flaw` (the wrong step's number, from 1)
+and `why` (what is wrong with it, shown once the learner finds it; after a
+wrong pick they are told only that the step holds up). A fixed answer, like
+`read`: there is no Lean in it to check.
+
+```yaml
+  - id: two-equals-one
+    kind: flaw
+    title: Where it breaks
+    says: A proof that 2 = 1.
+    steps:
+      - Let a and b be numbers with a = b.
+      - "Multiply both sides by a: a² = ab."
+      - "Factor after subtracting b²: (a + b)(a − b) = b(a − b)."
+      - "Divide both sides by a − b: a + b = b."
+      - Since a = b, that says 2b = b, so 2 = 1.
+    flaw: 4
+    why: a − b is 0, and dividing by 0 is not allowed.
+```
 
 ### The body
 
@@ -356,7 +378,7 @@ and the checking route (`checkExercise` in `web/server/check.ts`) are
 written by hand for each kind. For most kinds `checkExercise` turns the
 answer into a proof body for Lean to judge; `fill` and `truefalse` show
 how, and `predict` compares Lean's state instead. A fixed-answer kind
-(`read`, `match`) is marked in `checkFixed` without Lean, and its Lean is
+(`read`, `match`, `flaw`; `isFixed` in `web/shared/recognize.ts`) is marked in `checkFixed` without Lean, and its Lean is
 checked for readability in `checkSolution` (`web/server/contentcheck.ts`).
 
 A widget parameter may not be called `type`, and an exercise kind's

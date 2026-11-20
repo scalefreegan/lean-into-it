@@ -1,7 +1,7 @@
 import type { ExerciseKind } from "../../shared/registry.ts";
 import { FillGap } from "./FillGap.tsx";
 import { ProveIt } from "./ProveIt.tsx";
-import { Match, Predict, Read } from "./Recognize.tsx";
+import { Flaw, Match, Predict, Read } from "./Recognize.tsx";
 import { TrueOrFalse } from "./TrueOrFalse.tsx";
 import type { ExerciseComponent } from "./types.ts";
 
@@ -15,4 +15,5 @@ export const EXERCISE_COMPONENTS: Record<ExerciseKind, ExerciseComponent> = {
   predict: Predict,
   read: Read,
   match: Match,
+  flaw: Flaw,
 };

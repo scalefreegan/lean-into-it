@@ -188,7 +188,7 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
   },
 };
 
-export type ExerciseKind = "prove" | "fill" | "truefalse" | "predict" | "read" | "match";
+export type ExerciseKind = "prove" | "fill" | "truefalse" | "predict" | "read" | "match" | "flaw";
 
 /** Two to `max` distinct choices, the solution among them. */
 function choiceProblems(p: Params, max = 5): string[] {
@@ -426,6 +426,31 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
       },
     ],
     check: (p) => [...statementProblems(p), ...choiceProblems(p)],
+  },
+  flaw: {
+    doc: "A plausible argument with one wrong step; the learner says which. A fixed answer: marked against `flaw`, and `why` is shown once the right step is found. For an argument written in words, where Lean has nothing to check.",
+    label: "Spot the flaw",
+    params: {
+      says: { type: "string", required: true, doc: "What the argument claims to show. Shown above it." },
+      steps: { type: "string[]", required: true, doc: "The argument, two to eight steps in order, each a sentence or two. Exactly one is wrong." },
+      flaw: { type: "number", required: true, integer: true, min: 1, max: 8, doc: "The number of the wrong step, counting from 1." },
+      why: { type: "text", required: true, doc: "What is wrong with that step, shown once the learner finds it (after a wrong pick they are only told that step holds up)." },
+    },
+    examples: [
+      {
+        says: "A proof that 2 = 1.",
+        steps: ["Let a and b be numbers with a = b.", "Multiply both sides by a: a² = ab.", "Subtract b² from both sides: a² − b² = ab − b².", "Factor both sides: (a + b)(a − b) = b(a − b).", "Divide both sides by a − b: a + b = b.", "Since a = b, that says 2b = b, and dividing by b gives 2 = 1."],
+        flaw: 5,
+        why: "Since a = b, a − b is 0, and dividing by 0 is not allowed: it turns the true 0 = 0 into the false a + b = b. (Step 6 divides by b, which is fine as long as b is not 0; the trouble is already there.)",
+      },
+    ],
+    check: (p) => {
+      const out: string[] = [];
+      const steps = Array.isArray(p.steps) ? p.steps : [];
+      if (steps.length < 2 || steps.length > 8) out.push("`steps` must have two to eight steps");
+      if (typeof p.flaw === "number" && p.flaw > steps.length) out.push(`\`flaw\` is step ${p.flaw}, but there are only ${steps.length} steps`);
+      return out;
+    },
   },
   match: {
     doc: "Sentences and Lean statements to pair up, each sentence with the statement that says it. A fixed answer: the pairs as written are the right ones, and the Lean is shown in another order. Lean checks that every statement is one it can read.",

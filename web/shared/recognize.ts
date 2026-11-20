@@ -14,6 +14,13 @@
 // every Lean statement they show is one Lean can read.
 
 import { parseState, type Goal } from "./goals.ts";
+import type { ExerciseKind } from "./registry.ts";
+
+/** The kinds about reading, not writing: a choice, not a proof. Their
+ *  answers credit no moves, and placement asks them last. */
+export const isReading = (kind: ExerciseKind): boolean => kind === "predict" || isFixed(kind);
+/** The kinds marked against the author's answer, without Lean. */
+export const isFixed = (kind: ExerciseKind): boolean => kind === "read" || kind === "match" || kind === "flaw";
 
 /** The option meaning that the move finishes the proof. */
 export const NO_GOALS = "no goals";

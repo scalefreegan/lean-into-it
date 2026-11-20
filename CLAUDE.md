@@ -16,7 +16,7 @@ lean/                    Lake project: Lean 4 + Mathlib; .lake/ is fetched by `n
 web/shared/goals.ts      Lean's printed goals parsed into cards (pure)
 web/shared/proof.ts      exercise + body -> Lean source, diagnostics -> verdict (pure)
 web/shared/truefalse.ts  kind truefalse: statement split, the claim's negation, the answer format (pure)
-web/shared/recognize.ts  kinds predict, read, match: goal states compared, the match answer (pure)
+web/shared/recognize.ts  kinds predict, read, match, flaw: goal states compared, the match answer, which kinds are fixed answers (pure)
 web/shared/moves.ts      the proof board's moves; each writes one tactic line
 web/shared/explain.ts    Lean's error messages in plain words
 web/shared/leaneditor.ts the editor's colouring and completion rules (pure)
@@ -58,8 +58,8 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   the exercise's own statement with no error and no `sorry`, resting only on
   the three standard axioms (`web/shared/proof.ts` `judge`). Nothing else,
   and no agent, grades a proof. The one exception (decided 2026-11-19):
-  the reading kinds `read` and `match` are marked against the author's
-  answer, and Lean only checks that the Lean they show is readable;
+  the reading kinds `read`, `match` and `flaw` are marked against the
+  author's answer, and Lean only checks that the Lean they show is readable;
   `predict` is still decided by Lean's real goal state. The learner's body must not be able to decide for
   Lean: it sits in brackets inside the `by` block, may not close them or
   name a way to run a program (`escapesIn`), and Lean's axiom report after
