@@ -37,7 +37,10 @@ test("the plain ASCII spellings mean the same", () => {
     assert.equal(show(f(a)), show(f(b)), a);
 });
 
-test("precedence and grouping are Lean's: ¬ tightest, then ∧, ∨, →, ↔; → and ↔ to the right", () => {
+test("precedence and grouping are Lean's: ¬ tightest, then ∧, ∨, →, ↔; → ∨ ∧ to the right, ↔ not at all", () => {
+  assert.match(parseFormula("p ↔ q ↔ r") as string, /chain of ↔/);
+  assert.equal(show(f("(p ↔ q) ↔ r")), "(p ↔ q) ↔ r");
+  assert.equal(show(f("p ↔ (q ↔ r)")), "p ↔ (q ↔ r)");
   assert.equal(show(f("¬p ∧ q ∨ r → s ↔ t")), "¬p ∧ q ∨ r → s ↔ t");
   assert.equal(show(f("(¬p ∧ q) ∨ r")), "¬p ∧ q ∨ r");
   assert.equal(show(f("¬(p ∧ q)")), "¬(p ∧ q)");
@@ -86,6 +89,8 @@ test("text that is not a formula says why", () => {
     ["p + q", /“\+” is not part/],
     ["prime ∧ q", /not a letter/],
     ["∧ p", /missing what it connects/],
+    ["p ∧ ()", /nothing inside/],
+    ["T ∧ p", /means true or false/],
   ] as const)
     assert.match(parseFormula(text) as string, why, text);
 });
@@ -96,6 +101,8 @@ test("the registry refuses a table it cannot draw, and a domino gap with no next
   assert.equal(table({ formula: "p → q" }), "");
   assert.match(table({ formula: "p ∧" }), /`formula`: the formula ends too soon/);
   assert.match(table({ formula: "a ∧ b ∧ c ∧ d ∧ e ∧ f" }), /6 letters; at most 5/);
+  assert.match(table({ formula: "p" }), /at least one connective/);
+  assert.match(table({ formula: "(True)" }), /at least one connective/);
   const dominoes = (p: Record<string, unknown>) => checkParams(WIDGETS["induction-dominoes"], p).join("\n");
   assert.equal(dominoes({ count: 6, start: 1, gap: 2 }), "");
   assert.match(dominoes({ count: 6, start: 1, gap: 6 }), /1 to 5/);

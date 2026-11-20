@@ -182,7 +182,7 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
   "truth-table": {
     doc: "The truth table of a formula built from letters with and, or, not, implies and iff: one row for every way of making the letters true or false. With `fill`, the learner fills in the formula's column and checks it. A table checks every case, one by one; a proof argues once for all of them.",
     params: {
-      formula: { type: "string", required: true, doc: "The formula: one-letter propositions with ∧ ∨ ¬ → ↔ (or /\\ \\/ ~ -> <->), True, False and brackets, as in `(p → q) ∧ ¬q → ¬p`. At most five letters." },
+      formula: { type: "string", required: true, doc: "The formula: one-letter propositions (not T or F) with `∧ ∨ ¬ → ↔`, or `/\\ \\/ ~ -> <->`, `True`, `False` and brackets, as in `(p → q) ∧ ¬q → ¬p`. At least one connective, at most five letters. As in Lean, a chain of ↔ needs brackets." },
       steps: { type: "boolean", doc: "Show a column for each part of the formula, innermost first, before the whole. Default true." },
       fill: { type: "boolean", doc: "The learner fills in the formula's own column (each cell T or F), then checks it against the table. Default false: the table is shown complete." },
       caption: { type: "string", doc: "One line shown under the table." },
@@ -196,6 +196,7 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       if (typeof p.formula !== "string") return [];
       const f = parseFormula(p.formula);
       if (typeof f === "string") return [`\`formula\`: ${f}`];
+      if (f.op === "var" || f.op === "const") return ["`formula` needs at least one connective: a single letter's table is just the letter"];
       const letters = lettersOf(f);
       return letters.length > MAX_LETTERS ? [`\`formula\` has ${letters.length} letters; at most ${MAX_LETTERS} (${2 ** MAX_LETTERS} rows) fit`] : [];
     },

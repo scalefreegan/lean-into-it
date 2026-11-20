@@ -190,7 +190,7 @@ The truth table of a formula built from letters with and, or, not, implies and i
 
 | Parameter | Value | |
 |---|---|---|
-| `formula` (required) | one line of text | The formula: one-letter propositions with ∧ ∨ ¬ → ↔ (or /\ \/ ~ -> <->), True, False and brackets, as in `(p → q) ∧ ¬q → ¬p`. At most five letters. |
+| `formula` (required) | one line of text | The formula: one-letter propositions (not T or F) with `∧ ∨ ¬ → ↔`, or `/\ \/ ~ -> <->`, `True`, `False` and brackets, as in `(p → q) ∧ ¬q → ¬p`. At least one connective, at most five letters. As in Lean, a chain of ↔ needs brackets. |
 | `steps` | `true` or `false` | Show a column for each part of the formula, innermost first, before the whole. Default true. |
 | `fill` | `true` or `false` | The learner fills in the formula's own column (each cell T or F), then checks it against the table. Default false: the table is shown complete. |
 | `caption` | one line of text | One line shown under the table. |

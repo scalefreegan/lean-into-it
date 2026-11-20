@@ -67,9 +67,9 @@ When is an implication true? Go through every case: A true or false, B true or f
 
 ```widget
 type: truth-table
-formula: "p → q"
+formula: "P → Q"
 steps: false
-caption: An implication is false in one row only, where p is true and q is false.
+caption: An implication is false in one row only, where P is true and Q is false.
 ```
 
 A table like this checks a statement one case at a time. A proof does something else: it argues once, for all the cases together, and that is what the rest of this level is about.

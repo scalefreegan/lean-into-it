@@ -17,9 +17,8 @@ export function TruthTable({ params }: WidgetProps) {
   const ok = typeof formula !== "string";
   const letters = ok ? lettersOf(formula) : [];
   const rows = rowsOf(letters);
-  const parts = ok ? (steps ? partsOf(formula) : [formula]) : [];
-  // The whole formula is the last part (a bare letter has no parts: it is its own column).
-  const columns = ok && !parts.length ? [formula] : parts;
+  // The whole formula is the last part (the registry asks for a connective, so there is one).
+  const columns = ok ? (steps ? partsOf(formula) : [formula]) : [];
   const [guess, setGuess] = useState<(boolean | null)[]>(() => rows.map(() => null));
   const [checked, setChecked] = useState(false);
   if (!ok) return <Notice tone="warn">{`This truth table cannot be drawn: ${formula}`}</Notice>;
@@ -28,6 +27,8 @@ export function TruthTable({ params }: WidgetProps) {
   const wrong = guess.flatMap((g, i) => (g !== null && g !== whole[i] ? [i] : []));
   const done = checked && guess.every((g) => g !== null) && !wrong.length;
   const always = whole.every(Boolean);
+  const holds = whole.filter(Boolean).length;
+  const rowsSaid = rows.length === 1 ? "the one row" : `all ${rows.length} rows`;
   const cell = "border-b border-line px-3 py-1.5 text-center font-mono";
 
   return (
@@ -89,18 +90,23 @@ export function TruthTable({ params }: WidgetProps) {
         </table>
       </div>
       {fill && (
-        <div className="mt-3 flex flex-wrap items-center gap-3" aria-live="polite">
+        <div className="mt-3 flex flex-wrap items-center gap-3">
           <Button variant="primary" onClick={() => setChecked(true)} disabled={guess.some((g) => g === null)}>
             Check the column
           </Button>
+          <span aria-live="polite" className="contents">
           {!checked && guess.some((g) => g === null) && <span className="text-sm text-fg-3">Press each cell for T or F.</span>}
           {checked && wrong.length > 0 && <span className="text-sm text-bad">{wrong.length === 1 ? "One row is wrong" : `${wrong.length} rows are wrong`}: marked in red.</span>}
           {done && <span className="text-sm text-good">{always ? "Every row is right, and every row is T: it holds whatever the letters are." : "Every row is right."}</span>}
+          </span>
         </div>
       )}
       {(caption || !fill) && (
         <figcaption className="mt-3 text-sm text-fg-2">
-          {caption || (always ? `True in all ${rows.length} rows. A proof would show it once, for every row at the same time.` : `Checked case by case: ${rows.length} rows.`)}
+          {caption ||
+            (always
+              ? `True in ${rowsSaid}. A proof would show it once, for every row at the same time.`
+              : `True in ${holds} of ${rows.length} rows, so not always. A table checks the cases one by one; a proof argues once, for all of them.`)}
         </figcaption>
       )}
     </figure>

@@ -185,4 +185,16 @@ export const EXPLORERS: Explorer[] = [
     blurb: "An identity as a picture.",
     widgets: [{ type: "square-of-sum", params: { a: 3, b: 2 }, note: "Why (a + b)² is a² + 2ab + b² and not a² + b²: move the sliders and watch the two rectangles." }],
   },
+  {
+    id: "logic",
+    title: "Truth tables and dominoes",
+    blurb: "Every case of a formula, and the chain behind induction.",
+    widgets: [
+      { type: "truth-table", params: { formula: "P → Q", fill: true }, note: "Fill in the column for if-then, then check it. Which row is the only F?" },
+      { type: "truth-table", params: { formula: "(P → Q) ↔ (¬Q → ¬P)" }, note: "An implication and its contrapositive agree in every row." },
+      { type: "truth-table", params: { formula: "(P → Q) ↔ (Q → P)" }, note: "An implication and its converse do not: two rows differ." },
+      { type: "induction-dominoes", params: {}, note: "Push, then take away the base case or the step and push again." },
+      { type: "induction-dominoes", params: { count: 6, start: 1, gap: 3 }, note: "A step that fails once: the chain stops there, whatever comes after." },
+    ],
+  },
 ];

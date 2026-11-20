@@ -13,8 +13,12 @@ const H = 88;
 const GAP = 22;
 const PAD = 18;
 const TICK = 260; // ms between one domino falling and the next
-/** The angle at which a domino's top rests on the next one, still standing. */
+/** The angle at which a domino's top rests on the next one, still standing.
+ *  Dominoes that lean on each other at the same angle are parallel, so a
+ *  stopped chain all leans at this angle. */
 const LEAN = Math.round((Math.asin(GAP / H) * 180) / Math.PI);
+/** The angle at which fallen neighbours lie on one another, the whole row down. */
+const FLAT = Math.floor((Math.acos(W / (W + GAP)) * 180) / Math.PI);
 
 export function InductionDominoes({ params }: WidgetProps) {
   const count = num(params, "count", 8);
@@ -45,6 +49,12 @@ export function InductionDominoes({ params }: WidgetProps) {
       setFallen(n);
       timer.current = setTimeout(() => fall(n + 1), TICK);
     };
+    // Without motion, the outcome at once.
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setFallen(reach);
+      setRunning(false);
+      return;
+    }
     timer.current = setTimeout(() => fall(1), 150);
   }
   const reset = () => {
@@ -53,7 +63,9 @@ export function InductionDominoes({ params }: WidgetProps) {
     setPushed(false);
     setFallen(0);
   };
-  const width = PAD * 2 + count * (W + GAP) + 30;
+  // Room on the right for the last domino lying down, then the ellipsis.
+  const reachOut = Math.ceil(H * Math.sin((FLAT * Math.PI) / 180) - W);
+  const width = PAD * 2 + count * (W + GAP) + reachOut + 30;
   const ground = PAD + H + 8;
   const settled = !running && pushed;
   const said = !base
@@ -76,8 +88,10 @@ export function InductionDominoes({ params }: WidgetProps) {
         {[...Array(count).keys()].map((i) => {
           const x = PAD + i * (W + GAP);
           const down = i < fallen;
-          // Lying flat on the one after it once that one is down too; leaning on it while it stands.
-          const angle = !down ? 0 : i + 1 < count && i + 1 >= fallen ? LEAN : 62;
+          // While some still stand, every fallen one leans on the next (all at
+          // one angle, so none passes through another); once the whole row is
+          // down they lie on one another.
+          const angle = !down ? 0 : fallen === count ? FLAT : LEAN;
           const stopped = settled && i === fallen - 1 && fallen < count;
           return (
             <g key={i} data-domino={start + i} data-fallen={down || undefined}>
@@ -87,7 +101,7 @@ export function InductionDominoes({ params }: WidgetProps) {
                 width={W}
                 height={H}
                 rx={4}
-                className={cx(down ? "fill-good-soft stroke-good-line" : "fill-goal-soft stroke-goal-line", "transition-transform duration-200")}
+                className={cx(down ? "fill-good-soft stroke-good-line" : "fill-goal-soft stroke-goal-line", "transition-transform duration-200 motion-reduce:transition-none")}
                 strokeWidth={2}
                 style={{ transformBox: "fill-box", transformOrigin: "100% 100%", transform: angle ? `rotate(${angle}deg)` : "none" }}
               />
@@ -102,7 +116,7 @@ export function InductionDominoes({ params }: WidgetProps) {
             </g>
           );
         })}
-        <text x={PAD + count * (W + GAP)} y={ground - 10} className="fill-fg-3 font-mono text-[18px]">
+        <text x={PAD + count * (W + GAP) + reachOut} y={ground - 10} className="fill-fg-3 font-mono text-[18px]">
           …
         </text>
       </svg>
