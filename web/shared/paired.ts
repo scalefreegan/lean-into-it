@@ -11,6 +11,9 @@
 // can be three lines of Lean) and a line may belong to several sentences.
 // A line no sentence covers is shown as one the prose left unsaid.
 
+/** A step names at most this many lines: a sentence is a sentence. */
+const MAX_SPAN = 50;
+
 export interface Step {
   lines: number[];
   say: string;
@@ -27,9 +30,11 @@ export function readStep(text: string): Step | string {
     const a = Number(r[1]);
     const b = r[2] === undefined ? a : Number(r[2]);
     if (a < 1 || b < a) return `“${part.trim()}”: lines are counted from 1, and a range runs upwards`;
-    for (let n = a; n <= b; n++) if (!lines.includes(n)) lines.push(n);
+    // Checked before the range is written out, so "1-99999999" costs nothing.
+    if (!Number.isSafeInteger(b) || b - a >= MAX_SPAN) return `“${part.trim()}” is more lines than one sentence covers (at most ${MAX_SPAN})`;
+    for (let n = a; n <= b; n++) lines.push(n);
   }
-  return { lines: lines.sort((x, y) => x - y), say: m[2].trim() };
+  return { lines: [...new Set(lines)].sort((x, y) => x - y), say: m[2].trim() };
 }
 
 /** The lines of a proof body as the widget numbers them (from 1). */
@@ -44,7 +49,7 @@ export function readSteps(steps: unknown, count?: number): { steps: Step[]; prob
   const problems: string[] = [];
   if (!Array.isArray(steps) || !steps.length) return { steps: out, problems: ["`steps` needs at least one sentence"] };
   for (const s of steps) {
-    const step = typeof s === "string" ? readStep(s) : "each step is a line of text";
+    const step = typeof s === "string" ? readStep(s) : `each step is a line of text in quotes, as in "1: Suppose P." (without quotes YAML reads ${JSON.stringify(s)})`;
     if (typeof step === "string") {
       problems.push(step);
       continue;

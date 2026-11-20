@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Goal } from "../../shared/goals.ts";
 import { proofLines, readSteps, unsaid } from "../../shared/paired.ts";
 import { check } from "../api/client.ts";
 import { GoalView } from "../proof/GoalCards.tsx";
 import { useApp } from "../state.tsx";
-import { Button, cx, Notice } from "../ui.tsx";
+import { cx, Notice } from "../ui.tsx";
 import { str } from "./params.ts";
 import type { WidgetProps } from "./types.ts";
 
@@ -20,38 +20,41 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
   const lessonOf = str(params, "lesson", "") || lessonId || "";
   const lesson = content.lessons.find((l) => l.id === lessonOf);
   const exercise = lesson?.exercises.find((e) => e.id === params.exercise);
-  const lines = useMemo(() => (exercise ? proofLines(exercise.solution) : []), [exercise]);
-  const { steps } = useMemo(() => readSteps(params.steps, lines.length), [params.steps, lines.length]);
-  const left = useMemo(() => new Set(unsaid(steps, lines.length)), [steps, lines.length]);
+  const solution = exercise?.solution;
+  const lines = solution === undefined ? [] : proofLines(solution);
+  const { steps } = readSteps(params.steps, lines.length);
+  const left = new Set(unsaid(steps, lines.length));
   const caption = str(params, "caption", "");
-  // In its own lesson the pairing would give the exercise away: it waits until that is solved, or asked for.
+  // In its own lesson the pairing would give the exercise away: it waits
+  // until that is solved. (No "show it now": a solution seen here would make
+  // the next solve look unassisted.)
   const own = !params.lesson;
-  const [shown, setShown] = useState(!own);
-  const done = !!(lesson && exercise && solved[lesson.id]?.[exercise.id]);
+  const forLesson = lesson && Object.hasOwn(solved, lesson.id) ? solved[lesson.id] : undefined;
+  const done = !!(exercise && forLesson && Object.hasOwn(forLesson, exercise.id));
   const [pick, setPick] = useState<Pick>(null);
   const [hover, setHover] = useState<Pick>(null);
   // Lean's reply for a line; while it is for another line than the one selected, Lean is being asked.
   const [state, setState] = useState<{ n: number; goals: Goal[] | null; error: string | null } | null>(null);
 
   const selectedLine = pick?.kind === "line" ? pick.n : null;
+  // Keyed on strings, so a re-render does not ask Lean again.
+  const lessonKey = lesson?.id;
+  const exerciseKey = exercise?.id;
   useEffect(() => {
-    if (selectedLine === null || !lesson || !exercise) return;
+    if (selectedLine === null || !lessonKey || !exerciseKey || solution === undefined) return;
     const ctrl = new AbortController();
-    const text = lines[selectedLine - 1];
-    check({ lessonId: lesson.id, exerciseId: exercise.id, body: exercise.solution, cursor: { line: selectedLine - 1, character: text.length } }, ctrl.signal)
-      .then((r) => setState({ n: selectedLine, goals: r.cursorGoals ?? [], error: null }))
+    const text = proofLines(solution)[selectedLine - 1];
+    check({ lessonId: lessonKey, exerciseId: exerciseKey, body: solution, cursor: { line: selectedLine - 1, character: text.length } }, ctrl.signal)
+      .then((r) => setState({ n: selectedLine, goals: r.cursorGoals, error: null }))
       .catch((e: Error) => !ctrl.signal.aborted && setState({ n: selectedLine, goals: null, error: e.message }));
     return () => ctrl.abort();
-  }, [selectedLine, lesson, exercise, lines]);
+  }, [selectedLine, lessonKey, exerciseKey, solution]);
 
   if (!lesson || !exercise) return <Notice tone="warn">{`This paired proof cannot be drawn: no exercise "${String(params.exercise)}" in lesson "${lessonOf}".`}</Notice>;
-  if (own && !shown && !done)
+  if (own && !done)
     return (
       <figure data-widget="informal-formal" className="max-w-3xl rounded-2xl border border-line-strong bg-panel p-4 text-sm text-fg-2 shadow-sm sm:p-5">
-        <p>The same proof in words beside its Lean, once you have solved “{exercise.title}”.</p>
-        <Button className="mt-3" onClick={() => setShown(true)}>
-          Show it now
-        </Button>
+        <p>The same proof in words beside its Lean appears here once you have solved “{exercise.title}”.</p>
       </figure>
     );
 
@@ -72,11 +75,11 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
                   type="button"
                   data-step={i}
                   aria-pressed={pick?.kind === "step" && pick.i === i}
+                  aria-label={`${s.say} Said in Lean by line${s.lines.length === 1 ? "" : "s"} ${s.lines.join(", ")}.`}
                   onClick={() => toggle({ kind: "step", i })}
                   onMouseEnter={() => setHover({ kind: "step", i })}
                   onMouseLeave={() => setHover(null)}
-                  onFocus={() => setHover({ kind: "step", i })}
-                  onBlur={() => setHover(null)}
+                  onPointerUp={(e) => e.pointerType !== "mouse" && setHover(null)}
                   className={cx("w-full rounded-lg border-2 px-3 py-1.5 text-left text-sm", stepLit(i) ? "border-accent bg-accent-soft text-fg" : "border-transparent text-fg-2 hover:bg-raised")}
                 >
                   {s.say}
@@ -101,8 +104,7 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
                   onClick={() => toggle({ kind: "line", n })}
                   onMouseEnter={() => setHover({ kind: "line", n })}
                   onMouseLeave={() => setHover(null)}
-                  onFocus={() => setHover({ kind: "line", n })}
-                  onBlur={() => setHover(null)}
+                  onPointerUp={(e) => e.pointerType !== "mouse" && setHover(null)}
                   className={cx("flex w-full gap-3 rounded-md px-2 py-0.5 text-left", lineLit(n) ? "bg-accent-soft text-fg" : "text-fg-2 hover:bg-raised", selectedLine === n && "ring-2 ring-accent")}
                 >
                   <span className="w-4 shrink-0 text-right text-fg-3">{n}</span>
@@ -123,7 +125,9 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
               <p className="text-sm text-fg-3">Asking Lean…</p>
             ) : state.error ? (
               <Notice tone="warn">{`Lean could not show the state: ${state.error}`}</Notice>
-            ) : state.goals === null ? null : (
+            ) : state.goals === null ? (
+              <p className="text-sm text-fg-3">Lean has no proof state at the end of line {state.n}.</p>
+            ) : (
               <div data-state-after={state.n}>
                 <div className="mb-1 text-xs text-fg-3">After line {state.n}</div>
                 <GoalView goals={state.goals} />

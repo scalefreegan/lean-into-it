@@ -90,7 +90,7 @@ Landed in the first PR, the foundation slice:
   (a check without `record`, so not an attempt). A line no sentence covers
   is marked unsaid. The loader refuses an exercise that is not the
   lesson's or not a proof, and a line past the solution. In its own lesson
-  it waits until the exercise is solved, or the learner asks. First used
+  it waits until the exercise is solved. First used
   under "Putting them together" in "If… then".
 - Truth tables and induction dominoes (`lii-53v.5`, `lii-dvy.9`): two more
   widgets. `truth-table` draws every row of a formula in and, or, not,

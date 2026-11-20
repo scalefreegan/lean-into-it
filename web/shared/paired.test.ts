@@ -15,6 +15,11 @@ test("a step that cannot be read says why", () => {
   assert.match(readStep("0: Nothing.") as string, /counted from 1/);
   assert.match(readStep("4-2: Backwards.") as string, /runs upwards/);
   assert.match(readStep("1,,2: Empty part.") as string, /not a list of line numbers/);
+  // A huge range is refused before it is written out.
+  const t = Date.now();
+  assert.match(readStep("1-99999999: Everything.") as string, /at most 50/);
+  assert.match(readStep(`1-${"9".repeat(400)}: Infinity.`) as string, /at most 50/);
+  assert.ok(Date.now() - t < 100);
 });
 
 test("steps are bounded by the solution's lines, and the lines no step names are unsaid", () => {
@@ -24,5 +29,6 @@ test("steps are bounded by the solution's lines, and the lines no step names are
   assert.match(readSteps(["1: a", "4-5: b"], 4).problems[0], /names line 5, but the solution has 4 lines/);
   assert.match(readSteps([], 4).problems[0], /at least one/);
   assert.match(readSteps([3], 4).problems[0], /line of text/);
+  assert.match(readSteps([{ 1: "Suppose P." }], 4).problems[0], /in quotes/);
   assert.deepEqual(unsaid(readSteps(["1: a", "2-3: b"], 4).steps, 4), [4]);
 });
