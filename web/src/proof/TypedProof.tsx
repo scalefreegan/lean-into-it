@@ -9,6 +9,7 @@ import type { CheckReply } from "../../shared/wire.ts";
 import { ApiError, check } from "../api/client.ts";
 import { Button, Notice } from "../ui.tsx";
 import { Closed, GoalView, Refusal } from "./GoalCards.tsx";
+import { ProofMap } from "../widgets/ProofMap.tsx";
 import { LeanEditor, SymbolHelp, type EditorWrite } from "./LeanEditor.tsx";
 import { useLive } from "./useLive.ts";
 import { useTutorWork } from "../tutor/store.ts";
@@ -95,7 +96,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b
   // (a counterexample's values), the reply to the old answer is dropped.
   const answer = encode(body);
   const live = useLive({ body, caret, answer }, (k, signal) =>
-    check({ lessonId, exerciseId: exercise.id, body: k.answer, cursor: k.caret, ...(k.body === opening.current ? {} : { record: "live" as const, ...(ladder ? { ladder } : {}) }) }, signal),
+    check({ lessonId, exerciseId: exercise.id, body: k.answer, cursor: k.caret, ...(exercise.kind === "prove" ? { map: true } : {}), ...(k.body === opening.current ? {} : { record: "live" as const, ...(ladder ? { ladder } : {}) }) }, signal),
   );
   const reply = live.reply;
 
@@ -237,6 +238,16 @@ export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b
             <Notice tone="warn">{empty ? "Nothing to check yet." : leftFalse ? `Not finished. ${leftFalse}` : "Not finished: every line is fine, but there is still something left to show. The panel says what."}</Notice>
           )}
         </div>
+      )}
+      {reply?.map && !live.trouble && (
+        <ProofMap
+          start={reply.map.start}
+          steps={reply.map.steps}
+          picked={caret.line}
+          stale={live.checking}
+          // The node's line, selected in the editor (and so its goals shown beside it).
+          onPick={(line) => edit.current?.((text) => ({ text, anchor: { line, character: 0 }, head: { line, character: text.split("\n")[line]?.length ?? 0 } }))}
+        />
       )}
     </div>
   );

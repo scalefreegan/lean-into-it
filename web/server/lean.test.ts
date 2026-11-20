@@ -15,6 +15,7 @@ import { LAB_FIRST_LINE, labSource, TACTIC_EXAMPLES } from "../shared/lab.ts";
 import { EXERCISES } from "../shared/registry.ts";
 import { misfit, moveLine, readLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, judge, replayOf, toBody } from "../shared/proof.ts";
+import { buildMap, type ProofMap } from "../shared/proofmap.ts";
 import { checkExercise, handleCheck, handleLean, handlePlayground, leanError } from "./check.ts";
 import { checkSolution, checkWithLean } from "./contentcheck.ts";
 import { setDb, type Db } from "./db.ts";
@@ -292,6 +293,46 @@ test("the goals come as Lean's data: each hypothesis one card with its names, an
   const got = await at("(P Q : Prop) (h : P ∧ Q) : Q", "obtain ⟨hp, hq⟩ := h");
   assert.deepEqual(cards(got.goals[0]), ["P Q : Prop", "hp : P (new)", "hq : Q (new)"]);
   assert.deepEqual(got.goals[0].gone?.map((h) => h.names), [["h"]]);
+});
+
+test("the proof map from Lean's goals around each line: apply then exact, and a split with one branch closed", { skip }, async () => {
+  const mapOf = async (statement: string, body: string) => {
+    const r = await checkExercise(leanServer(), { ...exercise("use-it"), id: "map", statement, solution: "", forbid: [] }, body, undefined, true);
+    assert.ok(r.map, "a map was asked for");
+    return buildMap(r.map.start, r.map.steps);
+  };
+  const arrowsOf = (m: ProofMap) => m.edges.map((e) => `${m.nodes.find((n) => n.id === e.from)?.label} -${e.kind}-> ${m.nodes.find((n) => n.id === e.to)?.label}`);
+  const shown = (m: ProofMap) => m.nodes.map((n) => `${n.kind} ${n.label}${n.state ? ` (${n.state})` : ""}${n.line !== null ? ` @${n.line}` : ""}`);
+
+  const one = await mapOf("(P Q : Prop) (hP : P) (hPQ : P → Q) : Q", "apply hPQ\nexact hP");
+  assert.deepEqual(shown(one), ["fact hP : P", "fact hPQ : P → Q", "goal ⊢ Q (done)", "move apply hPQ @0", "goal ⊢ P (done) @0", "move exact hP (closes) @1"]);
+  assert.equal(one.edges.length, 5);
+
+  // Half done: the other branch is still open, and the map says so.
+  const split = await mapOf("(P Q : Prop) (hP : P) (hQ : Q) : P ∧ Q", "constructor\n· exact hP");
+  assert.deepEqual(
+    split.nodes.filter((n) => n.kind === "goal").map((n) => `${n.label} (${n.state}) col ${n.col}`),
+    ["⊢ P ∧ Q (worked) col 0", "left: ⊢ P (done) col 0", "right: ⊢ Q (open) col 1"],
+  );
+
+  // A line Lean refuses ends the map before it; editing it away brings the rest back.
+  const wrong = await mapOf("(P Q : Prop) (hP : P) (hPQ : P → Q) : Q", "apply hPQ\nexact hPQ");
+  assert.deepEqual(wrong.nodes.filter((n) => n.kind === "move").map((n) => n.label), ["apply hPQ"]);
+  assert.equal(wrong.nodes.find((n) => n.label === "⊢ P")?.state, "open");
+
+  // A step over several lines: the cases inside the block, made by the line that opened it.
+  const ind = await mapOf("(n : ℕ) : 0 + n = n", "induction n with\n| zero => rfl\n| succ k ih => omega");
+  assert.deepEqual(
+    ind.nodes.filter((n) => n.kind === "goal").map((n) => `${n.label} (${n.state}) col ${n.col}`),
+    ["⊢ 0 + n = n (done) col 0", "⊢ 0 + 0 = 0 (done) col 0", "⊢ 0 + (k + 1) = k + 1 (done) col 1"],
+  );
+  // With a case missing, Lean refuses the head; the case written is drawn, and the whole is not done.
+  const half = await mapOf("(n : ℕ) : 0 + n = n", "induction n with\n| zero => rfl");
+  assert.deepEqual(half.nodes.filter((n) => n.kind === "goal").map((n) => n.state), ["worked", "done"]);
+  // have … := by: its own goal, and the rest of the proof with the new fact, both made by the have.
+  const have = await mapOf("(P Q : Prop) (hP : P) (hPQ : P → Q) : Q", "have hQ : Q := by\n  apply hPQ\n  exact hP\nexact hQ");
+  assert.ok(arrowsOf(have).includes("have hQ : Q := by -makes-> hQ : Q"), arrowsOf(have).join("; "));
+  assert.ok(have.nodes.filter((n) => n.kind === "goal").every((n) => n.state === "done"));
 });
 
 test("a right move changes the goal; a wrong move is an error on its line", { skip }, async () => {

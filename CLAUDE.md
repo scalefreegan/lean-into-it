@@ -14,6 +14,7 @@ before touching content or the loader.
 content/                 curriculum.yaml, lessons/<track>/*.md   (the product)
 lean/                    Lake project: Lean 4 + Mathlib; .lake/ is fetched by `npm run lean:setup`
 web/shared/goals.ts      the Goal cards show, and Lean's printed goals parsed into them (pure)
+web/shared/proofmap.ts   the live proof map's graph and layout, from Lean's goals around each line (pure)
 web/shared/interactive.ts  Lean's structured goals (RPC getInteractiveGoals) into Goals, with what the last step added and took away (pure)
 web/shared/proof.ts      exercise + body -> Lean source, diagnostics -> verdict (pure)
 web/shared/truefalse.ts  kind truefalse: statement split, the claim's negation, the answer format (pure)

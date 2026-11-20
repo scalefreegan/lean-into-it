@@ -20,7 +20,7 @@
 
 ## Features
 
-This is an early build. Five of the six features below work today; the live proof map is planned. [`docs/STATUS.md`](docs/STATUS.md) lists what is done and what remains.
+This is an early build. [`docs/STATUS.md`](docs/STATUS.md) lists what is done and what remains.
 
 <table>
   <tr>
@@ -53,8 +53,10 @@ This is an early build. Five of the six features below work today; the live proo
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>Live proof map (planned)</h3>
-      <p>A diagram that grows as you prove: facts as nodes, moves as arrows, open goals highlighted. With it come function and limit explorers, textbook proofs set beside their Lean, and a program stepper.</p>
+      <img src="docs/screenshots/proof-map.png" alt="The proof board with its proof map below: facts on the left, the goal split in two by constructor, one branch done and one still open" width="100%">
+      <br><sub><i>The proof map: one branch of the split done, the other still open.</i></sub>
+      <h3>Live proof map</h3>
+      <p>A diagram that grows as you prove, under the board and the editor: facts and goals as nodes, each line of Lean as a move with arrows from the goal it works on and the facts it names to what it makes. Open goals are highlighted and finished ones turn green; click a node to pick its line of Lean.</p>
     </td>
     <td width="50%" valign="top">
       <img src="docs/screenshots/tutor.png" alt="The Tutor drawer open beside an exercise, with its three hint rungs" width="100%">
@@ -65,7 +67,7 @@ This is an early build. Five of the six features below work today; the live proo
   </tr>
 </table>
 
-There is also a Lab, where nothing is scored: every move with an example to run and change, and explorers for functions, the number line and an identity from algebra. With an ElevenLabs key in `.env.local` (`ELEVENLABS_API_KEY=…`), Listen mode reads lessons, exercise claims and the Tutor's replies aloud and marks the word being read; without one, the Listen button says how to add it. Planned: more exercise kinds, more explorers, and a gallery of famous proofs.
+There is also a Lab, where nothing is scored: every move with an example to run and change, and explorers for functions, the number line and an identity from algebra. With an ElevenLabs key in `.env.local` (`ELEVENLABS_API_KEY=…`), Listen mode reads lessons, exercise claims and the Tutor's replies aloud and marks the word being read; without one, the Listen button says how to add it. Planned: more exercise kinds, more explorers, a program stepper, and a gallery of famous proofs.
 
 ## How it works
 
