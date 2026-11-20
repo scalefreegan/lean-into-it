@@ -3,6 +3,7 @@
 
 import type { LevelStatus, MasteryMap, ReviewItem } from "./progress.ts";
 import type { Goal } from "./goals.ts";
+import type { MapGoal, StepGoals } from "./proofmap.ts";
 import type { SpokenWord } from "./tts/alignment.ts";
 import type { BodyDiagnostic, Position } from "./proof.ts";
 
@@ -33,6 +34,9 @@ export interface CheckRequest {
   /** Kind `prove`: the input ladder's rung the learner is at (1–4,
    *  web/shared/ladder.ts), kept on the attempt row. */
   ladder?: number;
+  /** Kind `prove`: also send Lean's goals around every line, for the proof
+   *  map (web/shared/proofmap.ts). */
+  map?: boolean;
 }
 
 export interface CheckReply {
@@ -52,6 +56,9 @@ export interface CheckReply {
    *  proof, rests on an axiom of its own, or Lean's axiom report never
    *  came), in plain words. */
   refusal: string | null;
+  /** Asked for with `map`: the goals before the first line, and around each
+   *  line up to the first Lean refused. */
+  map?: { start: MapGoal[]; steps: StepGoals[] };
 }
 
 /** POST /api/playground: check any Lean source, nothing scored. */

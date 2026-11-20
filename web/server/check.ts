@@ -6,6 +6,7 @@ import { isLadder, onBoard } from "../shared/ladder.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals, type Goal } from "../shared/goals.ts";
 import { withRemoved } from "../shared/interactive.ts";
+import { mapGoal, type StepGoals } from "../shared/proofmap.ts";
 import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
@@ -52,11 +53,11 @@ export function leanError(e: unknown): unknown {
  * the answer is the proof body. For `fill` it is what goes in the gap, and
  * the body is the exercise's own proof with it put there.
  */
-export async function checkExercise(lean: LeanServer, exercise: Exercise, answer: string, cursor?: Position): Promise<CheckReply> {
+export async function checkExercise(lean: LeanServer, exercise: Exercise, answer: string, cursor?: Position, map = false): Promise<CheckReply> {
   if (exercise.kind === "truefalse") return checkTrueFalse(lean, exercise, answer, cursor);
   if (exercise.kind === "predict") return checkPredict(lean, exercise, answer);
   if (isFixed(exercise.kind)) return checkFixed(exercise, answer);
-  if (exercise.kind !== "fill") return checkBody(lean, exercise, answer, answer, cursor);
+  if (exercise.kind !== "fill") return checkBody(lean, exercise, answer, answer, cursor, undefined, map && exercise.kind === "prove");
   const fill = answer.trim();
   // What the missing step has to prove is the state where the gap starts.
   // Where the gap is part of a term Lean has no state there, and the state
@@ -176,7 +177,7 @@ function lastStep(body: string): Position | null {
  * exercises share one Lean document: they share the import, so moving
  * between them costs a re-check, not a fresh Mathlib load.
  */
-async function checkBody(lean: LeanServer, exercise: Exercise, body: string, written: string, cursor?: Position, otherwise?: Position): Promise<CheckReply> {
+async function checkBody(lean: LeanServer, exercise: Exercise, body: string, written: string, cursor?: Position, otherwise?: Position, map = false): Promise<CheckReply> {
   // A body that would step outside a proof is never handed to Lean: what it
   // asks for (`run_tac`, `#eval` …) is a program, and this is not the Playground.
   const escapes = escapesIn(body);
@@ -189,10 +190,14 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
   // only on the goals before it (web/shared/interactive.ts withRemoved).
   const last = lastStep(body);
   const positions = [end, ...(cursor ? [toSource(cursor, given)] : []), ...(cursor && otherwise ? [toSource(otherwise, given)] : []), ...(last ? [toSource(last, given)] : [])];
+  // For the proof map: the start and end of every line that is not blank.
+  const lines = map ? mapLines(body) : [];
+  const mapFrom = positions.length;
+  for (const l of lines) positions.push(toSource({ line: l.line, character: l.start }, given), toSource({ line: l.line, character: l.end }, given));
   const source = assemble(exercise.statement, body, given);
   let result: LeanCheck;
   try {
-    result = await lean.check("exercise", source, positions, true);
+    result = await lean.check("exercise", source, positions, true, mapFrom);
   } catch (e) {
     // A switched-off tactic is often a search (`try?`, `exact?`) and can run
     // out the time limit. The learner is told it is switched off, which is
@@ -210,13 +215,49 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
   const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body, given), replayOf(result.diagnostics, body, given), written);
   return {
     solved: verdict.solved,
-    goals: result.structured[0] ? withRemoved(result.structured[0], last ? result.structured[positions.length - 1] : null) : parseGoals(result.goals[0] ?? []),
+    goals: result.structured[0] ? withRemoved(result.structured[0], last ? result.structured[mapFrom - 1] : null) : parseGoals(result.goals[0] ?? []),
     cursorGoals: cursor && result.goals[1]?.length ? goalsAt(result, 1) : cursor && otherwise && result.goals[2] ? goalsAt(result, 2) : cursor && result.goals[1] ? [] : null,
     error: verdict.error,
     diagnostics,
     forbidden: verdict.forbidden,
     refusal: verdict.refusal,
+    ...(map ? { map: proofMapOf(result, lines, mapFrom, new Set(diagnostics.flatMap((d) => (d.severity === "error" && d.line !== null ? [d.line] : [])))) } : {}),
   };
+}
+
+/** The most lines the proof map is drawn for: two goal queries each. */
+const MAP_LINES = 60;
+
+/** The lines of a body the proof map has a step for: those not blank, with
+ *  where their text starts and ends. */
+function mapLines(body: string): { line: number; start: number; end: number; text: string }[] {
+  return bodyLines(body).slice(0, MAP_LINES).flatMap((text, line) => {
+    const start = text.search(/\S/);
+    return start < 0 || /^\s*--/.test(text) ? [] : [{ line, start, end: text.length, text }];
+  });
+}
+
+/** The proof map's data from a check: the goals at the start, and Lean's
+ *  goals around each line. A line with an error is left out (what Lean
+ *  reports after it is its recovery, not the line's work), and so is a line
+ *  Lean gave no goals for (after an error, the rest of its block). An error
+ *  on the head of a block (\`induction n with\` missing a case) leaves the
+ *  lines inside it, which Lean did run. */
+function proofMapOf(result: LeanCheck, lines: ReturnType<typeof mapLines>, from: number, errorLines: Set<number>): NonNullable<CheckReply["map"]> {
+  const steps: StepGoals[] = [];
+  lines.forEach((l, i) => {
+    const before = result.structured[from + 2 * i];
+    const after = result.structured[from + 2 * i + 1];
+    if (!before || !after) return;
+    if (errorLines.has(l.line)) {
+      // The head of a block still says where the block's goals came from: as a line that made nothing yet.
+      if (/(\bwith|\bby|=>|:=)\s*$/.test(l.text.replace(/--.*$/, "").trimEnd())) steps.push({ line: l.line, text: l.text, before: before.map(mapGoal), after: before.map(mapGoal), refused: true });
+      return;
+    }
+    steps.push({ line: l.line, text: l.text, before: before.map(mapGoal), after: after.map(mapGoal) });
+  });
+  const start = lines.length ? result.structured[from] : result.structured[0];
+  return { start: (start ?? []).map(mapGoal), steps };
 }
 
 export async function handleCheck(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -235,7 +276,7 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
   const body = exercise.kind === "fill" ? input.body.trim() : input.body;
   // A fixed answer needs no Lean, so it is marked even while Lean is down.
   const fixed = isFixed(exercise.kind);
-  const reply = fixed ? checkFixed(exercise, body) : await withLean((lean) => checkExercise(lean, exercise, body, cursor));
+  const reply = fixed ? checkFixed(exercise, body) : await withLean((lean) => checkExercise(lean, exercise, body, cursor, input.map === true));
   // Looking at an empty gap is not an attempt at it, nor is choosing the
   // right side of a true-or-false before writing anything (the wrong side
   // is), nor asking for the state a prediction starts from.

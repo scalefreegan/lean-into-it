@@ -106,6 +106,25 @@ Landed in the first PR, the foundation slice:
   changed in a type or target, and what it took away (`gone` on the goals
   it made, read from the goals just before it). The printed goals stay as
   the fallback (`web/shared/interactive.ts`).
+- Live proof map (`lii-8wq.2`): under the proof board and the typed editor,
+  a diagram of the proof so far (`web/shared/proofmap.ts`, drawn by
+  `web/src/widgets/ProofMap.tsx`). Facts down the left; the goals, and a
+  move node for each line of Lean, in lanes to the right: an arrow from the
+  goal the line works on and from each fact it names, and arrows to the
+  goals and facts it makes. A move that splits a goal (`constructor`,
+  `apply` with two premises) starts a lane per new goal; open goals are
+  amber, finished ones green. Built from Lean's structured goals at the
+  start and end of every line (`/api/check` with `map`; a line Lean refuses
+  is left out), so it follows edits and deletions; Lean's goal ids say
+  which goals a line made. Steps over several lines are drawn whole: the
+  cases inside `induction n with` and the rest of the proof after
+  `have h : P := by` are made by the line that opened the block, and
+  `all_goals` works on every goal it closes. Rows go down in proof order and
+  lanes are only added, so a line added at the end moves nothing already
+  drawn. Clicking a node picks
+  its line (on the board the line is marked, in the editor it is
+  selected); a line picked on the board, or the editor's caret line, rings
+  its nodes. The Famous Proofs gallery (`lii-kqz.2`) is to reuse it.
 - Proof-craft lessons (`lii-dvy.7`): six short lessons on how
   mathematicians work, each round one worked problem, marked "Proof craft"
   on the Path and their page (the lesson field `craft: true`): work
@@ -345,8 +364,8 @@ Landed in the first PR, the foundation slice:
   `web/shared/lab.ts`; tests hold it to the curriculum (every move has an
   example), to the registry, and to Lean (every example is accepted). The
   Tutor is told the page and the example open. Not yet, each with its own
-  bead: the proof map (`lii-8wq.2`), the program stepper
-  (`lii-53v.4`), the Famous Proofs gallery (`lii-kqz.2`).
+  bead: the program stepper (`lii-53v.4`), the Famous Proofs gallery
+  (`lii-kqz.2`).
 - Listen mode (`lii-1gs.1`), ported from Fret Not: a Listen button in the
   header opens the switch, the voice and the quality; with it on and a
   voice chosen, play controls sit at the foot of the page (back, −5 s,
@@ -489,7 +508,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 516, including every reference solution checked by the real Lean,
+- Tests: 526, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -511,16 +530,16 @@ Landed in the first PR, the foundation slice:
   gen:reference` from the registry and the move table: every widget,
   exercise kind and move with checked examples; a test fails when it is
   stale; `lii-2zf.1`), the hero-image prompt, README
-  with five screenshots (retaken with the CodeMirror editor and the levels'
-  progress; the Tutor's added; `lii-2zf.4`), `CLAUDE.md`. The sixth, the
-  proof map's, comes with that feature (`lii-8wq.2`).
+  with six screenshots (retaken with the CodeMirror editor and the levels'
+  progress; the Tutor's added; `lii-2zf.4`; the proof map's with it,
+  `lii-8wq.2`), `CLAUDE.md`.
 
 `docs/hero.png` (1600×900, generated from `docs/hero-image-prompt.md`) is
 in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-15 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+14 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -535,7 +554,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-8wq.2` | Live proof map | 2 | |
 | `lii-8wq.6` | obtain on a fact that is not an and, or, iff or exists | 3 | |
 
 ### App shell
@@ -575,7 +593,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-kqz.2` | Famous Proofs gallery | 2 | `lii-8wq.2` |
+| `lii-kqz.2` | Famous Proofs gallery | 2 | |
 
 ### Docs and content tooling (epic `lii-2zf`)
 

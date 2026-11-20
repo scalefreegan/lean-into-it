@@ -3,7 +3,9 @@ import type { Exercise } from "../../shared/content.ts";
 import { UNCHANGED, explain } from "../../shared/explain.ts";
 import { namesIn, sameGoals, type Goal } from "../../shared/goals.ts";
 import { MOVES, misfit, moveLine, type Move } from "../../shared/moves.ts";
+import type { CheckReply } from "../../shared/wire.ts";
 import { ApiError, check } from "../api/client.ts";
+import { ProofMap } from "../widgets/ProofMap.tsx";
 import { Button, cx, Notice } from "../ui.tsx";
 import { Closed, GoalView, Refusal } from "./GoalCards.tsx";
 import { useTutorWork } from "../tutor/store.ts";
@@ -17,6 +19,8 @@ import { useTutorWork } from "../tutor/store.ts";
 interface Step {
   lines: string[];
   goals: Goal[];
+  /** Lean's goals around each line, for the proof map. */
+  map?: CheckReply["map"];
 }
 
 interface Props {
@@ -47,6 +51,8 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, mov
   const [refusal, setRefusal] = useState<{ line: string; raw: string } | null>(null);
   const [trouble, setTrouble] = useState<string | null>(null);
   const [shake, setShake] = useState(0);
+  // A line of "Lean written so far" picked here or on the proof map.
+  const [pick, setPick] = useState<{ among: string; line: number } | null>(null);
   // Bumped whenever the board is replaced; a reply to an older request is dropped.
   const seq = useRef(0);
 
@@ -58,16 +64,16 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, mov
       setRefusal(null);
       setPending(null);
       try {
-        let reply = await check({ lessonId, exerciseId: exercise.id, body: lines.join("\n") });
+        let reply = await check({ lessonId, exerciseId: exercise.id, body: lines.join("\n"), map: true });
         if (mine !== seq.current) return;
         if (lines.length && (resuming ? reply.error !== null || reply.refusal !== null : !reply.solved)) {
           // A stored solution Lean no longer accepts (the exercise changed), or
           // carried lines it refuses: start clean.
           lines = [];
-          reply = await check({ lessonId, exerciseId: exercise.id, body: "" });
+          reply = await check({ lessonId, exerciseId: exercise.id, body: "", map: true });
           if (mine !== seq.current) return;
         }
-        setHistory([{ lines, goals: reply.goals }]);
+        setHistory([{ lines, goals: reply.goals, ...(reply.map ? { map: reply.map } : {}) }]);
         setSolved(reply.solved);
       } catch (e) {
         if (mine === seq.current) setTrouble(e instanceof ApiError ? e.message : String(e));
@@ -96,6 +102,9 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, mov
   useEffect(() => {
     if (lineKey !== undefined) onLines?.(lineKey ? lineKey.split("\n") : []);
   }, [lineKey, onLines]);
+  // A pick is about the lines it was made among: undo or a new line clears it.
+  const picked = pick && pick.among === lineKey ? pick.line : null;
+  const toggle = (line: number) => setPick((p) => (p && p.among === lineKey && p.line === line ? null : { among: lineKey ?? "", line }));
   useTutorWork(lessonId, exercise.id, { ...(ladder ? { ladder } : {}), body: now?.lines.join("\n") ?? "", goals: now?.goals ?? null, error: refusal ? `${refusal.line}: ${refusal.raw}` : null });
   const before = history.length > 1 ? history[history.length - 2] : null;
 
@@ -114,7 +123,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, mov
     setTrouble(null);
     setPending(null);
     try {
-      const reply = await check({ lessonId, exerciseId: exercise.id, body: lines.join("\n"), record: "rejected", ...(ladder ? { ladder } : {}) });
+      const reply = await check({ lessonId, exerciseId: exercise.id, body: lines.join("\n"), record: "rejected", map: true, ...(ladder ? { ladder } : {}) });
       if (mine !== seq.current) return;
       // A move Lean accepts but that leaves everything as it was is not a step.
       const refused = reply.error?.message ?? reply.refusal ?? (!reply.solved && sameGoals(reply.goals, now.goals) ? UNCHANGED : null);
@@ -124,7 +133,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, mov
         if (again) setPending(again);
         return;
       }
-      setHistory((h) => [...h, { lines, goals: reply.goals }]);
+      setHistory((h) => [...h, { lines, goals: reply.goals, ...(reply.map ? { map: reply.map } : {}) }]);
       if (reply.solved) {
         setSolved(true);
         onSolved(lines.join("\n"));
@@ -280,7 +289,22 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, mov
           <pre data-lean-so-far className="lean text-sm leading-6 text-fg-2">
             <span className="text-fg-3">example {exercise.statement} := by</span>
             {now.lines.map((l, i) => (
-              <span key={i} className={cx("block text-fg", i === now.lines.length - 1 && history.length > 1 && "arrive")}>
+              <span
+                key={i}
+                data-line={i}
+                role="button"
+                tabIndex={0}
+                aria-pressed={picked === i}
+                aria-label={`Line ${i + 1}: ${l}. Show it on the proof map.`}
+                onClick={() => toggle(i)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggle(i);
+                  }
+                }}
+                className={cx("block cursor-pointer rounded text-fg", i === now.lines.length - 1 && history.length > 1 && "arrive", picked === i && "bg-accent-soft")}
+              >
                 {"  "}
                 {l}
               </span>
@@ -290,6 +314,11 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, mov
         </div>
       )}
       </div>
+      {now?.map && !trouble && (
+        <div className="lg:col-span-2">
+          <ProofMap start={now.map.start} steps={now.map.steps} picked={picked} onPick={toggle} stale={busy} />
+        </div>
+      )}
     </div>
   );
 }
