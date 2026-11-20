@@ -38,6 +38,23 @@ test("the context is rebuilt from its own fields: ids checked, text clipped, an 
   assert.equal(sanitizeContext({ page: "lesson", exerciseId: "use-it" }).exerciseId, undefined);
 });
 
+test("the Tutor is told the rung the learner is on: the moves on their board, or that they type", () => {
+  const at = (ladder: unknown) => sanitizeContext({ page: "lesson", lessonId: lesson.id, exerciseId: exercise.id, ladder });
+  assert.equal(at(7).ladder, undefined, "not a rung: dropped");
+  // Rung 1 (Level 1's default): the exercise's own moves.
+  assert.deepEqual(locate(content, at(1)).offered, exercise.moves);
+  assert.match(contextNote(at(1), locate(content, at(1))), /proof board: the learner clicks moves[\s\S]*Moves on offer: apply, exact\./);
+  // Rung 2: every move learned up to Level 1.
+  const two = locate(content, at(2)).offered!;
+  assert.ok(two.includes("constructor") && two.includes("norm_num") && !two.includes("rw"), two.join());
+  // Rung 3 or 4: typing, so no board and no moves to keep to.
+  for (const r of [3, 4]) {
+    assert.equal(locate(content, at(r)).offered, null);
+    assert.doesNotMatch(contextNote(at(r), locate(content, at(r))), /Moves on offer/);
+  }
+  assert.match(contextNote(at(3), locate(content, at(3))), /typed proof, with the moves to hand/);
+});
+
 test("the prompt names the lesson file and the exercise from content/, never from the page", () => {
   const ctx = sanitizeContext({ page: "lesson", lessonId: lesson.id, exerciseId: exercise.id, body: "intro h", goals: "⊢ Q", error: "type mismatch" });
   const note = contextNote(ctx, locate(content, ctx));

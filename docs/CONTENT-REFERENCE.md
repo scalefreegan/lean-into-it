@@ -420,11 +420,12 @@ An exercise is an entry under `exercises:` in a lesson's frontmatter. Every exer
 
 ### `prove` (shown as “Prove it”)
 
-A statement to prove. Lean decides whether it is solved. In `board` mode the learner clicks moves on the proof board and each click writes one line of Lean; in `typed` mode they write the Lean in an editor with the goals beside it.
+A statement to prove. Lean decides whether it is solved. On the proof board (ladder rungs 1 and 2) the learner clicks moves and each click writes one line of Lean; in the editor (rungs 3 and 4) they write the Lean with the goals beside it, at rung 3 with the moves to hand.
 
 | Parameter | Value | |
 |---|---|---|
-| `mode` | one of `board`, `typed` | How the proof is entered. Default board. |
+| `mode` | one of `board`, `typed` | `board`: the solution is lines the board's moves write, so it can be clicked (at rungs 1 and 2) or typed (3 and 4). `typed`: it needs the editor. Default board, or typed for a `ladder` of 3 or 4. |
+| `ladder` | a number | How much help the input gives: 1 the board with only `moves`, 2 the board with every move learned so far, 3 the editor with the moves behind a control, 4 the editor alone. Default: the level's `ladder` (curriculum.yaml), and at least 3 for a typed exercise. |
 | `says` (required) | one line of text | The claim in plain English, as a mathematician would say it. Shown above the exercise. |
 | `statement` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons. |
 | `given` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |

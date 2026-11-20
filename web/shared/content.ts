@@ -2,6 +2,7 @@
 // sends and the UI renders. The on-disk format is described in
 // docs/CONTENT.md.
 
+import type { Ladder } from "./ladder.ts";
 import type { ExerciseKind, WidgetType } from "./registry.ts";
 import type { Witness } from "./truefalse.ts";
 
@@ -20,6 +21,8 @@ export interface Level {
   topics: string[];
   /** The Lean moves this level introduces, for the Path page. */
   moves: string[];
+  /** The ladder rung its proofs default to (web/shared/ladder.ts). */
+  ladder: Ladder;
 }
 
 /** How a proof is entered: clicking moves on the proof board, or typing Lean. */
@@ -34,6 +37,9 @@ export interface Exercise {
   id: string;
   kind: ExerciseKind;
   mode: ProofMode;
+  /** Kind `prove`: how much help its input gives, 1 (cards, its own moves)
+   *  to 4 (the editor alone); its own or its level's (web/shared/ladder.ts). */
+  ladder: Ladder;
   title: string;
   /** The claim in plain English, as a mathematician would say it. */
   says: string;

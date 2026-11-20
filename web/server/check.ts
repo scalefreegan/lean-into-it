@@ -2,6 +2,7 @@
 // (any Lean source, nothing scored) and /api/lean (can Lean check a proof
 // now, and start it again).
 
+import { isLadder, onBoard } from "../shared/ladder.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { parseGoals } from "../shared/goals.ts";
 import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Position, forbiddenIn } from "../shared/proof.ts";
@@ -221,7 +222,7 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
   const bare =
     ((exercise.kind === "fill" || exercise.kind === "predict" || fixed) && !body.trim()) ||
     (tf !== null && (typeof tf === "string" || (bareAnswer(tf, exercise.truefalse!.witness) && reply.refusal === null)));
-  if (!bare) await keep(lesson.id, exercise.id, body, reply, input.record);
+  if (!bare) await keep(lesson.id, exercise.id, body, reply, input.record, exercise.kind === "prove" && isLadder(input.ladder) && !(onBoard(input.ladder) && exercise.mode === "typed") ? input.ladder : null);
   sendJson(res, 200, reply);
 }
 
@@ -231,7 +232,7 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
  *  always kept, and the mastery replay counts a repeat of the row before it
  *  on the same day only once (web/shared/progress.ts). On a later day a
  *  solve is kept again: then it is a review. */
-async function keep(lessonId: string, exerciseId: string, body: string, reply: CheckReply, record: unknown): Promise<void> {
+async function keep(lessonId: string, exerciseId: string, body: string, reply: CheckReply, record: unknown, ladder: number | null): Promise<void> {
   // First: a check that records nothing must not need the database.
   if (record !== "rejected" && record !== "submitted" && record !== "live") return;
   const refused = reply.error !== null || reply.forbidden.length > 0 || reply.refusal !== null;
@@ -242,13 +243,13 @@ async function keep(lessonId: string, exerciseId: string, body: string, reply: C
   const rung = (await hintRung(db, learner, lessonId, exerciseId, startOfDay(new Date()))) || null;
   if (reply.solved) {
     if (record !== "submitted" && (await solvedSince(db, learner, lessonId, exerciseId, startOfDay(new Date())))) return;
-    await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: true, rung });
+    await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: true, rung, inputRung: ladder });
     return;
   }
   if (record === "submitted" || (record === "rejected" && refused)) {
     const reading = (await findExercise(lessonId, exerciseId))?.kind;
     const error = reply.error?.message ?? reply.refusal ?? (reply.forbidden.length ? `uses ${reply.forbidden.join(", ")}` : reading && isReading(reading) ? "a wrong answer" : "unsolved goals");
-    await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: false, error, rung });
+    await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: false, error, rung, inputRung: ladder });
   }
 }
 

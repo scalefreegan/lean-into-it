@@ -4,12 +4,12 @@ import { loadContent } from "../server/loader.ts";
 import { PLACEMENT_DUE_DAYS, PLACEMENT_PER_LEVEL, PLACEMENT_SPREAD_DAYS, placementCredits, placementItems, placementLevels, placementOpens, placementVerdict, toPass } from "./placement.ts";
 import { blankMastery, PLACEMENT_BOX, startOfDay } from "./progress.ts";
 
-const lvl = (id: number, status: "written" | "outline" = "written") => ({ id, title: "", summary: "", status, topics: [], moves: [] });
-const ex = (id: string, concept: string, extra: Record<string, unknown> = {}) => ({ id, concept, kind: "prove", mode: "typed", options: [], solution: "exact h", ...extra });
+const lvl = (id: number, status: "written" | "outline" = "written") => ({ id, title: "", summary: "", status, topics: [], moves: [], ladder: 1 });
+const ex = (id: string, concept: string, extra: Record<string, unknown> = {}) => ({ id, concept, kind: "prove", mode: "typed", ladder: 4, options: [], solution: "exact h", ...extra });
 const content = {
   levels: [lvl(2), lvl(0), lvl(1), lvl(3, "outline")],
   lessons: [
-    { id: "zero", level: 0, exercises: [ex("long", "a", { solution: "intro h\nexact h" }), ex("short", "a"), ex("board", "a", { mode: "board", solution: "intro h\nexact h\nrfl" }), ex("b1", "b")] },
+    { id: "zero", level: 0, exercises: [ex("long", "a", { solution: "intro h\nexact h" }), ex("short", "a"), ex("board", "a", { mode: "board", ladder: 1, solution: "intro h\nexact h\nrfl" }), ex("b1", "b")] },
     { id: "zero-b", level: 0, exercises: [ex("fill", "a", { kind: "fill", solution: "h" }), ex("c1", "c")] },
     { id: "one", level: 1, exercises: Array.from({ length: 9 }, (_, i) => ex(`d${i}`, `d${i}`)) },
     { id: "two", level: 2, exercises: [] },

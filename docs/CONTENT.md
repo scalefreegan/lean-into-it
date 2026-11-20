@@ -37,6 +37,7 @@ levels:
     summary: One sentence.
     status: outline           # optional; omit once the level has lessons
     moves: [intro, apply]     # optional; the tactics the level introduces
+    ladder: 1                 # optional, 1-4; how its proofs are entered (below)
     topics:                   # optional; what is still to be written
       - "And: proving both parts, using either part"
 ```
@@ -48,6 +49,26 @@ Path as written and are not checked against the board's moves, so they may
 name tactics the board has no button for (`calc`, `have`). A topic
 containing a colon needs quotes, as above: without them YAML reads it as
 something else and the topic is dropped, with no message.
+
+A level's `ladder` is the rung its proofs default to, from clicking to
+typing (default 1):
+
+| Rung | The learner sees |
+|---|---|
+| 1 | The proof board, with only the exercise's own `moves`. |
+| 2 | The proof board, with every move learned so far: the `moves` of this level (all of them, from its first lesson) and those before it, and the exercise's own. |
+| 3 | The editor, with those moves behind "Show moves"; a click writes the board's line at the caret, with a `?` selected where the move needs something only the learner can say (`rw [?]`, `exact ?`). |
+| 4 | The editor alone. |
+
+A board exercise (its solution is lines the board writes) takes the level's
+rung, so in a typing level it is typed, with its moves to hand. A typed
+exercise takes at least 3. An exercise can set its own (`ladder`, below).
+The learner can step down a rung for one exercise (a board exercise as far
+as its own moves on the board; a typed one to the moves to hand) and back
+up, keeping the proof so far between the two board rungs and the two
+editor rungs; that is not help, and is not marked assisted, but each attempt records
+the rung it was made at (`attempts.input_rung`). The Lean a click writes is
+always shown: under the board, or in the editor.
 
 ## A lesson
 
@@ -65,7 +86,7 @@ summary: One or two sentences, shown on the Path.
 exercises:
   - id: use-it                # unique in the lesson; never change once live
     title: Use an if-then
-    mode: board               # board (click moves) or typed (an editor)
+    mode: board               # board (can be clicked) or typed (needs the editor)
     says: Suppose P is true, and suppose that if P then Q. Then Q is true.
     statement: "(P Q : Prop) (hP : P) (hPQ : P → Q) : Q"
     moves: [apply, exact]     # board mode: ids from web/shared/moves.ts
@@ -100,11 +121,12 @@ unnoticed here; inside an exercise a key the kind does not take is refused.
 |---|---|
 | `id` | Lowercase letters, digits and hyphens. Unique within the lesson. |
 | `kind` | `prove` (the default) or `fill` (below). Every exercise has `id`, `kind`, `title` and `concept`; the other fields in this table are the parameters of `prove` in the registry. A field the kind does not take is refused, so a misspelt `forbid` cannot pass unnoticed. |
-| `mode` | `board` or `typed`. Default `board`. |
+| `mode` | `board` or `typed`. Default `board` (or `typed` for a `ladder` of 3 or 4). `board` says the exercise can be done on the board: whether it is depends on its rung. |
+| `ladder` | 1 to 4: the rung on the ladder (above, under curriculum.yaml). Default the level's, and at least 3 for a typed exercise. 1 or 2 on a typed exercise is refused. |
 | `title` | Required. A short heading. |
 | `says` | Required. The claim in plain English, as a mathematician would say it, on one line. Shown above the exercise. |
 | `statement` | Required. The Lean statement after the keyword: binders, a colon, the claim. The server wraps it as `theorem lii_exercise <statement> := by`, with the learner's lines in brackets under it. It must not contain `:=` or `sorry`. Quote it: it contains colons. |
-| `moves` | Required in board mode, and unused (though accepted) in typed mode: the moves on offer. Every line of the `solution` must be a line one of them writes (`rw [h]`, `induction' n with n ih`, `obtain ⟨r, hr⟩ := h`); `npm test` replays it. |
+| `moves` | Required in board mode: the moves this proof needs, all that rung 1 offers. Every line of the `solution` must be a line one of them writes (`rw [h]`, `induction' n with n ih`, `obtain ⟨r, hr⟩ := h`); `npm test` replays it. A typed exercise may list some too: they join the moves its rung 3 has to hand. |
 | `forbid` | Tactic names that may not appear in an answer. For exercises where one automatic tactic would skip the point. An exercise that forbids anything also forbids `try?`, which would run the forbidden tactics itself. |
 | `given` | Optional. Lean definitions the statement is about (the functions of a verified-programs lesson, or a theorem proved earlier), placed between the import and the theorem. A lesson can also have a `given` in its frontmatter: it goes in front of every exercise's own. The words `sorry`, `admit` and `axiom` may not appear in it anywhere, a comment included. Mark a function `@[simp]` if `simp` should unfold it. The lesson page shows it folded under "The definitions this is about". |
 | `solution` | A proof body, one tactic per line, that Lean accepts. Required. `npm test` checks every solution against the real Lean. |

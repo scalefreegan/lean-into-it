@@ -17,6 +17,7 @@
 // enough (Level 1 is the logic, Levels 2 and 3 the maths refresher) that a
 // learner strong in logic and rusty in algebra places between the two.
 
+import { onBoard } from "./ladder.ts";
 import { isReading } from "./recognize.ts";
 import type { Content, Exercise } from "./content.ts";
 import { masteryFor, PLACEMENT_BOX, startOfDay, type MasteryMap, type ReviewItem } from "./progress.ts";
@@ -41,10 +42,10 @@ export function placementLevels(content: PlacementContent): number[] {
 }
 
 /** Quickest first: choosing a fill, typing one, clicking a board proof, typing a whole proof. */
-function effort(e: Pick<Exercise, "kind" | "mode" | "options" | "solution">): number {
+function effort(e: Pick<Exercise, "kind" | "ladder" | "options" | "solution">): number {
   // The reading kinds come last: their few choices can be clicked through
   // until one is right, which says little about what a learner knows.
-  const kind = isReading(e.kind) ? 9 : e.kind === "fill" ? (e.options.length ? 0 : 1) : e.mode === "board" ? 2 : 3;
+  const kind = isReading(e.kind) ? 9 : e.kind === "fill" ? (e.options.length ? 0 : 1) : e.kind === "prove" && onBoard(e.ladder) ? 2 : 3;
   return kind * 1000 + Math.min(999, e.solution.split("\n").filter((l) => l.trim()).length);
 }
 

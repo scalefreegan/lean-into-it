@@ -444,17 +444,26 @@ test("/api/check records attempts, not the re-check of a stored solution, and a 
   await query("update attempts set created_at = created_at - interval '2 days'");
   await post({ ...base, body: "intro hP\nexact hP", record: "live" });
   assert.equal(await count(), 5);
+  // The input ladder's rung the check was made at goes on the row (a rung
+  // that is not one, or none, is kept as null).
+  await post({ ...base, body: "exact hP", record: "rejected", ladder: 2 });
+  await post({ ...base, body: "exact hP", record: "submitted", ladder: 9 });
+  await post({ ...base, body: "exact hP", record: "submitted" });
+  const rungs = (await query("select input_rung from attempts order by id desc limit 3")) as { input_rung: number | null }[];
+  assert.deepEqual(rungs.map((r) => r.input_rung), [null, null, 2]);
 });
 
 test("rung 3's line is Lean's to pass: one that works is offered, one that does not is not", { skip }, async () => {
   const use = exercise("use-it");
-  // A board line one of the moves writes, that changes the goals.
-  assert.equal(await lineProblem(use, "", "apply hPQ"), null);
-  assert.equal(await lineProblem(use, "apply hPQ", "exact hP"), null);
+  // On the board (the moves it offers given): a line one of the moves writes, that changes the goals.
+  assert.equal(await lineProblem(use, "", "apply hPQ", use.moves), null);
+  assert.equal(await lineProblem(use, "apply hPQ", "exact hP", use.moves), null);
   // An error, a line that changes nothing, and a line no move on offer writes.
-  assert.ok(await lineProblem(use, "", "exact hP"));
-  assert.match((await lineProblem(use, "", "skip"))!, /moves|goals/);
-  assert.match((await lineProblem(use, "", "simp [hP, hPQ]"))!, /moves/);
+  assert.ok(await lineProblem(use, "", "exact hP", use.moves));
+  assert.match((await lineProblem(use, "", "skip", use.moves))!, /moves|goals/);
+  assert.match((await lineProblem(use, "", "simp [hP, hPQ]", use.moves))!, /moves/);
+  // Typed (no board): the same exercise takes a line no move writes.
+  assert.equal(await lineProblem(use, "", "simp [hP, hPQ]"), null);
   // A typed exercise takes any line, but not a forbidden one.
   const typed = exercise("typed");
   assert.equal(await lineProblem(typed, "intro hPQ", "intro hP"), null);

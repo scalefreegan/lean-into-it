@@ -36,12 +36,14 @@ export interface AttemptInput {
   error?: string | null;
   /** The highest Tutor hint rung climbed on the exercise (hintRung). */
   rung?: number | null;
+  /** The input ladder's rung it was made at (web/shared/ladder.ts). */
+  inputRung?: number | null;
 }
 
 /** Record one check. Rung 3 (the Tutor gave the line) marks it assisted. A solved one also marks the exercise solved, keeping
  *  the first solution if it was solved before. */
 export async function recordAttempt(db: Db, learnerId: string, a: AttemptInput): Promise<void> {
-  await db.insert(attempts).values({ learnerId, lessonId: a.lessonId, exerciseId: a.exerciseId, body: a.body, solved: a.solved, error: a.error ?? null, rung: a.rung ?? null, assisted: (a.rung ?? 0) >= 3 });
+  await db.insert(attempts).values({ learnerId, lessonId: a.lessonId, exerciseId: a.exerciseId, body: a.body, solved: a.solved, error: a.error ?? null, rung: a.rung ?? null, inputRung: a.inputRung ?? null, assisted: (a.rung ?? 0) >= 3 });
   if (a.solved) {
     await db.insert(solvedExercises).values({ learnerId, lessonId: a.lessonId, exerciseId: a.exerciseId, solution: a.body }).onConflictDoNothing();
   }
@@ -76,6 +78,7 @@ export interface AttemptRow {
   body: string;
   solved: boolean;
   assisted: boolean;
+  inputRung: number | null;
   createdAt: Date;
 }
 
@@ -83,7 +86,7 @@ export interface AttemptRow {
  *  worked out from (web/shared/progress.ts). */
 export async function attemptsFor(db: Db, learnerId: string): Promise<AttemptRow[]> {
   return db
-    .select({ lessonId: attempts.lessonId, exerciseId: attempts.exerciseId, body: attempts.body, solved: attempts.solved, assisted: attempts.assisted, createdAt: attempts.createdAt })
+    .select({ lessonId: attempts.lessonId, exerciseId: attempts.exerciseId, body: attempts.body, solved: attempts.solved, assisted: attempts.assisted, inputRung: attempts.inputRung, createdAt: attempts.createdAt })
     .from(attempts)
     .where(eq(attempts.learnerId, learnerId))
     .orderBy(asc(attempts.createdAt), asc(attempts.id));
@@ -271,7 +274,7 @@ export type ReaderQuery = (text: string, params?: unknown[]) => Promise<Record<s
  *  exercise's, the refused ones, or those after `since`. */
 export function readerAttempts(q: ReaderQuery, learnerId: string, o: { limit: number; lesson?: string | null; exercise?: string | null; failedOnly?: boolean; since?: Date | null }) {
   return q(
-    `select lesson_id, exercise_id, body, solved, error, rung, assisted, created_at
+    `select lesson_id, exercise_id, body, solved, error, rung, input_rung, assisted, created_at
        from attempts
       where learner_id = $1
         and ($2::text is null or lesson_id = $2)
@@ -288,7 +291,7 @@ export function readerAttempts(q: ReaderQuery, learnerId: string, o: { limit: nu
  *  (web/shared/progress.ts AttemptLike), newest first. */
 export function readerAttemptsForMastery(q: ReaderQuery, learnerId: string, limit: number) {
   return q(
-    `select lesson_id as "lessonId", exercise_id as "exerciseId", body, solved, assisted, created_at as "createdAt"
+    `select lesson_id as "lessonId", exercise_id as "exerciseId", body, solved, assisted, input_rung as "inputRung", created_at as "createdAt"
        from attempts where learner_id = $1 order by created_at desc, id desc limit $2`,
     [learnerId, limit],
   );

@@ -8,6 +8,7 @@
 // This checks shape only. Whether an exercise's reference solution really
 // proves its statement is Lean's call (web/server/lean.test.ts).
 
+import { isLadder, onBoard, resolveLadder, type Ladder } from "../shared/ladder.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
@@ -62,7 +63,16 @@ export function loadContent(dir = contentDir()): Content {
       problem("curriculum.yaml", `level ${l.id} is listed twice`);
       continue;
     }
-    levels.push({ id: l.id, title: str(l.title), summary: str(l.summary), status: l.status === "outline" ? "outline" : "written", topics: strings(l.topics), moves: strings(l.moves) });
+    if (l.ladder !== undefined && !isLadder(l.ladder)) problem("curriculum.yaml", `level ${l.id}: \`ladder\` must be 1, 2, 3 or 4`);
+    levels.push({
+      id: l.id,
+      title: str(l.title),
+      summary: str(l.summary),
+      status: l.status === "outline" ? "outline" : "written",
+      topics: strings(l.topics),
+      moves: strings(l.moves),
+      ladder: isLadder(l.ladder) ? l.ladder : 1,
+    });
   }
   levels.sort((a, b) => a.id - b.id);
 
@@ -158,7 +168,8 @@ export function parseLesson(
 
   const exercises: Exercise[] = [];
   for (const e of Array.isArray(front.exercises) ? front.exercises : []) {
-    const ex = parseExercise(e, concepts, lessonGiven, (message) => problem(file, message));
+    const levelLadder = known.levels.find((l) => l.id === level)?.ladder ?? 1;
+    const ex = parseExercise(e, concepts, lessonGiven, levelLadder, (message) => problem(file, message));
     if (!ex) continue;
     if (exercises.some((x) => x.id === ex.id)) {
       problem(file, `exercise id "${ex.id}" is used twice`);
@@ -183,7 +194,7 @@ export function parseLesson(
   };
 }
 
-function parseExercise(e: unknown, concepts: string[], lessonGiven: string, problem: (message: string) => void): Exercise | null {
+function parseExercise(e: unknown, concepts: string[], lessonGiven: string, levelLadder: Ladder, problem: (message: string) => void): Exercise | null {
   if (!isRecord(e)) {
     problem("an exercise must be a set of key: value lines");
     return null;
@@ -211,17 +222,21 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, prob
   if (!concept) bad("needs a concept (or the lesson must list concepts)");
   if (!ok) return null;
 
-  const own = typeof e.given === "string" ? e.given.replace(/\s+$/, "") : "";
+  const ownGiven = typeof e.given === "string" ? e.given.replace(/\s+$/, "") : "";
   const truefalse = kind === "truefalse" ? trueFalseOf(e) : undefined;
+  // Only a `prove` exercise has a board; any other kind is not one. `mode`
+  // says whether it can be done on the board; a board rung says it can.
+  const own = isLadder(e.ladder) ? e.ladder : undefined;
+  const mode = kind !== "prove" ? "typed" : e.mode === "typed" || e.mode === "board" ? e.mode : own && !onBoard(own) ? "typed" : "board";
   return {
     id,
     kind,
-    // Only a `prove` exercise has a board; any other kind is not one.
-    mode: kind === "prove" && e.mode !== "typed" ? "board" : "typed",
+    mode,
+    ladder: kind === "prove" ? resolveLadder(own, mode, levelLadder) : 4,
     title: str(e.title),
     says: str(e.says),
     statement: str(e.statement).replace(/\s+/g, " "),
-    given: [lessonGiven, own].filter(Boolean).join("\n\n"),
+    given: [lessonGiven, ownGiven].filter(Boolean).join("\n\n"),
     moves: strings(e.moves),
     forbid: strings(e.forbid),
     proof: typeof e.proof === "string" ? e.proof.replace(/\s+$/, "") : "",

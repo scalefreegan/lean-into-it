@@ -1,0 +1,1 @@
+ALTER TABLE "attempts" ADD COLUMN "input_rung" smallint;

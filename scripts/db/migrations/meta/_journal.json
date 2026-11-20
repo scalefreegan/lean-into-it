@@ -43,6 +43,13 @@
       "when": 1795108443742,
       "tag": "0005_tutor_reader",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795184257699,
+      "tag": "0006_input_rung",
+      "breakpoints": true
     }
   ]
 }

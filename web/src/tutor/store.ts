@@ -13,6 +13,8 @@ export interface Work {
   body: string;
   goals: Goal[] | null;
   error: string | null;
+  /** Kind `prove`: the ladder's rung the learner is on (web/shared/ladder.ts). */
+  ladder?: number;
 }
 
 export interface TutorStore {
@@ -47,8 +49,8 @@ export function useTutorWork(lessonId: string, exerciseId: string, w: Work): voi
   const store = useContext(TutorCtx);
   const goals = JSON.stringify(w.goals);
   useEffect(() => {
-    store?.report(workKey(lessonId, exerciseId), { body: w.body, goals: JSON.parse(goals) as Goal[] | null, error: w.error });
-  }, [store, lessonId, exerciseId, w.body, goals, w.error]);
+    store?.report(workKey(lessonId, exerciseId), { body: w.body, goals: JSON.parse(goals) as Goal[] | null, error: w.error, ...(w.ladder ? { ladder: w.ladder } : {}) });
+  }, [store, lessonId, exerciseId, w.body, goals, w.error, w.ladder]);
 }
 
 /** Handlers that make an exercise the one the Tutor is asked about. */

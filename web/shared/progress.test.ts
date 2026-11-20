@@ -73,6 +73,14 @@ test("a refused board move counts against the move on its last line only", () =>
   assert.equal(m.tactics.intro, undefined);
 });
 
+test("a board exercise typed at rung 3 or 4 is a typed proof: its refusal counts against no move", () => {
+  // \`a\` is a board exercise; the rung on the row says how it was entered.
+  const typed = masteryFrom(content, [{ ...row("a", "intro h\nrfl\n", false), inputRung: 3 }]);
+  assert.deepEqual(typed.tactics, {});
+  const clicked = masteryFrom(content, [{ ...row("a", "intro h\nrfl\n", false), inputRung: 2 }]);
+  assert.deepEqual(clicked.tactics.rfl.recent, [false]);
+});
+
 test("a refused typed proof counts against its concept only", () => {
   const m = masteryFrom(content, [row("t", "intro h\nexact h", false)]);
   assert.deepEqual(m.concepts.and.recent, [false]);
