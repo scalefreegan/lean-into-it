@@ -75,11 +75,15 @@ if (flags.has("--no-lean")) {
         const some = (count: number, what: string) => (count ? `, ${count} ${what}${count === 1 ? "" : "s"}` : "");
         if (!problems.length) console.log(`✔ ${lesson.file}: ${n.solutions} solution${n.solutions === 1 ? "" : "s"}${some(n.snippets, "snippet")}${some(n.signatures, "library name")}`);
       },
+      onGallery: (problems, proofs) => {
+        for (const p of problems) console.log(`✖ ${p.file}: ${p.message}`);
+        if (!problems.length) console.log(`✔ gallery.yaml: ${proofs} famous proof${proofs === 1 ? "" : "s"}`);
+      },
     });
     failed += pass.problems.length;
     const c = pass.counts;
     console.log(
-      `Lean: ${c.lessons} lessons in ${Math.round((Date.now() - started) / 1000)} s. ${c.solutions} reference solutions, ${c.options} wrong options, ${c.snippets} snippets and ${c.signatures} library names checked; ` +
+      `Lean: ${c.lessons} lessons in ${Math.round((Date.now() - started) / 1000)} s. ${c.solutions} reference solutions, ${c.famous ? `${c.famous} famous proofs, ` : ""}${c.options} wrong options, ${c.snippets} snippets and ${c.signatures} library names checked; ` +
         `${pass.problems.length} problem${pass.problems.length === 1 ? "" : "s"}. ${c.fragments} snippets are fragments (a proof state, a few tactic lines, an outline) and were not compiled.`,
     );
   } catch (e) {

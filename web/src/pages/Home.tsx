@@ -14,7 +14,8 @@ import { LevelLock } from "./LevelLock.tsx";
 // A card folds down to its heading. Unless the learner has said otherwise,
 // only the level with the next lesson in it is unfolded, so the page starts
 // short and at the right place. What they fold and unfold is remembered in
-// this browser.
+// this browser. Opened at a level (#/level/<id>, from a Famous Proofs entry),
+// that level is unfolded too and scrolled to.
 
 const OFFER_KEY = "lean-into-it:placement-offer-hidden";
 const FOLD_KEY = "lean-into-it:levels-unfolded";
@@ -30,7 +31,7 @@ function readFolds(): Record<string, boolean> {
   }
 }
 
-export function Home() {
+export function Home({ focus }: { focus?: number } = {}) {
   const { content, solved, levels, mastery, placed, reloadProgress } = useApp();
   // First run: nothing tried and no placement yet. "Not now" hides it here; the link under the header stays.
   const [offerHidden, setOfferHidden] = useState(() => {
@@ -40,7 +41,8 @@ export function Home() {
       return false;
     }
   });
-  const [folds, setFolds] = useState(readFolds);
+  // Opened at a level, it starts unfolded (kept only once the learner folds or unfolds something).
+  const [folds, setFolds] = useState(() => (focus === undefined ? readFolds() : { ...readFolds(), [focus]: true }));
   // Each change is made to the choices as they are then, not as they were when the page was last drawn.
   const changeFolds = (change: (kept: Record<string, boolean>) => Record<string, boolean>) =>
     setFolds((kept) => {
@@ -60,6 +62,11 @@ export function Home() {
   const total = content.lessons.reduce((n, l) => n + l.exercises.length, 0);
   const done = content.lessons.reduce((n, l) => n + lessonProgress(l, solved).done, 0);
   const unfolded = (level: Level) => folds[level.id] ?? (next !== null && next.level === level.id);
+  // Again once the levels are there: the page can be drawn before the content has come.
+  const drawn = content.levels.length;
+  useEffect(() => {
+    if (focus !== undefined) document.querySelector(`[data-level="${focus}"]`)?.scrollIntoView({ block: "start" });
+  }, [focus, drawn]);
   const allUnfolded = content.levels.every(unfolded);
 
   return (

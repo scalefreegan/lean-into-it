@@ -39,7 +39,7 @@ function Shell() {
   const { review } = useApp();
   const { open } = useTutor();
   const tabs = [
-    { name: "home", label: "Path", active: route.name === "home" || route.name === "lesson" },
+    { name: "home", label: "Path", active: route.name === "home" || route.name === "lesson" || route.name === "level" },
     { name: "review", label: "Review", active: route.name === "review" },
     { name: "moves", label: "Moves", active: route.name === "moves" },
     { name: "lab", label: "Lab", active: route.name === "lab" },
@@ -76,7 +76,7 @@ function Shell() {
       </header>
       <main className="flex-1 px-4 py-8 sm:px-6">
         <LeanBanner />
-        <ErrorBoundary label={route.name} key={`${route.name}/${route.arg ?? ""}`}>
+        <ErrorBoundary label={route.name} key={`${route.name}/${route.arg ?? ""}/${route.sub ?? ""}`}>
           {route.name === "lesson" && route.arg ? (
             <Lesson id={route.arg} />
           ) : route.name === "review" ? (
@@ -86,11 +86,13 @@ function Shell() {
           ) : route.name === "moves" ? (
             <Moves />
           ) : route.name === "lab" ? (
-            <Lab {...(route.arg ? { tool: route.arg } : {})} />
+            <Lab {...(route.arg ? { tool: route.arg } : {})} {...(route.sub ? { sub: route.sub } : {})} />
           ) : route.name === "playground" ? (
             <Playground />
           ) : route.name === "gallery" ? (
             <Gallery {...(route.arg ? { only: route.arg } : {})} />
+          ) : route.name === "level" && route.arg ? (
+            <Home focus={Number(route.arg)} />
           ) : (
             <Home />
           )}

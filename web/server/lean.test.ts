@@ -16,7 +16,7 @@ import { EXERCISES } from "../shared/registry.ts";
 import { misfit, moveLine, readLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, judge, replayOf, toBody } from "../shared/proof.ts";
 import { buildMap, type ProofMap } from "../shared/proofmap.ts";
-import { checkExercise, handleCheck, handleLean, handlePlayground, leanError } from "./check.ts";
+import { checkExercise, handleCheck, handleGallery, handleLean, handlePlayground, leanError } from "./check.ts";
 import { checkSolution, checkWithLean } from "./contentcheck.ts";
 import { setDb, type Db } from "./db.ts";
 import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, tutorLean, type LeanServer } from "./lean/lsp.ts";
@@ -97,6 +97,31 @@ test("every exercise's reference solution is accepted by Lean", { skip }, async 
     }
   }
   assert.ok(checked >= 5, `checked ${checked} exercises`);
+});
+
+test("every Famous Proofs entry is a proof Lean accepts, its map draws every line and ends done, and /api/gallery records nothing", { skip }, async () => {
+  const gallery = content.gallery ?? [];
+  assert.ok(gallery.length >= 5, `${gallery.length} entries`);
+  const attempts = async () => Number(((await query("select count(*) as n from attempts")) as { n: number | string }[])[0].n);
+  const before = await attempts();
+  for (const entry of gallery) {
+    const { status, reply } = await call<CheckReply>(handleGallery, { id: entry.id });
+    assert.equal(status, 200, entry.id);
+    assert.equal(reply.solved, true, `${entry.id}: ${JSON.stringify(reply.diagnostics)}`);
+    assert.ok(reply.map, entry.id);
+    const map = buildMap(reply.map.start, reply.map.steps);
+    // Each line of Lean is a move on the map, or the head of a block whose goals it made.
+    const lines = entry.solution.split("\n").length;
+    const drawn = new Set(map.nodes.flatMap((n) => (n.kind === "move" ? [n.line] : [])));
+    assert.ok(drawn.has(lines - 1), `${entry.id}: the last line is on the map`);
+    assert.deepEqual(map.nodes.filter((n) => n.kind === "goal" && n.state !== "done").map((n) => n.label), [], `${entry.id}: every goal done`);
+  }
+  // The goals after a line, for the sentence beside it.
+  const odd = await call<CheckReply>(handleGallery, { id: "sum-of-odd-numbers", cursor: { line: 3, character: 32 } });
+  assert.equal(odd.reply.cursorGoals?.[0].target, "k ^ 2 + (2 * k + 1) = (k + 1) ^ 2");
+  assert.equal(await attempts(), before, "nothing recorded");
+  await assert.rejects(call(handleGallery, { id: "no-such-proof" }), /no such proof/);
+  await assert.rejects(call(handleGallery, {}), /required/);
 });
 
 test("every board solution is what the board's own clicks write, against the goals Lean reports", { skip }, async () => {

@@ -107,6 +107,51 @@ test("all_goals works on every goal it closes; a goal Lean shows again is not dr
   assert.equal(again.nodes.filter((n) => n.kind === "goal").length, 3);
 });
 
+test("a part proved on its own line (`have h : P := by linarith`) keeps the rest of the proof, which Lean shows under a new goal", () => {
+  const start = [g("a", "False", [["hP", "P"]])];
+  const rest = g("b", "False", [["hP", "P"], ["hQ", "Q"]]);
+  const m = buildMap(start, [
+    { line: 0, text: "have hQ : Q := by simp", before: start, after: [] },
+    { line: 1, text: "exact absurd hQ hP", before: [rest], after: [] },
+  ]);
+  assert.deepEqual(arrows(m), ["⊢ False -acts-> have hQ : Q := by simp", "have hQ : Q := by simp -makes-> ⊢ False", "have hQ : Q := by simp -makes-> hQ : Q", "⊢ False -acts-> exact absurd hQ hP", "hP : P -uses-> exact absurd hQ hP", "hQ : Q -uses-> exact absurd hQ hP"]);
+  // It closed its own part, not the goal it worked on.
+  assert.equal(m.nodes.find((n) => n.kind === "move" && n.line === 0)?.state, undefined);
+  assert.deepEqual(m.nodes.filter((n) => n.kind === "goal").map((n) => n.state), ["done", "done"]);
+});
+
+test("a case with `:= by` inside it does not make the next case: that is still the block's head's", () => {
+  const start = [g("n", "0 + n = n", [])];
+  const zero = g("z", "0 + 0 = 0", []);
+  const succ = g("s", "0 + (k + 1) = k + 1", [["ih", "0 + k = k"]]);
+  const m = buildMap(start, [
+    { line: 0, text: "induction n with", before: start, after: start },
+    { line: 1, text: "| zero => exact (show 0 + 0 = 0 := by rfl)", before: [zero], after: [] },
+    { line: 2, text: "| succ k ih => omega", before: [succ], after: [] },
+  ]);
+  assert.deepEqual(arrows(m).filter((a) => a.includes("-makes->")), ["induction n with -makes-> ⊢ 0 + 0 = 0", "induction n with -makes-> ⊢ 0 + (k + 1) = k + 1", "induction n with -makes-> ih : 0 + k = k"]);
+  assert.equal(m.nodes.find((n) => n.kind === "move" && n.line === 1)?.state, "closes");
+  // Nor when the next case has the same target: it lacks the fact the first case had.
+  const pq = g("pq", "Q", [["h", "P ∨ P"]]);
+  const inl = g("l", "Q", [["hp", "P"]]);
+  const inr = g("r", "Q", [["hp'", "P"]]);
+  const c = buildMap([pq], [
+    { line: 0, text: "cases h with", before: [pq], after: [pq] },
+    { line: 1, text: "| inl hp => exact (show Q := by simp [hp])", before: [inl], after: [] },
+    { line: 2, text: "| inr hp' => exact f hp'", before: [inr], after: [] },
+  ]);
+  const makes = arrows(c).filter((a) => a.includes("-makes->"));
+  assert.equal(makes.filter((a) => a === "cases h with -makes-> ⊢ Q").length, 2);
+  assert.ok(makes.every((a) => a.startsWith("cases h with")), makes.join("; "));
+  assert.equal(c.nodes.find((n) => n.kind === "move" && n.line === 1)?.state, "closes");
+});
+
+test("a fact whose type a line changed, which Lean does not mark new, is drawn as made by that line", () => {
+  const start = [g("a", "False", [["hp", "2 ∣ p"], ["h", "p ^ 2 = 2"]])];
+  const m = buildMap(start, [{ line: 0, text: "obtain ⟨k, rfl⟩ := hp", before: start, after: [g("b", "False", [["h", "(2 * k) ^ 2 = 2"]])] }]);
+  assert.ok(arrows(m).includes("obtain ⟨k, rfl⟩ := hp -makes-> h : (2 * k) ^ 2 = 2"));
+});
+
 test("no lines: the statement alone", () => {
   const m = buildMap([g("q", "Q", [["hP", "P"]])], []);
   assert.deepEqual(m.nodes.map((n) => `${n.kind} ${n.state ?? ""}`.trim()), ["fact", "goal open"]);

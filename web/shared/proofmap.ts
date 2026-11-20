@@ -141,7 +141,11 @@ export function buildMap(start: MapGoal[], steps: StepGoals[]): ProofMap {
   /** Lines that open a block (`induction n with`, `have h : P := by`): the
    *  goals inside it are made by that line, though Lean shows them only on
    *  the lines in the block. */
-  const heads: { step: StepGoals; from: MapNode; acted: MapGoal; move: MapNode | null }[] = [];
+  const heads: { step: StepGoals; from: MapNode; acted: MapGoal; move: MapNode | null; inline: boolean }[] = [];
+  /** A head that proves a part on its own line (\`have h : P := by simp\`)
+   *  makes only the goal the proof goes on with: the same target, with every
+   *  fact it had. Not the next case of an \`induction … with\` it sits in. */
+  const continues = (h: (typeof heads)[number], g: MapGoal) => !h.inline || (g.target === h.acted.target && h.acted.facts.every((f) => g.facts.some((k) => factKey(k) === factKey(f))));
 
   /** A move node for a line, on the goals it works on, with arrows from the facts it names. */
   const putMove = (step: StepGoals, from: MapNode[], acted: MapGoal, closes: boolean): MapNode => {
@@ -191,9 +195,11 @@ export function buildMap(start: MapGoal[], steps: StepGoals[]): ProofMap {
       // First seen inside a block: made by the last line before it, no more
       // indented, that opened one (for \`| succ k ih => …\`, \`induction n with\`).
       const indent = step.text.search(/\S/);
-      const head = [...heads].reverse().find((h) => h.step.line < step.line && h.step.text.search(/\S/) <= indent);
+      const head = [...heads].reverse().find((h) => h.step.line < step.line && h.step.text.search(/\S/) <= indent && continues(h, acted));
       if (!head) continue;
       head.move ??= putMove(head.step, [head.from], head.acted, false);
+      // It finished its own part, not the goal it worked on: that goes on below.
+      if (head.inline) delete head.move.state;
       putMade(head.move, [head.from], [acted], head.step.line, () => true);
       from = goalNode.get(acted.id)!;
     }
@@ -204,17 +210,26 @@ export function buildMap(start: MapGoal[], steps: StepGoals[]): ProofMap {
     const every = /^\s*(all_goals|any_goals)\b|<;>/.test(step.text);
     const after = new Set(step.after.map((g) => g.id));
     const on = every ? step.before.filter((g) => g.id && !after.has(g.id) && goalNode.has(g.id)).map((g) => goalNode.get(g.id!)!) : [from];
-    const opens = /(\bwith|\bby|=>|:=)\s*$/.test(step.text.replace(/--.*$/, "").trimEnd());
+    // A line that opens a block, or (\`have h : P := by linarith\`) proves a
+    // part on the spot: the rest of the proof comes back under a new goal.
+    const code = step.text.replace(/--.*$/, "").trimEnd();
+    const ends = /(\bwith|\bby|=>|:=)\s*$/.test(code);
+    const inline = !ends && /:=\s*by\b/.test(code);
+    const opens = ends || inline;
     // A line that leaves the goal it works on as it was, and makes nothing, is
     // the head of a step written over several lines: drawn when its block shows what it made.
     if (kept && !made.length) {
-      if (opens) heads.push({ step, from, acted, move: null });
+      if (opens) heads.push({ step, from, acted, move: null, inline });
       if (step.refused) blocked.add(from.id);
       continue;
     }
     const move = putMove(step, on.length ? on : [from], acted, !made.length);
-    if (opens) heads.push({ step, from, acted, move });
-    putMade(move, on.length ? on : [from], made, step.line, (f) => !!f.inserted);
+    if (opens) heads.push({ step, from, acted, move, inline });
+    // New: what Lean marks new, and a fact whose type the line changed
+    // (\`obtain ⟨k, rfl⟩ := hp\` puts \`2 * k\` for \`p\` everywhere), which it
+    // does not mark: one no goal before the line had.
+    const had = new Set(step.before.flatMap((g) => g.facts.map(factKey)));
+    putMade(move, on.length ? on : [from], made, step.line, (f) => !!f.inserted || !had.has(factKey(f)));
   }
 
   // Done: worked on, and everything it led to done (a move that made nothing closed it).

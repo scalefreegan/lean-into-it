@@ -1,6 +1,6 @@
 // What `npm run check:content` does beyond loading content/ the way the app
-// does: every exercise's reference solution, and every Lean snippet shown in
-// a lesson, is given to the real Lean. A lesson that shows Lean which Lean
+// does: every exercise's reference solution, every Lean snippet shown in
+// a lesson, and every proof in the Famous Proofs gallery is given to the real Lean. A lesson that shows Lean which Lean
 // would refuse is a lesson that teaches something false.
 //
 // Solutions are judged exactly as a learner's answer is (checkExercise), so
@@ -10,7 +10,7 @@ import { spokenGaps, unsaidSymbols } from "../shared/tts/speakable.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
-import type { Content, ContentProblem, Exercise, Lesson } from "../shared/content.ts";
+import { galleryExercise, type Content, type ContentProblem, type Exercise, type Lesson } from "../shared/content.ts";
 import { HEADER } from "../shared/proof.ts";
 import type { CheckReply } from "../shared/wire.ts";
 import { checkExercise } from "./check.ts";
@@ -261,7 +261,7 @@ export function whyNot(reply: CheckReply): string {
 
 export interface LeanPass {
   problems: ContentProblem[];
-  counts: { lessons: number; solutions: number; options: number; snippets: number; signatures: number; fragments: number };
+  counts: { lessons: number; solutions: number; options: number; snippets: number; signatures: number; fragments: number; famous: number };
 }
 
 export interface LeanPassOptions {
@@ -271,6 +271,8 @@ export interface LeanPassOptions {
   only?: string[];
   /** Called as each lesson finishes. */
   onLesson?: (lesson: Lesson, problems: ContentProblem[], counts: { solutions: number; snippets: number; signatures: number }) => void;
+  /** Called when the Famous Proofs gallery is checked (it is not, with `only`). */
+  onGallery?: (problems: ContentProblem[], proofs: number) => void;
 }
 
 /** Lean itself failing on one item (out of time, crashed, stopped) is that item's problem; the run goes on. */
@@ -332,7 +334,7 @@ export async function checkSnippets(lean: LeanServer, raw: string): Promise<{ pr
 
 /** The Lean pass: every reference solution and every compilable snippet. */
 export async function checkWithLean(lean: LeanServer, content: Content, opts: LeanPassOptions): Promise<LeanPass> {
-  const pass: LeanPass = { problems: [], counts: { lessons: 0, solutions: 0, options: 0, snippets: 0, signatures: 0, fragments: 0 } };
+  const pass: LeanPass = { problems: [], counts: { lessons: 0, solutions: 0, options: 0, snippets: 0, signatures: 0, fragments: 0, famous: 0 } };
   for (const lesson of content.lessons) {
     if (opts.only?.length && !opts.only.includes(lesson.id)) continue;
     const found: ContentProblem[] = [];
@@ -357,6 +359,16 @@ export async function checkWithLean(lean: LeanServer, content: Content, opts: Le
     }
     pass.problems.push(...found);
     opts.onLesson?.(lesson, found, { solutions: lesson.exercises.length, snippets: seen.snippets, signatures: seen.signatures });
+  }
+  // The Famous Proofs: each proof judged as an exercise's solution is.
+  if (content.gallery?.length && !opts.only?.length) {
+    const found: ContentProblem[] = [];
+    for (const entry of content.gallery) {
+      for (const message of (await checkSolution(lean, galleryExercise(entry))).problems) found.push({ file: "gallery.yaml", message: message.replace(/^exercise "/, 'entry "') });
+      pass.counts.famous++;
+    }
+    pass.problems.push(...found);
+    opts.onGallery?.(found, content.gallery.length);
   }
   return pass;
 }

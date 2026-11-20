@@ -7,6 +7,7 @@ import { useApp } from "../state.tsx";
 import { LAB_KEY, useTutorSource } from "../tutor/store.ts";
 import { Button, cx, Notice } from "../ui.tsx";
 import { RenderWidget } from "../widgets/RenderWidget.tsx";
+import { FamousProofs } from "./FamousProofs.tsx";
 
 // The Lab: the open side of the app. Explorers to play with and every move
 // with an example to run, in no order, and nothing scored: nothing here
@@ -14,11 +15,13 @@ import { RenderWidget } from "../widgets/RenderWidget.tsx";
 // Playground file is). What is on offer is data in web/shared/lab.ts.
 //   #/lab            the moves
 //   #/lab/<tool>     one explorer, or "moves"
+//   #/lab/famous     the Famous Proofs gallery (FamousProofs.tsx); /<id> for one
 
 const MOVES_TOOL = { id: "moves", title: "Moves", blurb: "Every move, with an example to run and change." };
+const FAMOUS_TOOL = { id: "famous", title: "Famous proofs", blurb: "Classic proofs, in words and in Lean." };
 
-export function Lab({ tool }: { tool?: string }) {
-  const tools = [MOVES_TOOL, ...EXPLORERS];
+export function Lab({ tool, sub }: { tool?: string; sub?: string }) {
+  const tools = [MOVES_TOOL, FAMOUS_TOOL, ...EXPLORERS];
   // With no tool named, the moves; with a name nothing has, nothing is marked as open.
   const current = tool ? tools.find((t) => t.id === tool) : MOVES_TOOL;
   const explorer = EXPLORERS.find((e) => e.id === current?.id);
@@ -58,6 +61,8 @@ export function Lab({ tool }: { tool?: string }) {
             The Lab
           </a>
         </Notice>
+      ) : current.id === FAMOUS_TOOL.id ? (
+        <FamousProofs {...(sub ? { id: sub } : {})} />
       ) : explorer ? (
         <div className="flex flex-col gap-8" key={explorer.id}>
           {explorer.widgets.map((w, i) => (

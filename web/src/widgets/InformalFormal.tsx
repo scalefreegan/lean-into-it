@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Goal } from "../../shared/goals.ts";
-import { proofLines, readSteps, unsaid } from "../../shared/paired.ts";
+import { proofLines, readSteps, unsaid, type Step } from "../../shared/paired.ts";
+import type { MapGoal, StepGoals } from "../../shared/proofmap.ts";
 import { check } from "../api/client.ts";
 import { Closed, GoalView } from "../proof/GoalCards.tsx";
 import { useApp } from "../state.tsx";
 import { cx, Notice } from "../ui.tsx";
 import { str } from "./params.ts";
+import { ProofMap } from "./ProofMap.tsx";
 import type { WidgetProps } from "./types.ts";
 
 // `informal-formal`: a textbook proof beside the Lean proof of one of the
@@ -23,7 +25,6 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
   const solution = exercise?.solution;
   const lines = solution === undefined ? [] : proofLines(solution);
   const { steps } = readSteps(params.steps, lines.length);
-  const left = new Set(unsaid(steps, lines.length));
   const caption = str(params, "caption", "");
   // In its own lesson the pairing would give the exercise away: it waits
   // until that is solved. (No "show it now": a solution seen here would make
@@ -31,24 +32,17 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
   const own = !params.lesson;
   const forLesson = lesson && Object.hasOwn(solved, lesson.id) ? solved[lesson.id] : undefined;
   const done = !!(exercise && forLesson && Object.hasOwn(forLesson, exercise.id));
-  const [pick, setPick] = useState<Pick>(null);
-  const [hover, setHover] = useState<Pick>(null);
-  // Lean's reply for a line; while it is for another line than the one selected, Lean is being asked.
-  const [state, setState] = useState<{ n: number; goals: Goal[] | null; error: string | null } | null>(null);
-
-  const selectedLine = pick?.kind === "line" ? pick.n : null;
   // Keyed on strings, so a re-render does not ask Lean again.
   const lessonKey = lesson?.id;
   const exerciseKey = exercise?.id;
-  useEffect(() => {
-    if (selectedLine === null || !lessonKey || !exerciseKey || solution === undefined) return;
-    const ctrl = new AbortController();
-    const text = proofLines(solution)[selectedLine - 1];
-    check({ lessonId: lessonKey, exerciseId: exerciseKey, body: solution, cursor: { line: selectedLine - 1, character: text.length } }, ctrl.signal)
-      .then((r) => setState({ n: selectedLine, goals: r.cursorGoals, error: null }))
-      .catch((e: Error) => !ctrl.signal.aborted && setState({ n: selectedLine, goals: null, error: e.message }));
-    return () => ctrl.abort();
-  }, [selectedLine, lessonKey, exerciseKey, solution]);
+  const ask = useCallback(
+    async (line: number, signal: AbortSignal) => {
+      if (!lessonKey || !exerciseKey || solution === undefined) return null;
+      const text = proofLines(solution)[line - 1];
+      return (await check({ lessonId: lessonKey, exerciseId: exerciseKey, body: solution, cursor: { line: line - 1, character: text.length } }, signal)).cursorGoals;
+    },
+    [lessonKey, exerciseKey, solution],
+  );
 
   if (!lesson || !exercise) return <Notice tone="warn">{`This paired proof cannot be drawn: no exercise "${String(params.exercise)}" in lesson "${lessonOf}".`}</Notice>;
   if (own && !done)
@@ -58,6 +52,31 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
       </figure>
     );
 
+  return <PairedView statement={exercise.statement} lines={lines} steps={steps} caption={caption} ask={ask} />;
+}
+
+/**
+ * A proof in words beside its Lean, sentence to lines: the widget's view, and
+ * the Famous Proofs gallery's. `ask` gets Lean's goals after a line (1-based);
+ * with `map`, the proof map is drawn under the two sides, its nodes ringed
+ * for what is selected and a node's line selected by clicking it.
+ */
+export function PairedView({ statement, lines, steps, caption = "", ask, map }: { statement: string; lines: string[]; steps: Step[]; caption?: string; ask: (line: number, signal: AbortSignal) => Promise<Goal[] | null>; map?: { start: MapGoal[]; steps: StepGoals[] } | null }) {
+  const left = new Set(unsaid(steps, lines.length));
+  const [pick, setPick] = useState<Pick>(null);
+  const [hover, setHover] = useState<Pick>(null);
+  // Lean's reply for a line; while it is for another line than the one selected, Lean is being asked.
+  const [state, setState] = useState<{ n: number; goals: Goal[] | null; error: string | null } | null>(null);
+  const selectedLine = pick?.kind === "line" ? pick.n : null;
+  useEffect(() => {
+    if (selectedLine === null) return;
+    const ctrl = new AbortController();
+    ask(selectedLine, ctrl.signal)
+      .then((goals) => setState({ n: selectedLine, goals, error: null }))
+      .catch((e: Error) => !ctrl.signal.aborted && setState({ n: selectedLine, goals: null, error: e.message }));
+    return () => ctrl.abort();
+  }, [selectedLine, ask]);
+
   const lit = hover ?? pick;
   const stepLit = (i: number) => (lit?.kind === "step" ? lit.i === i : lit?.kind === "line" ? steps[i].lines.includes(lit.n) : false);
   const lineLit = (n: number) => (lit?.kind === "line" ? lit.n === n : lit?.kind === "step" ? steps[lit.i].lines.includes(n) : false);
@@ -65,7 +84,7 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
 
   return (
     <figure data-widget="informal-formal" className="max-w-4xl rounded-2xl border border-line-strong bg-panel p-4 shadow-sm sm:p-5">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div>
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-3">In words</div>
           <ol className="flex flex-col gap-1">
@@ -91,7 +110,7 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
         <div>
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-3">In Lean</div>
           <div className="lean overflow-x-auto rounded-lg border border-line bg-ground p-2 text-[13px]">
-            <div className="whitespace-pre px-2 py-0.5 text-fg-3">{`example ${exercise.statement} := by`}</div>
+            <div className="whitespace-pre px-2 py-0.5 text-fg-3">{`example ${statement} := by`}</div>
             {lines.map((text, k) => {
               const n = k + 1;
               return (
@@ -147,6 +166,11 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
           {caption}
           {left.size > 0 && `${caption ? " " : ""}A line marked unsaid is one Lean needed and the words did not mention.`}
         </figcaption>
+      )}
+      {map && (
+        <div className="-mx-4 mt-3 sm:-mx-5">
+          <ProofMap start={map.start} steps={map.steps} picked={lit?.kind === "step" ? steps[lit.i].lines.map((n) => n - 1) : lit?.kind === "line" ? lit.n - 1 : null} onPick={(line) => setPick({ kind: "line", n: line + 1 })} />
+        </div>
       )}
     </figure>
   );

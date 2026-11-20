@@ -1,5 +1,5 @@
 import type { Content } from "../../shared/content.ts";
-import type { CheckReply, CheckRequest, ErrorReply, LeanStatus, OpenLevelRequest, PlacementRequest, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest, ListenSettings, ListenSettingsPatch, TtsSpeakReply, TtsSpeakRequest, TtsVoicesReply } from "../../shared/wire.ts";
+import type { CheckReply, CheckRequest, ErrorReply, GalleryRequest, LeanStatus, OpenLevelRequest, PlacementRequest, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest, ListenSettings, ListenSettingsPatch, TtsSpeakReply, TtsSpeakRequest, TtsVoicesReply } from "../../shared/wire.ts";
 
 // The one fetch. Every call to the server goes through here, so an error is
 // always an ApiError carrying the server's own sentence.
@@ -43,6 +43,7 @@ export const placeAt = (req: PlacementRequest) => api<ProgressReply>("/api/progr
 export const getLean = () => api<LeanStatus>("/api/lean");
 export const restartLean = () => api<LeanStatus>("/api/lean/restart", {});
 export const check = (req: CheckRequest, signal?: AbortSignal) => api<CheckReply>("/api/check", req, signal);
+export const galleryCheck = (req: GalleryRequest, signal?: AbortSignal) => api<CheckReply>("/api/gallery", req, signal);
 export const playground = (req: PlaygroundRequest, signal?: AbortSignal) => api<PlaygroundReply>("/api/playground", req, signal);
 export const askTutor = (req: TutorRequest, signal?: AbortSignal) => api<TutorReply>("/api/tutor", req, signal);
 export const tutorHistory = () => api<TutorHistoryReply>("/api/tutor/history");

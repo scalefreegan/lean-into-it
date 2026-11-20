@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { ROOT } from "../../scripts/env.mjs";
-import type { Block, Content, ContentProblem, Exercise, Lesson, Level, Track } from "../shared/content.ts";
+import type { Block, Content, ContentProblem, Exercise, GalleryEntry, Lesson, Level, Track } from "../shared/content.ts";
 import { sortLessons, type TrueFalse } from "../shared/content.ts";
 import { splitStatement, writeAnswer, type Witness } from "../shared/truefalse.ts";
 import { proofLines, readSteps } from "../shared/paired.ts";
@@ -100,7 +100,66 @@ export function loadContent(dir = contentDir()): Content {
     }
     lessons.push(lesson);
   }
-  return { tracks, levels, lessons: sortLessons(lessons, tracks), problems };
+  const gallery = parseGallery(dir, levels, (message) => problem("gallery.yaml", message));
+  return { tracks, levels, lessons: sortLessons(lessons, tracks), ...(gallery ? { gallery } : {}), problems };
+}
+
+const GALLERY_KEYS = ["id", "title", "says", "who", "why", "level", "statement", "solution", "steps", "formal", "mathlib"];
+
+/** content/gallery.yaml, the Lab's Famous Proofs (docs/CONTENT.md): its
+ *  entries, each checked for shape; null when there is no such file. That
+ *  each proof is a proof is Lean's call (web/server/lean.test.ts). */
+function parseGallery(dir: string, levels: Level[], problem: (message: string) => void): GalleryEntry[] | null {
+  const file = path.join(dir, "gallery.yaml");
+  if (!fs.existsSync(file)) return null;
+  let raw: unknown;
+  try {
+    raw = parseYaml(fs.readFileSync(file, "utf8"));
+  } catch (e) {
+    problem(`cannot be read: ${(e as Error).message}`);
+    return [];
+  }
+  const entries: GalleryEntry[] = [];
+  const list = isRecord(raw) && Array.isArray(raw.entries) ? raw.entries : null;
+  if (!list) {
+    problem("needs `entries:`, a list of proofs");
+    return [];
+  }
+  for (const e of list) {
+    const id = isRecord(e) ? str(e.id) : "";
+    if (!isRecord(e) || !ID.test(id)) {
+      problem(`an entry needs an id (lowercase, hyphens): ${JSON.stringify(e)}`);
+      continue;
+    }
+    const wrong: string[] = [];
+    for (const key of Object.keys(e)) if (!GALLERY_KEYS.includes(key)) wrong.push(`\`${key}\` is not a field of an entry (${GALLERY_KEYS.join(", ")})`);
+    for (const key of ["title", "says", "who", "why", "statement", "solution"]) if (!str(e[key])) wrong.push(`needs \`${key}\``);
+    if (e.formal !== undefined && typeof e.formal !== "string") wrong.push("`formal` must be text");
+    if (e.mathlib !== undefined && !/^[\p{L}_][\p{L}\p{N}_'.]*$/u.test(str(e.mathlib))) wrong.push("`mathlib` must be one Lean name, as `irrational_sqrt_two`");
+    if (typeof e.level !== "number" || !levels.some((l) => l.id === e.level)) wrong.push(`\`level\` must be one of the curriculum's levels (${levels.map((l) => l.id).join(", ")})`);
+    const solution = typeof e.solution === "string" ? e.solution.replace(/\s+$/, "") : "";
+    const stepProblems = readSteps(e.steps, proofLines(solution).length).problems;
+    wrong.push(...stepProblems.map((m) => `\`steps\`: ${m}`));
+    if (entries.some((x) => x.id === id)) wrong.push("its id is already used by another entry");
+    if (wrong.length) {
+      for (const m of wrong) problem(`entry "${id}": ${m}`);
+      continue;
+    }
+    entries.push({
+      id,
+      title: str(e.title),
+      says: str(e.says),
+      who: str(e.who),
+      why: str(e.why),
+      level: e.level as number,
+      statement: str(e.statement),
+      solution,
+      steps: (e.steps as string[]).map((s) => s.trim()),
+      formal: str(e.formal),
+      ...(str(e.mathlib) ? { mathlib: str(e.mathlib) } : {}),
+    });
+  }
+  return entries;
 }
 
 /** lessons/<track>/<name>.md, as paths relative to lessons/, sorted. */
