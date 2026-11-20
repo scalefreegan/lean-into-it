@@ -57,7 +57,7 @@ export function learnedMoves(levels: { id: number; moves: string[] }[], level: n
 
 /** Where a palette click's line goes in a typed proof: on the caret's line
  *  when that line is blank, else on a new line after it at the same indent
- *  (inside a bullet, at the bullet's text: \`· intro h\` is followed at two
+ *  (inside a bullet, at the bullet's text: `· intro h` is followed at two
  *  more spaces, so the line stays in that case). Returns the new text and
  *  the caret at the end of the line written. */
 export function insertLine(text: string, caretLine: number, line: string): { text: string; caret: { line: number; character: number } } {

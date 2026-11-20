@@ -4,7 +4,8 @@
 
 import { isLadder, onBoard } from "../shared/ladder.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { parseGoals } from "../shared/goals.ts";
+import { parseGoals, type Goal } from "../shared/goals.ts";
+import { withRemoved } from "../shared/interactive.ts";
 import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Position, forbiddenIn } from "../shared/proof.ts";
 import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
@@ -150,6 +151,23 @@ async function checkTrueFalse(lean: LeanServer, exercise: Exercise, text: string
   return { ...reply, diagnostics, error: reply.error ? back(reply.error) : null };
 }
 
+/** The goals at the `i`th position checked: Lean's structured goals, or
+ *  where it gave none, its printed goals parsed. */
+function goalsAt(result: LeanCheck, i: number): Goal[] {
+  return result.structured[i]?.map((g) => g.goal) ?? parseGoals(result.goals[i] ?? []);
+}
+
+/** Where the body's last step starts: the first character of its last
+ *  line that is not blank. Null for a blank body. */
+function lastStep(body: string): Position | null {
+  const lines = bodyLines(body);
+  for (let line = lines.length - 1; line >= 0; line--) {
+    const at = lines[line].search(/\S/);
+    if (at >= 0) return { line, character: at };
+  }
+  return null;
+}
+
 /**
  * Check a proof body against an exercise's statement. `written` is the part
  * of the body the learner wrote, which the forbid list applies to.
@@ -167,11 +185,14 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
   }
   const given = exercise.given;
   const end = toSource(endOfBody(body), given);
-  const positions = [end, ...(cursor ? [toSource(cursor, given)] : []), ...(cursor && otherwise ? [toSource(otherwise, given)] : [])];
+  // Last, the start of the last step: Lean marks what a step takes away
+  // only on the goals before it (web/shared/interactive.ts withRemoved).
+  const last = lastStep(body);
+  const positions = [end, ...(cursor ? [toSource(cursor, given)] : []), ...(cursor && otherwise ? [toSource(otherwise, given)] : []), ...(last ? [toSource(last, given)] : [])];
   const source = assemble(exercise.statement, body, given);
   let result: LeanCheck;
   try {
-    result = await lean.check("exercise", source, positions);
+    result = await lean.check("exercise", source, positions, true);
   } catch (e) {
     // A switched-off tactic is often a search (`try?`, `exact?`) and can run
     // out the time limit. The learner is told it is switched off, which is
@@ -189,8 +210,8 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
   const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body, given), replayOf(result.diagnostics, body, given), written);
   return {
     solved: verdict.solved,
-    goals: parseGoals(result.goals[0] ?? []),
-    cursorGoals: cursor && result.goals[1]?.length ? parseGoals(result.goals[1]) : cursor && otherwise && result.goals[2] ? parseGoals(result.goals[2]) : cursor && result.goals[1] ? [] : null,
+    goals: result.structured[0] ? withRemoved(result.structured[0], last ? result.structured[positions.length - 1] : null) : parseGoals(result.goals[0] ?? []),
+    cursorGoals: cursor && result.goals[1]?.length ? goalsAt(result, 1) : cursor && otherwise && result.goals[2] ? goalsAt(result, 2) : cursor && result.goals[1] ? [] : null,
     error: verdict.error,
     diagnostics,
     forbidden: verdict.forbidden,
@@ -260,11 +281,11 @@ export async function handlePlayground(req: IncomingMessage, res: ServerResponse
   if (input.source.length > MAX_SOURCE) throw new HttpError(413, "that file is too long");
   const cursor = isPosition(input.cursor) ? input.cursor : undefined;
   const source = input.source.endsWith("\n") ? input.source : `${input.source}\n`;
-  const result = await withLean((lean) => lean.check("playground", source, cursor ? [cursor] : []));
+  const result = await withLean((lean) => lean.check("playground", source, cursor ? [cursor] : [], true));
   const reply: PlaygroundReply = {
     // Everything Lean said, linters included: here the file is the learner's own.
     diagnostics: result.diagnostics.map((d) => ({ severity: d.severity, message: d.message, line: d.start.line, range: { start: d.start, end: d.end } })),
-    cursorGoals: cursor && result.goals[0] ? parseGoals(result.goals[0]) : null,
+    cursorGoals: cursor && result.goals[0] ? goalsAt(result, 0) : null,
   };
   sendJson(res, 200, reply);
 }
