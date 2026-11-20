@@ -9,7 +9,7 @@ import { href } from "../router.ts";
 import { solvedOf } from "../../shared/progress.ts";
 import { LevelLock } from "./LevelLock.tsx";
 import { lessonProgress, useApp } from "../state.tsx";
-import { Notice, Tick } from "../ui.tsx";
+import { CraftBadge, Notice, Tick } from "../ui.tsx";
 import { RenderWidget } from "../widgets/RenderWidget.tsx";
 import { useTouch } from "../tutor/store.ts";
 
@@ -56,6 +56,7 @@ export function Lesson({ id }: { id: string }) {
           </a>{" "}
           · Level {lesson.level}
           {level ? `: ${level.title}` : ""} · {track?.title ?? lesson.track}
+          {lesson.craft && <CraftBadge className="ml-2" />}
         </p>
         <h1 className="mt-1 text-4xl font-semibold text-fg">{lesson.title}</h1>
         <p className="mt-2 text-lg text-fg-2">{lesson.summary}</p>

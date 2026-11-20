@@ -3,7 +3,7 @@ import type { Lesson, Level } from "../../shared/content.ts";
 import { levelOpen, lessonCredited, lessonMastered, lessonMastery, type LevelStatus } from "../../shared/progress.ts";
 import { href } from "../router.ts";
 import { lessonProgress, useApp } from "../state.tsx";
-import { cx, MasteryBar, Notice, Tick } from "../ui.tsx";
+import { CraftBadge, cx, MasteryBar, Notice, Tick } from "../ui.tsx";
 import { LevelLock } from "./LevelLock.tsx";
 
 // The Path: every level in order, the lessons written so far, and what each
@@ -245,7 +245,10 @@ function LevelCard({
                   >
                     {p.complete ? <Tick className="shrink-0 text-good" /> : <span className="h-5 w-5 shrink-0 rounded-full border-2 border-line-strong" />}
                     <span className="min-w-0 flex-1">
-                      <span className="block font-semibold text-fg">{lesson.title}</span>
+                      <span className="block font-semibold text-fg">
+                        {lesson.title}
+                        {lesson.craft && <CraftBadge className="ml-2" />}
+                      </span>
                       <span className="block text-sm text-fg-3">{lesson.summary}</span>
                     </span>
                     <span className="shrink-0 text-right text-xs text-fg-3">

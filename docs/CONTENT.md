@@ -83,9 +83,10 @@ exercises:
 | `id` | Required. Lowercase letters, digits and hyphens; no other lesson may have it. Quote one that is all digits (`id: "2024"`): YAML reads a bare one as a number, which is refused. |
 | `title` | Required. |
 | `track`, `level` | Required. A track id and a level id from `curriculum.yaml`. |
-| `order` | A number: the position within the track and level. Default 0, and anything that is not a number (a quoted `"8"`) counts as 0. |
+| `order` | A number (`4.5` is one): the position within the track and level. Default 0, and anything that is not a number (a quoted `"8"`) counts as 0. |
 | `concepts` | A list of concept names. The first is the default `concept` of the lesson's exercises. |
 | `summary` | Shown on the Path. |
+| `craft` | Optional, `true` or `false`. A proof-craft lesson: how mathematicians work (try small cases, work backwards, look for a counterexample…), built round one worked problem and ending in exercises that use the habit. Marked "Proof craft" on the Path and on its page. Give it a fractional `order` (`4.5`) to place it after the lesson it needs. |
 | `given` | Optional text (`given: \|`): Lean definitions that go in front of every exercise of the lesson, before the exercise's own `given`. No `sorry`, `admit` or `axiom`. |
 | `exercises` | The list of exercises, below. |
 

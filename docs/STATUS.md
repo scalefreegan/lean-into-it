@@ -82,6 +82,19 @@ Landed in the first PR, the foundation slice:
   `match` (pair sentences with Lean) are marked against the author's answer,
   the one exception to "Lean decides" (decided 2026-11-19); Lean checks
   that their Lean is readable. No lesson uses them yet.
+- Proof-craft lessons (`lii-dvy.7`): six short lessons on how
+  mathematicians work, each round one worked problem, marked "Proof craft"
+  on the Path and their page (the lesson field `craft: true`): work
+  backwards and what to do when stuck (`logic-1-work-backwards`), look for
+  a counterexample first (`logic-1-counterexample-first`), small cases then
+  a guess then a proof (`math-2-small-cases`), strengthen the induction
+  hypothesis (`programs-2-strengthen`), split into cases (`math-3-cases`),
+  and what "clearly" and "similarly" hide, with a lemma stated once and
+  used three times, set beside its Lean (`math-3-clearly`). The bead's
+  third point, the mathematician's wording beside the Lean in every other
+  lesson, was met before it: every exercise has its `says`. The
+  `informal-formal` widget now says, of a line that ends inside a nested
+  `by`, that it finishes its own part, not that no goals are left.
 - Limit explorers (`lii-53v.2`): four widgets on the arithmetic of
   `web/shared/limits.ts`. `epsilon-delta` (sliders for ε and δ; the box
   turns green when every x in the strip but a has f(x) in the band, decided
@@ -452,7 +465,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 500, including every reference solution checked by the real Lean,
+- Tests: 501, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -483,7 +496,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-18 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+17 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -535,7 +548,6 @@ land first.
 |---|---|---|---|
 | `lii-oip` | A calc chain that proves ≤ where < is wanted leaves an unexplained goal like c < c | 3 | |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
-| `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3` |
 
 ### Lab (epic `lii-kqz`)
 

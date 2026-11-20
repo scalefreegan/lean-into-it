@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Goal } from "../../shared/goals.ts";
 import { proofLines, readSteps, unsaid } from "../../shared/paired.ts";
 import { check } from "../api/client.ts";
-import { GoalView } from "../proof/GoalCards.tsx";
+import { Closed, GoalView } from "../proof/GoalCards.tsx";
 import { useApp } from "../state.tsx";
 import { cx, Notice } from "../ui.tsx";
 import { str } from "./params.ts";
@@ -130,7 +130,13 @@ export function InformalFormal({ params, lessonId }: WidgetProps) {
             ) : (
               <div data-state-after={state.n}>
                 <div className="mb-1 text-xs text-fg-3">After line {state.n}</div>
-                <GoalView goals={state.goals} />
+                {state.goals.length === 0 && state.n < lines.length ? (
+                  // Only a line that ends inside a nested `by` (a `have … := by simp`)
+                  // leaves no goals before the last: what it closed is its own part.
+                  <Closed>This line finishes the part it belongs to; the lines below go on with the rest of the proof.</Closed>
+                ) : (
+                  <GoalView goals={state.goals} />
+                )}
               </div>
             )}
           </div>
