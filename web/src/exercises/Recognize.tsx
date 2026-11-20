@@ -9,10 +9,10 @@ import { Button, cx, Notice } from "../ui.tsx";
 import { Claim } from "./Claim.tsx";
 import type { ExerciseProps } from "./types.ts";
 
-// Kinds `predict`, `read` and `match` (web/shared/recognize.ts): reading
-// Lean. A prediction is decided by Lean on the server; a reading and a
-// match are marked against the author's answer, also on the server, so the
-// page never decides.
+// Kinds `predict`, `read`, `match` and `flaw` (web/shared/recognize.ts):
+// reading. A prediction is decided by Lean on the server; the others are
+// marked against the author's answer, also on the server, so the page
+// never decides.
 
 /** Send an answer and keep the reply; tell the lesson once it is solved. */
 function useAnswer({ lessonId, exercise, onSolved }: ExerciseProps) {
@@ -294,7 +294,7 @@ export function Flaw(props: ExerciseProps) {
                     <strong>Right, step {exercise.solution}.</strong> {exercise.why}
                   </Closed>
                 ) : (
-                  <Notice tone="warn">{`Step ${reply.answer} holds up. Try each step on numbers, and look for one that only works some of the time.`}</Notice>
+                  <Notice tone="warn">{`Step ${reply.answer} holds up. Check each step against the one before it: what does it assume that was never shown?`}</Notice>
                 )}
               </div>
             )}

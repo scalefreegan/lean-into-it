@@ -278,7 +278,8 @@ export async function lineProblem(exercise: Exercise, body: string, line: string
     // The reply's line has lost backticks at its ends (splitLine), so the answer is compared without them too.
     const plain = (s: string) => s.replace(/\s+/g, " ").trim().replace(/^`+|`+$/g, "").trim();
     if (exercise.kind === "read") return plain(line) === plain(exercise.solution) ? null : "that is not the sentence that says what the statement claims";
-    if (exercise.kind === "flaw") return /\d+/.exec(line)?.[0] === exercise.solution ? null : "that is not the wrong step";
+    // One step, named alone: "Step 5" or "5", not "Steps 5 and 6".
+    if (exercise.kind === "flaw") return /^\s*(?:step\s*)?(\d+)\.?\s*$/i.exec(plain(line))?.[1] === exercise.solution ? null : "give the wrong step alone, as `Step N`";
     if (exercise.pairs) {
       const { english, lean: leans } = exercise.pairs;
       const pair = (i: number) => plain(`${english[i]} ↔ ${leans[i]}`);

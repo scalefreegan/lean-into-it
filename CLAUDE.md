@@ -59,7 +59,8 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   the three standard axioms (`web/shared/proof.ts` `judge`). Nothing else,
   and no agent, grades a proof. The one exception (decided 2026-11-19):
   the reading kinds `read`, `match` and `flaw` are marked against the
-  author's answer, and Lean only checks that the Lean they show is readable;
+  author's answer (Lean only checks that any Lean they show is readable;
+  `flaw` shows none, so its answer rests on the author alone);
   `predict` is still decided by Lean's real goal state. The learner's body must not be able to decide for
   Lean: it sits in brackets inside the `by` block, may not close them or
   name a way to run a program (`escapesIn`), and Lean's axiom report after

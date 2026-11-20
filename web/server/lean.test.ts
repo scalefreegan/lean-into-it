@@ -718,6 +718,7 @@ test("predict, read and match: Lean decides a prediction, the author's answer a 
   assert.deepEqual((await checkSolution(lean, flaw)).problems, []);
   assert.equal(await lineProblem(flaw, "", "Step 5"), null);
   assert.notEqual(await lineProblem(flaw, "", "Step 6"), null);
+  assert.notEqual(await lineProblem(flaw, "", "Steps 5 and 6"), null);
   // The Tutor's rung 3 is the answer, checked as the app would.
   assert.equal(await lineProblem(p1, "", "p q : Prop; hpq : p → q; hp : p ⊢ p"), null);
   assert.notEqual(await lineProblem(p1, "", "p q : Prop; hp : p ⊢ p"), null, "a fact missing");

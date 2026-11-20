@@ -101,7 +101,7 @@ async function checkPredict(lean: LeanServer, exercise: Exercise, answer: string
   return { ...refuse(null), solved: sameState(optionGoals(answer), goals), goals };
 }
 
-/** Kinds `read` and `match`: a fixed answer, marked against the author's (no Lean). */
+/** Kinds `read`, `match` and `flaw` (`isFixed`): a fixed answer, marked against the author's (no Lean). */
 export function checkFixed(exercise: Exercise, answer: string): CheckReply {
   if (exercise.kind === "read" || exercise.kind === "flaw") return { ...refuse(null), solved: answer.trim() === exercise.solution.trim() };
   const n = exercise.pairs!.english.length;

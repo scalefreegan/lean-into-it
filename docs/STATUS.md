@@ -448,7 +448,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-22 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+23 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -457,6 +457,7 @@ land first.
 |---|---|---|---|
 | `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
 | `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
+| `lii-a7b` | Flaky test: "loading a library never counts against a proof's time" (2 s budget under load) | 2 | |
 | `lii-m2l` | Lean timing tests fail in the full suite when the machine is loaded | 3 | |
 
 ### Proof board (epic `lii-8wq`)

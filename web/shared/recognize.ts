@@ -1,5 +1,5 @@
-// Kinds `predict`, `read` and `match` (bead lii-6xv.2): reading Lean, not
-// writing it. Pure, so the server, the page and the tests share it.
+// Kinds `predict`, `read`, `match` (bead lii-6xv.2) and `flaw` (lii-6xv.4):
+// reading, not writing. Pure, so the server, the page and the tests share it.
 //
 // PREDICT is decided by Lean. The learner picks the state a move leaves;
 // the server runs the move after the exercise's `before` lines and compares
@@ -11,7 +11,8 @@
 // READ and MATCH are fixed answers (the user's decision of 2026-11-19:
 // recognising what a Lean statement says is marked against the author's
 // answer; a proof is still solved only by Lean). Lean still checks that
-// every Lean statement they show is one Lean can read.
+// every Lean statement they show is one Lean can read. FLAW (which step of
+// an argument in words is wrong) is a fixed answer with no Lean at all.
 
 import { parseState, type Goal } from "./goals.ts";
 import type { ExerciseKind } from "./registry.ts";

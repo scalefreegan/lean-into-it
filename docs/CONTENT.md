@@ -221,9 +221,10 @@ solved except by Lean. The true side is a typed proof (no board). The
 second form of this kind in docs/PRD.md, finding the flawed step in an
 argument, is its own kind, `flaw` (below).
 
-### Predict, read and match
+### Predict, read, match and flaw
 
-Three kinds about reading Lean rather than writing it.
+Four kinds about reading rather than writing: three read Lean, and `flaw`
+reads an argument in words.
 
 `kind: predict` shows the state before a move, the move, and states to
 choose from; the learner picks the state the move leaves. It takes `says`,
@@ -261,9 +262,9 @@ which of the `options`, sentences, says what it claims. `solution` is the
 right sentence and `why` (optional) is shown after an answer. `kind: match`
 has `says`, `english` (two to six sentences) and `lean` (the proposition
 for each, in the same order); the learner pairs them, and the Lean is shown
-in another order. These two are fixed answers, marked against what the
-author wrote, not by Lean: the one exception to "Lean decides", for
-recognising what a statement says. Lean still checks that every statement
+in another order. These two, and `flaw` below, are fixed answers, marked
+against what the author wrote, not by Lean: the one exception to "Lean
+decides", for recognising what a statement or an argument says. Lean still checks that every statement
 they show is one it can read (`npm test`, `check:content`).
 
 `kind: flaw` is a plausible argument in words with one wrong step; the
@@ -271,7 +272,8 @@ learner says which. It has `says` (what the argument claims to show),
 `steps` (two to eight, in order), `flaw` (the wrong step's number, from 1)
 and `why` (what is wrong with it, shown once the learner finds it; after a
 wrong pick they are told only that the step holds up). A fixed answer, like
-`read`: there is no Lean in it to check.
+`read`, but with no Lean in it at all, so nothing checks the answer key
+but the author (and a lesson the Tutor writes gets no Lean check of it).
 
 ```yaml
   - id: two-equals-one
