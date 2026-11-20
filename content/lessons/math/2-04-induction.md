@@ -68,6 +68,13 @@ Then every domino falls. Domino 0 falls by the first point. So domino 1 falls, b
 
 It works because of what a natural number is: zero, or the one after something. The base case covers zero. The step covers "the one after".
 
+Push the first domino, then take away the base case, or the step, and push again. Each of the two is needed.
+
+```widget
+type: induction-dominoes
+caption: Without the base case nothing starts; without the step, only the first one falls.
+```
+
 In the step you are allowed to *assume* the statement for n. That assumption is called the **induction hypothesis**. It can look like assuming what you are trying to prove. It is not: you assume it for one number n, and prove it for the next one.
 
 ## On the board

@@ -63,6 +63,17 @@ exercises:
 
 Most of mathematics is made of sentences shaped like **if A then B**. If a number is divisible by 4, then it is even. If a function is differentiable, then it is continuous. Logicians write the arrow `A → B` and call it an *implication*.
 
+When is an implication true? Go through every case: A true or false, B true or false. The only way "if A then B" can fail is for A to be true and B false. When A is false, the implication makes no claim at all, so it holds.
+
+```widget
+type: truth-table
+formula: "p → q"
+steps: false
+caption: An implication is false in one row only, where p is true and q is false.
+```
+
+A table like this checks a statement one case at a time. A proof does something else: it argues once, for all the cases together, and that is what the rest of this level is about.
+
 There are only two things you ever do with an implication: you **use** one you already have, or you **prove** a new one. This lesson is those two skills, and the three moves that carry them out.
 
 ## The board, again
