@@ -281,9 +281,11 @@ test("gaps: untested concepts, moves no exercise uses, empty levels, topics to w
   });
 });
 
-// One Lean for the tests below: each server pays for its own Mathlib.
+// One Lean for the tests below: each server pays for its own Mathlib. It has
+// the app's own limit (20 s): a shorter one let an ordinary check time out
+// when the rest of the suite loaded the machine (bead lii-z19).
 let shared: LeanServer | null = null;
-const lean = () => (shared ??= new LeanServer({ timeoutMs: 6000 }));
+const lean = () => (shared ??= new LeanServer());
 after(() => shared?.close());
 
 test("Lean accepts a sound lesson: its solutions, its wrong option, its snippets and the fact it names", { skip }, async () => {
@@ -405,7 +407,7 @@ test("a check Lean cannot finish is that exercise's problem, and the run goes on
   // The wrong solution before it is still reported,
   assert.match(messages[0]!, /^lessons\/logic\/a-slow\.md: exercise "wrong": the reference solution is not accepted/);
   // the option Lean ran out of time on is named,
-  assert.match(messages[1]!, /^lessons\/logic\/a-slow\.md: exercise "sleepy": the option `sleep 60000`: Lean could not check it: Lean took longer than 6 seconds/);
+  assert.match(messages[1]!, /^lessons\/logic\/a-slow\.md: exercise "sleepy": the option `sleep 60000`: Lean could not check it: Lean took longer than 20 seconds/);
   // and the lesson after it is checked in full.
   assert.equal(messages.filter((m) => m.startsWith("lessons/logic/bad.md: ")).length, 5, messages.join("\n"));
   assert.equal(pass.counts.lessons, 2);

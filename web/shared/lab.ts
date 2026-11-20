@@ -186,6 +186,18 @@ export const EXPLORERS: Explorer[] = [
     widgets: [{ type: "square-of-sum", params: { a: 3, b: 2 }, note: "Why (a + b)² is a² + 2ab + b² and not a² + b²: move the sliders and watch the two rectangles." }],
   },
   {
+    id: "limits",
+    title: "Limits",
+    blurb: "Epsilon and delta, tangents, areas and sequences, to move.",
+    widgets: [
+      { type: "epsilon-delta", params: { function: "x^2", at: 2, epsilon: 1, delta: 1 }, note: "Pick ε, then find a δ that turns the box green. Make ε smaller and do it again: there is always a δ, and it shrinks." },
+      { type: "epsilon-delta", params: { function: "abs(x)/x", at: 0, limit: 1, epsilon: 0.5, delta: 1, y: [-2, 2] }, note: "A jump. Try any δ: the points just left of 0 are always 2 away from the limit you guessed. There is no limit here." },
+      { type: "secant-tangent", params: { function: "x^3 - x", at: 1, h: 1, x: [-1.5, 2.5], y: [-2, 6] }, note: "Slide h toward 0 from either side: the secant turns into the tangent, and its slope settles at 2." },
+      { type: "riemann-sum", params: { function: "sin(x)", from: 0, to: 3.14159, n: 4 }, note: "The area under one arch of sin is 2. Compare the three rules as n grows." },
+      { type: "sequence-limit", params: { term: "(-1)^n/n", limit: 0, epsilon: 0.2 }, note: "Every ε has an N past which the terms stay inside. That is what it means to converge." },
+    ],
+  },
+  {
     id: "logic",
     title: "Truth tables and dominoes",
     blurb: "Every case of a formula, and the chain behind induction.",
