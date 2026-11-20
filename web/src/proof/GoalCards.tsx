@@ -117,7 +117,8 @@ export function GoalView({
                   name={name}
                   type={h.type}
                   picking={picking}
-                  fresh={known ? !known.has(name) : false}
+                  // New since the last step: a name not on the card before, or one Lean marks as the step's own (`rw … at h`).
+                  fresh={known ? !known.has(name) || !!h.inserted : false}
                   {...(onPickFact ? { onPick: () => onPickFact(name) } : {})}
                 />
               )),

@@ -10,7 +10,7 @@ import { authorRepo, LESSON_FILE, withExercise } from "../../scripts/tests/autho
 import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
 import { explain } from "../shared/explain.ts";
-import { goalsText, unsolvedGoals } from "../shared/goals.ts";
+import { goalsText, sameGoals, unsolvedGoals, type Goal } from "../shared/goals.ts";
 import { LAB_FIRST_LINE, labSource, TACTIC_EXAMPLES } from "../shared/lab.ts";
 import { EXERCISES } from "../shared/registry.ts";
 import { misfit, moveLine, readLine } from "../shared/moves.ts";
@@ -87,6 +87,11 @@ test("every exercise's reference solution is accepted by Lean", { skip }, async 
       // A prediction is solved when Lean's state after the move is the one
       // picked, so it leaves goals; every other kind leaves none.
       if (e.kind !== "predict") assert.deepEqual(reply.goals, [], `${l.id}/${e.id} leaves no goal`);
+      // Board exercises have their goals checked at every step by the replay below; a typed one, at its start.
+      if (e.kind === "prove" && e.mode === "typed") {
+        const start = await checkExercise(leanServer(), e, "");
+        assert.ok(start.goals.length && start.goals.every((g) => g.targetTagged), `${l.id}/${e.id}: Lean's structured goals`);
+      }
       checked++;
     }
   }
@@ -112,6 +117,7 @@ async function replay(label: string, e: Exercise): Promise<number> {
     assert.ok(read && e.moves.includes(read.move.id), `${label}: "${want}" is not a move this exercise offers`);
     const { move, arg } = read;
     const state = await checkExercise(leanServer(), e, solution.slice(0, i).join("\n"));
+    assert.ok(state.goals.length && state.goals.every((g) => g.targetTagged), `${label} line ${i + 1}: Lean's structured goals`);
     assert.equal(misfit(move, state.goals[0]), null, `${label} line ${i + 1}: the board would refuse "${want}"`);
     assert.equal(moveLine(move, state.goals[0], arg), want, `${label} line ${i + 1}`);
   }
@@ -246,6 +252,46 @@ test("an empty proof is not solved, and Lean reports the opening goal", { skip }
     reply.goals[0].hypotheses.map((h) => `${h.names.join(" ")} : ${h.type}`),
     ["P Q : Prop", "hP : P", "hPQ : P → Q"],
   );
+});
+
+test("the goals come as Lean's data: each hypothesis one card with its names, and what the last step changed", { skip }, async () => {
+  const at = (statement: string, body: string) => checkExercise(leanServer(), { ...exercise("use-it"), id: "structured", statement, solution: "", forbid: [] }, body);
+  const cards = (g: Goal) => g.hypotheses.map((h) => `${h.names.join(" ")} : ${h.type}${h.value ? ` := ${h.value}` : ""}${h.inserted ? " (new)" : ""}`);
+
+  // An implication: intro adds the assumption, marked new.
+  const intro = await at("(P Q : Prop) (hPQ : P → Q) : P → Q", "intro hP");
+  assert.deepEqual(cards(intro.goals[0]), ["P Q : Prop", "hPQ : P → Q", "hP : P (new)"]);
+  assert.equal(intro.goals[0].target, "Q");
+  assert.ok(intro.goals[0].targetTagged, "the target as tagged text");
+  // The same state reached by other steps carries other marks, and is still the same state (the board's "no further").
+  const round = await at("(P Q : Prop) (hPQ : P → Q) : P → Q", "intro hP\nhave h2 := hP\nclear h2");
+  assert.notDeepEqual(round.goals, intro.goals, "other marks");
+  assert.ok(sameGoals(round.goals, intro.goals));
+  assert.ok(!sameGoals((await at("(P Q : Prop) (hPQ : P → Q) : P → Q", "intro hP\nclear hPQ")).goals, intro.goals));
+
+  // A conjunction split into two named goals, each target marked as changed.
+  const split = await at("(P Q : Prop) (hP : P) (hQ : Q) : P ∧ Q", "constructor");
+  assert.deepEqual(split.goals.map((g) => [g.caseName, g.target]), [["left", "P"], ["right", "Q"]]);
+  assert.match(JSON.stringify(split.goals[0].targetTagged), /"diff":"wasChanged"/);
+
+  // An induction: its named cases, and the names Lean made up, which no line can write.
+  const ind = await at("(n : ℕ) : 0 + n = n", "induction n");
+  assert.deepEqual(ind.goals.map((g) => g.caseName), ["zero", "succ"]);
+  const made = ind.goals[1].hypotheses.filter((h) => h.inaccessible);
+  assert.equal(made.length, 2, JSON.stringify(ind.goals[1].hypotheses.map((h) => h.names)));
+  assert.ok(made.every((h) => h.inserted));
+
+  // Grouped binders, a type Lean prints over several lines, and a let-value: one card each.
+  const long = Array(28).fill("a").join(" + ");
+  const lets = await at(`(a b : ℕ) (h : a = b ∧ b = a ∧ ${long} = ${Array(24).fill("b").join(" + ")}) : True`, "let x : ℕ := 5");
+  assert.deepEqual(lets.goals[0].hypotheses.map((h) => h.names), [["a", "b"], ["h"], ["x"]]);
+  assert.match(lets.goals[0].hypotheses[1].type, /\n/, "printed over several lines");
+  assert.equal(lets.goals[0].hypotheses[2].value, "5");
+
+  // What the last step took away is listed apart, not as a fact.
+  const got = await at("(P Q : Prop) (h : P ∧ Q) : Q", "obtain ⟨hp, hq⟩ := h");
+  assert.deepEqual(cards(got.goals[0]), ["P Q : Prop", "hp : P (new)", "hq : Q (new)"]);
+  assert.deepEqual(got.goals[0].gone?.map((h) => h.names), [["h"]]);
 });
 
 test("a right move changes the goal; a wrong move is an error on its line", { skip }, async () => {

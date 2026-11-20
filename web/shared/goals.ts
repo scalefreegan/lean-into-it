@@ -8,6 +8,10 @@
 // an optional case name, one line per hypothesis (several names may share a
 // type, and a long type continues on indented lines), then the claim after
 // the turnstile. Pure: runs in the browser, the server and the tests.
+//
+// Lean's checks give their goals as data instead (web/shared/interactive.ts,
+// from its RPC); this parser reads the goals an author writes (predict,
+// proofstate) and stands in where Lean gave no data.
 
 export interface Hypothesis {
   /** The names that share this type, e.g. ["P", "Q"] for `P Q : Prop`. */
@@ -15,6 +19,20 @@ export interface Hypothesis {
   type: string;
   /** A `let`-style value, for `x : ℕ := 5`. */
   value?: string;
+  // What follows comes only from Lean's structured goals
+  // (web/shared/interactive.ts); goals parsed from text have none of it.
+  /** Added by the step just before where the goals were read. */
+  inserted?: true;
+  /** Taken away by the step that follows: marked only on goals read just
+   *  before a step. The goals after a step list what it took in `gone`. */
+  removed?: true;
+  /** A typeclass instance (`inst : Add α`): Lean finds these itself. */
+  instance?: true;
+  /** Named by Lean, not the proof (`n✝`): no line of the proof can name it. */
+  inaccessible?: true;
+  /** The type as Lean's tagged text: each subexpression with its position and how the step changed it. */
+  typeTagged?: TaggedText;
+  valueTagged?: TaggedText;
 }
 
 export interface Goal {
@@ -22,6 +40,38 @@ export interface Goal {
   hypotheses: Hypothesis[];
   /** What is left to prove (the text after ⊢). */
   target: string;
+  /** Structured goals only: a goal the last step made, or the next takes away. */
+  inserted?: true;
+  removed?: true;
+  /** The hypotheses the last step took away from this goal (`obtain`
+   *  taking `h` apart, `clear`): not facts any more, there to show leaving. */
+  gone?: Hypothesis[];
+  targetTagged?: TaggedText;
+}
+
+/** How a step changed a subexpression, as Lean marks it: `was…` on the
+ *  goals after the step, `will…` on the goals before it. */
+export type DiffStatus = "wasChanged" | "willChange" | "wasInserted" | "willInsert" | "wasDeleted" | "willDelete";
+
+/** Lean's pretty-printed expression with its parts marked: plain text, a
+ *  run of parts, or one subexpression (`pos`: its path in the expression,
+ *  as Lean writes it, `/0/1`) around its own text. */
+export type TaggedText = { text: string } | { append: TaggedText[] } | { tag: [{ pos: string; diff?: DiffStatus }, TaggedText] };
+
+/** Whether two lists of goals are the same state: the same goals, cases,
+ *  facts and targets, in the same order. Lean's marks of what a step
+ *  changed are about the step, not the state, and are not compared: the
+ *  same state reached by another step is the same state. */
+export function sameGoals(a: Goal[], b: Goal[]): boolean {
+  const bare = (gs: Goal[]) => JSON.stringify(gs.map((g) => [g.caseName ?? "", g.hypotheses.map((h) => [h.names, h.type, h.value ?? null]), g.target]));
+  return bare(a) === bare(b);
+}
+
+/** The text of tagged text. */
+export function plainOf(t: TaggedText): string {
+  if ("text" in t) return t.text;
+  if ("append" in t) return t.append.map(plainOf).join("");
+  return plainOf(t.tag[1]);
 }
 
 /** Parse one goal as Lean prints it. Never throws: text it cannot read ends

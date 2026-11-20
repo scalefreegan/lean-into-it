@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { goalsText, isNatural, isObject, namesIn, parseGoal, parseGoals, stillOpenGoals, unsolvedGoals } from "./goals.ts";
+import { goalsText, isNatural, isObject, namesIn, parseGoal, parseGoals, sameGoals, stillOpenGoals, unsolvedGoals } from "./goals.ts";
 
 test("a goal's hypotheses and target are read as Lean prints them", () => {
   const g = parseGoal("P Q : Prop\nhP : P\nhPQ : P → Q\n⊢ Q");
@@ -86,4 +86,13 @@ test("Still open shows only where nothing is open here and nothing else is wrong
   assert.deepEqual(stillOpenGoals(ok, [parseGoal("⊢ P")]), [], "a goal open here is shown instead");
   assert.deepEqual(stillOpenGoals(ok, null), []);
   assert.deepEqual(stillOpenGoals(null, []), []);
+});
+
+test("sameGoals: the same state whatever Lean marked about the step that reached it", () => {
+  const g = { caseName: "left", hypotheses: [{ names: ["hP"], type: "P" }], target: "Q" };
+  const marked = { ...g, hypotheses: [{ names: ["hP"], type: "P", inserted: true as const, typeTagged: { text: "P" } }], targetTagged: { tag: [{ pos: "/", diff: "wasChanged" as const }, { text: "Q" }] as [{ pos: string; diff: "wasChanged" }, { text: string }] } };
+  assert.equal(sameGoals([g], [marked]), true);
+  assert.equal(sameGoals([g], [{ ...g, target: "P" }]), false);
+  assert.equal(sameGoals([g], [{ ...g, caseName: "right" }]), false);
+  assert.equal(sameGoals([g], [g, g]), false);
 });

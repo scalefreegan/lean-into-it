@@ -26,6 +26,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { SANDBOX_EXEC, sandboxEnv, sandboxSetup, type SandboxSetup } from "./sandbox.ts";
+import { fromReply, refsIn, type IdGoal } from "../../shared/interactive.ts";
 import { ROOT } from "../../../scripts/env.mjs";
 
 export const LEAN_DIR = path.join(ROOT, "lean");
@@ -47,7 +48,15 @@ export interface LeanCheck {
   /** One entry per requested position: the goals there as Lean prints them,
    *  or null where the position is not inside a proof. */
   goals: (string[] | null)[];
+  /** The same goals as data, from Lean's RPC (web/shared/interactive.ts):
+   *  null where `goals` is null, where they were not asked for (`check`'s
+   *  `structured`), or where the RPC failed and the printed goals stand in. */
+  structured: (IdGoal[] | null)[];
 }
+
+/** Lean's answer to an RPC call on a session it has dropped (its file
+ *  worker restarted, or the session went unused): connect again. */
+const RPC_NEEDS_RECONNECT = -32900;
 
 export class LeanUnavailable extends Error {}
 /** One check ran out of time. Lean itself is still there for the next. */
@@ -173,6 +182,8 @@ interface Doc {
   /** Checks queued or running; a document with any is never evicted. */
   active: number;
   lastUsed: number;
+  /** The RPC session for structured goals, made on first use. */
+  rpc?: string;
 }
 
 export interface LeanServerOptions {
@@ -252,18 +263,19 @@ export class LeanServer {
 
   /**
    * Elaborate `source` as the document named `key` and report its
-   * diagnostics and the goals at `positions`. Reusing a key reuses the
+   * diagnostics and the goals at `positions` (with `structured`, also as
+   * Lean's data: web/shared/interactive.ts). Reusing a key reuses the
    * document, so only the changed tail is re-elaborated.
    */
-  check(key: string, source: string, positions: Position[] = []): Promise<LeanCheck> {
-    return this.enqueue(key, source, positions, true);
+  check(key: string, source: string, positions: Position[] = [], structured = false): Promise<LeanCheck> {
+    return this.enqueue(key, source, positions, true, structured);
   }
 
-  private async enqueue(key: string, source: string, positions: Position[], mayRetry: boolean): Promise<LeanCheck> {
+  private async enqueue(key: string, source: string, positions: Position[], mayRetry: boolean, structured: boolean): Promise<LeanCheck> {
     await this.start();
     const doc = this.doc(key);
     doc.active++;
-    const attempt = () => this.checkDoc(doc, source, positions);
+    const attempt = () => this.checkDoc(doc, source, positions, structured);
     const run = doc.tail.then(attempt, attempt).finally(() => {
       doc.active--;
     });
@@ -274,7 +286,7 @@ export class LeanServer {
       if (e instanceof Lost) {
         // Its server or its document went away under it. That is not the
         // proof's doing, so it is tried once more, on what replaced them.
-        if (mayRetry && !this.closed) return this.enqueue(key, source, positions, false);
+        if (mayRetry && !this.closed) return this.enqueue(key, source, positions, false, structured);
         throw new LeanUnavailable("Lean stopped twice while this was being checked. Try again.");
       }
       if (e instanceof LeanRefused) {
@@ -485,7 +497,7 @@ export class LeanServer {
     }
   }
 
-  private async checkDoc(doc: Doc, source: string, positions: Position[]): Promise<LeanCheck> {
+  private async checkDoc(doc: Doc, source: string, positions: Position[], structured: boolean): Promise<LeanCheck> {
     const proc = this.proc;
     if (doc.generation !== this.generation || !proc) {
       // The same text as the check that just ran out of time here, asked
@@ -506,11 +518,11 @@ export class LeanServer {
     // against the proof.
     const header = headerOf(source);
     if (header !== doc.header) {
-      const loaded = await this.timed(doc, proc, header, header === source ? positions : [], true);
+      const loaded = await this.timed(doc, proc, header, header === source ? positions : [], true, structured);
       doc.header = header;
       if (header === source) return loaded;
     }
-    const result = await this.timed(doc, proc, source, positions, false);
+    const result = await this.timed(doc, proc, source, positions, false, structured);
     doc.header = header;
     return result;
   }
@@ -524,7 +536,7 @@ export class LeanServer {
 
   /** Send one version of a document and wait for Lean's answer, for at most
    *  the time its kind allows. `loading`: the text is a header alone. */
-  private async timed(doc: Doc, proc: ChildProcessWithoutNullStreams, source: string, positions: Position[], loading: boolean): Promise<LeanCheck> {
+  private async timed(doc: Doc, proc: ChildProcessWithoutNullStreams, source: string, positions: Position[], loading: boolean, structured: boolean): Promise<LeanCheck> {
     if (doc.generation !== this.generation || this.proc !== proc) throw new Lost("the Lean server was stopped");
     const version = ++doc.version;
     if (version === 1) {
@@ -561,7 +573,7 @@ export class LeanServer {
       );
     });
     try {
-      const result = await Promise.race([this.elaborate(doc, version, positions), timeout]);
+      const result = await Promise.race([this.elaborate(doc, version, positions, structured), timeout]);
       if (this.proc === proc) {
         this.warm = true;
         this.everWarm = true;
@@ -574,16 +586,42 @@ export class LeanServer {
     }
   }
 
-  private async elaborate(doc: Doc, version: number, positions: Position[]): Promise<LeanCheck> {
+  private async elaborate(doc: Doc, version: number, positions: Position[], structured: boolean): Promise<LeanCheck> {
     await this.request("textDocument/waitForDiagnostics", { uri: doc.uri, version });
     const goals: (string[] | null)[] = [];
+    const data: (IdGoal[] | null)[] = [];
     for (const position of positions) {
       const reply = (await this.request("$/lean/plainGoal", { textDocument: { uri: doc.uri }, position })) as { goals?: string[] } | null;
       goals.push(reply?.goals ?? null);
+      data.push(structured && reply?.goals ? await this.interactive(doc, position) : null);
     }
     const diagnostics = doc.published.get(version) ?? [];
     for (const v of doc.published.keys()) if (v < version) doc.published.delete(v);
-    return { diagnostics, goals };
+    return { diagnostics, goals, structured: data };
+  }
+
+  /** The goals at `position` as data, through the document's RPC session.
+   *  A session Lean has dropped is made again once; a worker that crashed is
+   *  reported like any other crash (the document is opened again); any other
+   *  refusal gives null, and the printed goals stand in. */
+  private async interactive(doc: Doc, position: Position): Promise<IdGoal[] | null> {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        doc.rpc ??= ((await this.request("$/lean/rpc/connect", { uri: doc.uri })) as { sessionId: string }).sessionId;
+        const sessionId = doc.rpc;
+        const params = { textDocument: { uri: doc.uri }, position };
+        const reply = await this.request("$/lean/rpc/call", { ...params, sessionId, method: "Lean.Widget.getInteractiveGoals", params });
+        // Every subexpression in the reply holds a reference in the session; let go of them, or the worker keeps them all.
+        const refs = refsIn(reply);
+        if (refs.length) this.notify("$/lean/rpc/release", { uri: doc.uri, sessionId, refs });
+        return fromReply(reply);
+      } catch (e) {
+        if (!(e instanceof LeanRefused) || e.code === WORKER_CRASHED) throw e;
+        doc.rpc = undefined;
+        if (e.code !== RPC_NEEDS_RECONNECT) return null;
+      }
+    }
+    return null;
   }
 
   private request(method: string, params: unknown): Promise<unknown> {

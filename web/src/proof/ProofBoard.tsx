@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
 import { UNCHANGED, explain } from "../../shared/explain.ts";
-import { namesIn, type Goal } from "../../shared/goals.ts";
+import { namesIn, sameGoals, type Goal } from "../../shared/goals.ts";
 import { MOVES, misfit, moveLine, type Move } from "../../shared/moves.ts";
 import { ApiError, check } from "../api/client.ts";
 import { Button, cx, Notice } from "../ui.tsx";
@@ -117,7 +117,7 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, mov
       const reply = await check({ lessonId, exerciseId: exercise.id, body: lines.join("\n"), record: "rejected", ...(ladder ? { ladder } : {}) });
       if (mine !== seq.current) return;
       // A move Lean accepts but that leaves everything as it was is not a step.
-      const refused = reply.error?.message ?? reply.refusal ?? (!reply.solved && JSON.stringify(reply.goals) === JSON.stringify(now.goals) ? UNCHANGED : null);
+      const refused = reply.error?.message ?? reply.refusal ?? (!reply.solved && sameGoals(reply.goals, now.goals) ? UNCHANGED : null);
       if (refused !== null) {
         setRefusal({ line, raw: refused });
         setShake((n) => n + 1);

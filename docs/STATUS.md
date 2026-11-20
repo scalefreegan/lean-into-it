@@ -95,6 +95,17 @@ Landed in the first PR, the foundation slice:
   attempt records its rung (`attempts.input_rung`, migration 0006), and
   mastery charges a refused board check to its last move only when it was
   made on the board.
+- Structured goals (`lii-1ou.3`): the goals a check returns come from
+  Lean's RPC (`Lean.Widget.getInteractiveGoals`, one session per document,
+  its references released after each reply) and not from splitting the
+  printed text: each hypothesis is one card with its own names, type and
+  value, however Lean prints it, with flags for an instance and a name Lean
+  made up (`n✝`), and the type and target as tagged text with each
+  subexpression's position. Lean's diff marks come too: what the last step
+  added (`inserted`, which now lights the board's new cards), what it
+  changed in a type or target, and what it took away (`gone` on the goals
+  it made, read from the goals just before it). The printed goals stay as
+  the fallback (`web/shared/interactive.ts`).
 - Proof-craft lessons (`lii-dvy.7`): six short lessons on how
   mathematicians work, each round one worked problem, marked "Proof craft"
   on the Path and their page (the lesson field `craft: true`): work
@@ -478,7 +489,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 509, including every reference solution checked by the real Lean,
+- Tests: 516, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -509,7 +520,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-16 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+15 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -517,7 +528,6 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
-| `lii-1ou.3` | Structured goals through the Lean RPC interactive-goals API | 2 | |
 | `lii-5pa` | Flaky test under load: "a check that never ends is given up on inside the limit" (tight timing bounds) | 3 | |
 | `lii-m2l` | Lean timing tests fail in the full suite when the machine is loaded | 3 | |
 
@@ -525,7 +535,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-8wq.2` | Live proof map | 2 | `lii-1ou.3` |
+| `lii-8wq.2` | Live proof map | 2 | |
 | `lii-8wq.6` | obtain on a fact that is not an and, or, iff or exists | 3 | |
 
 ### App shell

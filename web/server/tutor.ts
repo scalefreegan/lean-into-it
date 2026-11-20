@@ -52,6 +52,7 @@ import { appendChat, chatFor, clearChat, hintRung, recordHint, type ChatRow } fr
 import { startOfDay } from "../shared/progress.ts";
 import type { Content, Exercise, Lesson } from "../shared/content.ts";
 import { readLine } from "../shared/moves.ts";
+import { sameGoals } from "../shared/goals.ts";
 import { leanBlocks, withoutLabels } from "../shared/partner.ts";
 import type { PartnerRequest, TutorContext, TutorHistoryReply, TutorLadderReply, TutorMessage, TutorReply, TutorRequest } from "../shared/wire.ts";
 import { localHost } from "./origin.ts";
@@ -349,7 +350,7 @@ export async function lineProblem(exercise: Exercise, body: string, line: string
     if (r.forbidden.length) return `it uses ${r.forbidden.join(", ")}, which this exercise does not allow`;
     if (r.solved) return null;
     const was = await checkExercise(lean, exercise, before);
-    return JSON.stringify(was.goals) === JSON.stringify(r.goals) ? "Lean accepts it but the goals stay as they were" : null;
+    return sameGoals(was.goals, r.goals) ? "Lean accepts it but the goals stay as they were" : null;
   } catch (e) {
     const err = leanError(e);
     throw err instanceof HttpError ? new TurnStopped(`Lean could not check the line (${err.message})`) : err;

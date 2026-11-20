@@ -13,7 +13,8 @@ before touching content or the loader.
 ```
 content/                 curriculum.yaml, lessons/<track>/*.md   (the product)
 lean/                    Lake project: Lean 4 + Mathlib; .lake/ is fetched by `npm run lean:setup`
-web/shared/goals.ts      Lean's printed goals parsed into cards (pure)
+web/shared/goals.ts      the Goal cards show, and Lean's printed goals parsed into them (pure)
+web/shared/interactive.ts  Lean's structured goals (RPC getInteractiveGoals) into Goals, with what the last step added and took away (pure)
 web/shared/proof.ts      exercise + body -> Lean source, diagnostics -> verdict (pure)
 web/shared/truefalse.ts  kind truefalse: statement split, the claim's negation, the answer format (pure)
 web/shared/recognize.ts  kinds predict, read, match, flaw: goal states compared, the match answer, which kinds are fixed answers (pure)
