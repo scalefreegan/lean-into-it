@@ -75,6 +75,12 @@ Landed in the first PR, the foundation slice:
   the reference answer does not back is answered at once with the
   exercise's `why`. No lesson uses it yet. The flawed-step form is
   `lii-6xv.4`.
+- Predict and read (`lii-6xv.2`): three kinds for reading Lean. `predict`
+  shows a state and a move and offers states to choose from; Lean runs the
+  move and decides. `read` (choose the sentence a Lean statement says) and
+  `match` (pair sentences with Lean) are marked against the author's answer,
+  the one exception to "Lean decides" (decided 2026-11-19); Lean checks
+  that their Lean is readable. No lesson uses them yet.
 - Pictures for Level 3 (`lii-dvy.11`): three more widgets. `plot` graphs
   functions of x from a small expression parser of its own
   (`web/shared/expr.ts`, never `eval`), with a point to move along the
@@ -408,7 +414,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 466, including every reference solution checked by the real Lean,
+- Tests: 471, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -439,7 +445,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-24 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+23 beads in 10 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -477,7 +483,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-6xv.2` | Exercise kind: Predict and read | 2 | |
 | `lii-6xv.4` | True or false: spot the flawed step in a plausible argument (needs a decision: graded by a fixed answer, not Lean) | 2 | |
 
 ### Progress (epic `lii-zjf`)

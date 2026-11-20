@@ -207,7 +207,7 @@ export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: 
     const { bare } = lex(lean);
     return tactics.filter(({ re }) => re.test(bare)).map(({ t }) => t);
   };
-  const exercises = new Map<string, Pick<Exercise, "concept" | "mode">>();
+  const exercises = new Map<string, Pick<Exercise, "concept" | "mode" | "kind">>();
   for (const l of content.lessons) for (const e of l.exercises) exercises.set(`${l.id}\u0000${e.id}`, e);
   const concepts: Record<string, Mastery> = {};
   const byTactic: Record<string, Mastery> = {};
@@ -229,7 +229,9 @@ export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: 
     const at = new Date(row.createdAt);
     const right = row.assisted ? null : row.solved;
     answer(concepts, exercise.concept, right, at);
-    const moves = row.solved ? used(row.body) : exercise.mode === "board" ? used(lastLine(row.body)) : [];
+    // A reading answer is a sentence or a state: words in it are not moves used.
+    const reading = exercise.kind === "predict" || exercise.kind === "read" || exercise.kind === "match";
+    const moves = reading ? [] : row.solved ? used(row.body) : exercise.mode === "board" ? used(lastLine(row.body)) : [];
     for (const t of moves) answer(byTactic, t, right, at);
   }
   creditUpTo(Infinity);

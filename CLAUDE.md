@@ -15,6 +15,8 @@ content/                 curriculum.yaml, lessons/<track>/*.md   (the product)
 lean/                    Lake project: Lean 4 + Mathlib; .lake/ is fetched by `npm run lean:setup`
 web/shared/goals.ts      Lean's printed goals parsed into cards (pure)
 web/shared/proof.ts      exercise + body -> Lean source, diagnostics -> verdict (pure)
+web/shared/truefalse.ts  kind truefalse: statement split, the claim's negation, the answer format (pure)
+web/shared/recognize.ts  kinds predict, read, match: goal states compared, the match answer (pure)
 web/shared/moves.ts      the proof board's moves; each writes one tactic line
 web/shared/explain.ts    Lean's error messages in plain words
 web/shared/leaneditor.ts the editor's colouring and completion rules (pure)
@@ -42,7 +44,7 @@ web/server/lean/sandbox.ts  the sandbox-exec profile the Tutor's Lean runs under
 scripts/db/              Postgres: schema.ts, migrations/, progress.ts (the only reader/writer of personal rows)
 web/src/proof/           ProofBoard, TypedProof, GoalCards, LeanEditor, LeanPad (a free Lean file with its goals and messages)
 web/src/widgets/         one component per widget; registry.ts maps registered names to them
-web/src/exercises/       one component per exercise kind (ProveIt, FillGap), mapped the same way
+web/src/exercises/       one component per exercise kind (ProveIt, FillGap, TrueOrFalse, Recognize), mapped the same way
 web/src/tutor/           the Tutor drawer and what pages tell it (store.ts)
 web/src/listen/          Listen mode: the provider, the header button, the play controls, a lesson's reading
 web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/moves), Lab (#/lab), Playground, Gallery (#/gallery)
@@ -52,10 +54,13 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
 - Port **38800**, `strictPort`, polling watcher (FSEvents is unreliable on
   this machine). Siblings: Fret Not 38600, jev-ants 38500, Lingo Dojo 38400,
   Atlas 38300, Wine Guide 38200, Basecamp 38100.
-- **Lean decides.** An exercise is solved only when Lean accepts the proof of
+- **Lean decides.** A proof is solved only when Lean accepts the proof of
   the exercise's own statement with no error and no `sorry`, resting only on
   the three standard axioms (`web/shared/proof.ts` `judge`). Nothing else,
-  and no agent, grades. The learner's body must not be able to decide for
+  and no agent, grades a proof. The one exception (decided 2026-11-19):
+  the reading kinds `read` and `match` are marked against the author's
+  answer, and Lean only checks that the Lean they show is readable;
+  `predict` is still decided by Lean's real goal state. The learner's body must not be able to decide for
   Lean: it sits in brackets inside the `by` block, may not close them or
   name a way to run a program (`escapesIn`), and Lean's axiom report after
   the theorem must arrive and be clean, and so must the kernel replay under

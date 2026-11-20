@@ -221,6 +221,51 @@ solved except by Lean. The true side is a typed proof (no board). The
 second form of this kind in docs/PRD.md, finding the flawed step in an
 argument, is not built (`lii-6xv.4`).
 
+### Predict, read and match
+
+Three kinds about reading Lean rather than writing it.
+
+`kind: predict` shows the state before a move, the move, and states to
+choose from; the learner picks the state the move leaves. It takes `says`,
+`statement` and `given` as above, and:
+
+| Field | Meaning |
+|---|---|
+| `before` | Optional. Proof lines that run first, to reach the state shown. |
+| `move` | The one tactic line whose effect is predicted. |
+| `options` | Two to five states, each as Lean prints it (facts, then a line starting `⊢`; several goals one after another, a blank line between) or `no goals`. Write the misreadings learners make. |
+| `solution` | The option Lean leaves. |
+
+```yaml
+  - id: apply-backwards
+    kind: predict
+    title: Working backwards
+    says: Using an implication to change what is left to prove.
+    statement: "(p q : Prop) (hp : p) (hpq : p → q) : q"
+    move: apply hpq
+    options:
+      - "p q : Prop\nhp : p\nhpq : p → q\n⊢ p"
+      - "p q : Prop\nhp : p\nhpq : p → q\n⊢ q"
+    solution: "p q : Prop\nhp : p\nhpq : p → q\n⊢ p"
+```
+
+Lean decides: the server runs the move and compares the state Lean leaves
+with the one chosen, facts in any order and spacing aside, but names and
+types as Lean prints them. `solution` is not what the learner is marked
+against; it is what `npm test` and `check:content` hold Lean to. They
+refuse the exercise when Lean's state is not the solution, or is also
+another option. Copy the states from Lean (the Playground shows them).
+
+`kind: read` shows a Lean `statement` (and `given`); the learner chooses
+which of the `options`, sentences, says what it claims. `solution` is the
+right sentence and `why` (optional) is shown after an answer. `kind: match`
+has `says`, `english` (two to six sentences) and `lean` (the proposition
+for each, in the same order); the learner pairs them, and the Lean is shown
+in another order. These two are fixed answers, marked against what the
+author wrote, not by Lean: the one exception to "Lean decides", for
+recognising what a statement says. Lean still checks that every statement
+they show is one it can read (`npm test`, `check:content`).
+
 ### The body
 
 A small markdown subset: `##` and `###` headings, paragraphs, `**bold**`,
@@ -308,10 +353,11 @@ That is all a widget needs. An exercise kind needs more. Its parameters and
 its component go through the registry, but the `Exercise` type
 (`web/shared/content.ts`), the object the loader builds (`parseExercise`)
 and the checking route (`checkExercise` in `web/server/check.ts`) are
-written by hand for each kind. Every kind so far is a statement and an
-answer that Lean judges, and `checkExercise` turns the answer into the
-proof body to check; `fill` and `truefalse` show how. A kind that Lean does not judge
-would need a route of its own.
+written by hand for each kind. For most kinds `checkExercise` turns the
+answer into a proof body for Lean to judge; `fill` and `truefalse` show
+how, and `predict` compares Lean's state instead. A fixed-answer kind
+(`read`, `match`) is marked in `checkFixed` without Lean, and its Lean is
+checked for readability in `checkSolution` (`web/server/contentcheck.ts`).
 
 A widget parameter may not be called `type`, and an exercise kind's
 parameter may not be called `id`, `kind`, `title` or `concept`: those

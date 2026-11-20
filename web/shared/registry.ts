@@ -4,6 +4,7 @@ import { isMove } from "./moves.ts";
 import { readInterval, readPoint } from "./numberline.ts";
 import { escapesIn, fillBody, fillProblem, GAP, lex } from "./proof.ts";
 import { splitStatement, valuesProblem } from "./truefalse.ts";
+import { optionProblem } from "./recognize.ts";
 
 // The catalogue of widgets a lesson may embed and exercise kinds it may
 // declare, with the parameters each accepts. This file is the single source
@@ -187,7 +188,18 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
   },
 };
 
-export type ExerciseKind = "prove" | "fill" | "truefalse";
+export type ExerciseKind = "prove" | "fill" | "truefalse" | "predict" | "read" | "match";
+
+/** Two to `max` distinct choices, the solution among them. */
+function choiceProblems(p: Params, max = 5): string[] {
+  const out: string[] = [];
+  if (!Array.isArray(p.options)) return out;
+  const options = p.options.map((o) => String(o).trim());
+  if (options.length < 2 || options.length > max) out.push(`\`options\` must offer two to ${max} choices`);
+  if (new Set(options).size !== options.length) out.push("`options` lists the same choice twice");
+  if (typeof p.solution === "string" && !options.includes(p.solution.trim())) out.push("`options` must include the `solution`");
+  return out;
+}
 
 /** What is wrong with a statement and its definitions, whatever the kind. */
 function statementProblems(p: Params): string[] {
@@ -348,6 +360,97 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
         if (witness === "values" && solution) out.push("with `witness: values` there is no `solution`: `close` shows the values work");
       }
       if (typeof p.close === "string" && (p.truth !== false || witness === "proof")) out.push("`close` is only for a false claim with `witness: values`");
+      return out;
+    },
+  },
+  predict: {
+    doc: "Before a move runs, say what the goal becomes. The learner sees the state, the move, and states to choose from; Lean decides, by running the move and comparing the state it leaves with the one chosen. `npm test` holds the `solution` to Lean: it must be the state Lean leaves, and no other option may be.",
+    label: "Predict the goal",
+    params: {
+      says: { type: "string", required: true, doc: "What the proof is about, in plain English. Shown above the exercise." },
+      statement: { type: "text", required: true, doc: "The Lean statement after the keyword: binders, a colon, the claim." },
+      given: { type: "text", doc: "Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`." },
+      before: { type: "text", doc: "Proof lines that run first, to reach the state shown. Default: none, so the state is the statement's own." },
+      move: { type: "string", required: true, doc: "The one tactic line whose effect is predicted, like `intro h` or `apply hpq`." },
+      options: { type: "string[]", required: true, doc: "Two to five states, each as Lean prints it (facts, then a line starting ⊢; several goals one after another), or `no goals`. Write the misreadings learners make." },
+      solution: { type: "text", required: true, doc: "The option Lean leaves. Facts may be in any order and spacing does not matter, but names and types must be as Lean prints them." },
+    },
+    examples: [
+      {
+        says: "Using an implication to change what is left to prove.",
+        statement: "(p q : Prop) (hp : p) (hpq : p → q) : q",
+        move: "apply hpq",
+        options: ["p q : Prop\nhp : p\nhpq : p → q\n⊢ p", "p q : Prop\nhp : p\nhpq : p → q\n⊢ q", "p q : Prop\nhp : p\nhpq : p → q\n⊢ p → q"],
+        solution: "p q : Prop\nhp : p\nhpq : p → q\n⊢ p",
+      },
+      {
+        says: "Taking a conjunction apart.",
+        statement: "(P Q : Prop) : P ∧ Q → Q ∧ P",
+        before: "intro h",
+        move: "obtain ⟨hp, hq⟩ := h",
+        options: ["P Q : Prop\nhp : P\nhq : Q\n⊢ Q ∧ P", "P Q : Prop\nh : P ∧ Q\nhp : P\nhq : Q\n⊢ Q ∧ P", "P Q : Prop\nhp : P\nhq : Q\n⊢ Q\n\nP Q : Prop\nhp : P\nhq : Q\n⊢ P"],
+        solution: "P Q : Prop\nhp : P\nhq : Q\n⊢ Q ∧ P",
+      },
+    ],
+    check: (p) => {
+      const out = statementProblems(p);
+      if (typeof p.move === "string" && (p.move.includes("\n") || !p.move.trim())) out.push("`move` is one line of Lean");
+      for (const o of Array.isArray(p.options) ? p.options : []) {
+        const wrong = optionProblem(String(o));
+        if (wrong) out.push(`${JSON.stringify(o)}: ${wrong}`);
+      }
+      for (const text of [p.before, p.move].filter((t): t is string => typeof t === "string")) if (/\b(sorry|admit)\b/.test(text)) out.push("`before` and `move` must not contain sorry or admit");
+      // What the server would refuse to run is refused here, where the author sees it.
+      const lines = [p.before, p.move].filter((t): t is string => typeof t === "string" && t.trim() !== "").join("\n");
+      for (const e of escapesIn(lines)) out.push(`\`before\`/\`move\` line ${e.line + 1}: ${e.message}`);
+      out.push(...choiceProblems(p));
+      return out;
+    },
+  },
+  read: {
+    doc: "A Lean statement and sentences that say what it might claim; the learner chooses the one that says what it does. A fixed answer: marked against `solution`. Lean checks that the statement is one it can read.",
+    label: "Read the Lean",
+    params: {
+      statement: { type: "text", required: true, doc: "The Lean statement to read: binders, a colon, the claim." },
+      given: { type: "text", doc: "Lean definitions the statement is about, placed before it. No `sorry`, no `axiom`." },
+      options: { type: "string[]", required: true, doc: "Two to five sentences, one of them right. Write the misreadings learners make: a quantifier order swapped, an implication reversed." },
+      solution: { type: "string", required: true, doc: "The sentence that says what the statement claims." },
+      why: { type: "text", doc: "Shown after the answer, right or wrong: how to read the statement." },
+    },
+    examples: [
+      {
+        statement: "(f : ℕ → ℕ) : ∀ n, ∃ m, f m > n",
+        options: ["Whatever number you name, f takes a value above it somewhere.", "There is one place where f is larger than every number.", "f is increasing."],
+        solution: "Whatever number you name, f takes a value above it somewhere.",
+        why: "∀ n, ∃ m: the m may depend on n. With ∃ m, ∀ n one m would have to beat every n at once.",
+      },
+    ],
+    check: (p) => [...statementProblems(p), ...choiceProblems(p)],
+  },
+  match: {
+    doc: "Sentences and Lean statements to pair up, each sentence with the statement that says it. A fixed answer: the pairs as written are the right ones, and the Lean is shown in another order. Lean checks that every statement is one it can read.",
+    label: "Match them up",
+    params: {
+      says: { type: "string", required: true, doc: "What to look for, in a sentence. Shown above the pairs." },
+      english: { type: "string[]", required: true, doc: "Two to six sentences, in order." },
+      lean: { type: "string[]", required: true, doc: "The Lean proposition for each sentence, in the same order: `∀ n : ℕ, ∃ m, m > n`. Lean checks each can be read, as a theorem's statement after `given`." },
+      given: { type: "text", doc: "Lean definitions the statements are about. No `sorry`, no `axiom`." },
+    },
+    examples: [
+      {
+        says: "Quantifier order changes what is claimed.",
+        english: ["Every natural number has a larger one.", "Some natural number is at least every natural number.", "Every natural number is at least 0."],
+        lean: ["∀ n : ℕ, ∃ m, m > n", "∃ m : ℕ, ∀ n, n ≤ m", "∀ n : ℕ, 0 ≤ n"],
+      },
+    ],
+    check: (p) => {
+      const out = statementProblems(p);
+      const en = Array.isArray(p.english) ? p.english : [];
+      const ln = Array.isArray(p.lean) ? p.lean : [];
+      if (en.length < 2 || en.length > 6) out.push("`english` must have two to six sentences");
+      if (ln.length !== en.length) out.push("`lean` must have one statement for each sentence of `english`, in the same order");
+      if (new Set(ln.map((l) => String(l).trim())).size !== ln.length) out.push("`lean` lists the same statement twice");
+      for (const l of ln) if (/:=|\bsorry\b/.test(String(l))) out.push("a `lean` statement must not contain := or sorry");
       return out;
     },
   },

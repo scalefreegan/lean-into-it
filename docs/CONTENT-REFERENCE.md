@@ -359,6 +359,99 @@ exercises:
       norm_num at hc
 ```
 
+### `predict` (shown as “Predict the goal”)
+
+Before a move runs, say what the goal becomes. The learner sees the state, the move, and states to choose from; Lean decides, by running the move and comparing the state it leaves with the one chosen. `npm test` holds the `solution` to Lean: it must be the state Lean leaves, and no other option may be.
+
+| Parameter | Value | |
+|---|---|---|
+| `says` (required) | one line of text | What the proof is about, in plain English. Shown above the exercise. |
+| `statement` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The Lean statement after the keyword: binders, a colon, the claim. |
+| `given` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |
+| `before` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Proof lines that run first, to reach the state shown. Default: none, so the state is the statement's own. |
+| `move` (required) | one line of text | The one tactic line whose effect is predicted, like `intro h` or `apply hpq`. |
+| `options` (required) | a list of text: `[a, b]` | Two to five states, each as Lean prints it (facts, then a line starting ⊢; several goals one after another), or `no goals`. Write the misreadings learners make. |
+| `solution` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The option Lean leaves. Facts may be in any order and spacing does not matter, but names and types must be as Lean prints them. |
+
+```yaml
+exercises:
+  - id: predict-example-1
+    kind: predict
+    title: An example
+    says: Using an implication to change what is left to prove.
+    statement: "(p q : Prop) (hp : p) (hpq : p → q) : q"
+    move: apply hpq
+    options: ["p q : Prop\nhp : p\nhpq : p → q\n⊢ p", "p q : Prop\nhp : p\nhpq : p → q\n⊢ q", "p q : Prop\nhp : p\nhpq : p → q\n⊢ p → q"]
+    solution: |
+      p q : Prop
+      hp : p
+      hpq : p → q
+      ⊢ p
+```
+
+```yaml
+exercises:
+  - id: predict-example-2
+    kind: predict
+    title: An example
+    says: Taking a conjunction apart.
+    statement: "(P Q : Prop) : P ∧ Q → Q ∧ P"
+    before: |
+      intro h
+    move: "obtain ⟨hp, hq⟩ := h"
+    options: ["P Q : Prop\nhp : P\nhq : Q\n⊢ Q ∧ P", "P Q : Prop\nh : P ∧ Q\nhp : P\nhq : Q\n⊢ Q ∧ P", "P Q : Prop\nhp : P\nhq : Q\n⊢ Q\n\nP Q : Prop\nhp : P\nhq : Q\n⊢ P"]
+    solution: |
+      P Q : Prop
+      hp : P
+      hq : Q
+      ⊢ Q ∧ P
+```
+
+### `read` (shown as “Read the Lean”)
+
+A Lean statement and sentences that say what it might claim; the learner chooses the one that says what it does. A fixed answer: marked against `solution`. Lean checks that the statement is one it can read.
+
+| Parameter | Value | |
+|---|---|---|
+| `statement` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The Lean statement to read: binders, a colon, the claim. |
+| `given` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Lean definitions the statement is about, placed before it. No `sorry`, no `axiom`. |
+| `options` (required) | a list of text: `[a, b]` | Two to five sentences, one of them right. Write the misreadings learners make: a quantifier order swapped, an implication reversed. |
+| `solution` (required) | one line of text | The sentence that says what the statement claims. |
+| `why` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Shown after the answer, right or wrong: how to read the statement. |
+
+```yaml
+exercises:
+  - id: read-example-1
+    kind: read
+    title: An example
+    statement: "(f : ℕ → ℕ) : ∀ n, ∃ m, f m > n"
+    options: ["Whatever number you name, f takes a value above it somewhere.", There is one place where f is larger than every number., f is increasing.]
+    solution: "Whatever number you name, f takes a value above it somewhere."
+    why: |
+      ∀ n, ∃ m: the m may depend on n. With ∃ m, ∀ n one m would have to beat every n at once.
+```
+
+### `match` (shown as “Match them up”)
+
+Sentences and Lean statements to pair up, each sentence with the statement that says it. A fixed answer: the pairs as written are the right ones, and the Lean is shown in another order. Lean checks that every statement is one it can read.
+
+| Parameter | Value | |
+|---|---|---|
+| `says` (required) | one line of text | What to look for, in a sentence. Shown above the pairs. |
+| `english` (required) | a list of text: `[a, b]` | Two to six sentences, in order. |
+| `lean` (required) | a list of text: `[a, b]` | The Lean proposition for each sentence, in the same order: `∀ n : ℕ, ∃ m, m > n`. Lean checks each can be read, as a theorem's statement after `given`. |
+| `given` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Lean definitions the statements are about. No `sorry`, no `axiom`. |
+
+```yaml
+exercises:
+  - id: match-example-1
+    kind: match
+    title: An example
+    says: Quantifier order changes what is claimed.
+    english: [Every natural number has a larger one., Some natural number is at least every natural number., Every natural number is at least 0.]
+    lean: ["∀ n : ℕ, ∃ m, m > n", "∃ m : ℕ, ∀ n, n ≤ m", "∀ n : ℕ, 0 ≤ n"]
+```
+
 ## Moves
 
 The ids a board exercise's `moves` and a `move-list` widget may name. Each click on the proof board writes one line of Lean, and every line of a board exercise's `solution` must be a line one of its moves writes (`npm test` replays it against Lean's goals).
