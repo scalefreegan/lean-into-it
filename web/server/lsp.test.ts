@@ -204,6 +204,18 @@ test("loading a library never counts against a proof's time, wherever the import
   await assert.rejects(lean.check("lsp-header", "/- other notes -/\n\nimport Mathlib\npartial def spin (n : Nat) : Nat := spin (n + 1)\n#eval spin 0\n"), (e: Error) => e instanceof LeanTimeout && /2 seconds on this/.test(e.message));
 });
 
+test("a file with no imports still loads Lean's core library, and that load does not count against a proof's time either", { skip }, async (t) => {
+  // One second is less than the core library takes to load (about two here).
+  const lean = new LeanServer({ timeoutMs: 1000 });
+  t.after(() => lean.stop());
+  const clean = async (key: string, text: string) => assert.deepEqual((await lean.check(key, text)).diagnostics, []);
+  // A new document with no imports at all.
+  await clean("lsp-bare", "example : True := trivial\n");
+  // Its imports removed: Lean starts the document over on the core library alone.
+  await clean("lsp-unimport", "import Mathlib\nexample : (2 : ℝ) + 2 = 4 := by norm_num\n");
+  await clean("lsp-unimport", "example : 1 + 1 = 2 := rfl\n");
+});
+
 test("a file that crashes its Lean worker is reported, not run again, and the next check works", { skip }, async (t) => {
   const lean = new LeanServer();
   t.after(() => lean.stop());

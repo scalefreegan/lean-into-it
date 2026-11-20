@@ -497,8 +497,11 @@ export class LeanServer {
     // change (Lean then starts the document over). The text after them
     // always runs under the short limit: Lean keeps the loaded imports when
     // only that text changes.
+    // A file with no imports still loads Lean's own core library (a second
+    // or two) when it is new or its imports were just removed: that load is
+    // a step of its own too, so it never counts against the proof.
     const header = headerOf(source);
-    if (header && header !== doc.header) {
+    if (header !== doc.header) {
       const loaded = await this.timed(doc, proc, header, header === source ? positions : [], true);
       doc.header = header;
       if (header === source) return loaded;
