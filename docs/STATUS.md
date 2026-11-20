@@ -27,8 +27,9 @@ Landed in the first PR, the foundation slice:
 - Level 1 written (`lii-dvy.2`): "If… then", "And", "Or", "Not, and
   contradiction", "If and only if", "For all", "There exists" on the logic
   track and "Reading a goal, and proofs as things" on the Lean track; 45
-  exercises. Not yet: truth tables against proofs, and exercise kinds other
-  than "prove it" (`lii-dvy.8`).
+  exercises. Then "Truth tables and proofs" (`lii-dvy.8`): three tables
+  beside proofs, a True-or-false claim with a proof, one with a
+  counterexample, and a Fill-the-gap.
 - Level 2 written (`lii-dvy.3`): "Counting from zero", "Equal things can be
   swapped", "Addition, defined", "Induction", "Adding up", "Even, odd,
   divides", "Leaning on more than one" on the math track and "Theorems have
@@ -462,7 +463,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-21 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+20 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -514,7 +515,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-dvy.8` | Level 1: truth tables against proofs; True-or-false and Fill-the-gap exercises | 2 | |
 | `lii-oip` | A calc chain that proves ≤ where < is wanted leaves an unexplained goal like c < c | 3 | |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
 | `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3`, `lii-53v.3` |

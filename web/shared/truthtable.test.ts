@@ -41,7 +41,9 @@ test("precedence and grouping are Lean's: ¬ tightest, then ∧, ∨, →, ↔; 
   assert.match(parseFormula("p ↔ q ↔ r") as string, /chain of ↔/);
   assert.equal(show(f("(p ↔ q) ↔ r")), "(p ↔ q) ↔ r");
   assert.equal(show(f("p ↔ (q ↔ r)")), "p ↔ (q ↔ r)");
-  assert.equal(show(f("¬p ∧ q ∨ r → s ↔ t")), "¬p ∧ q ∨ r → s ↔ t");
+  // Lean needs no brackets here, but a reader does: an → inside a ↔ keeps them.
+  assert.equal(show(f("p → q ↔ q → p")), "(p → q) ↔ (q → p)");
+  assert.equal(show(f("¬p ∧ q ∨ r → s ↔ t")), "(¬p ∧ q ∨ r → s) ↔ t");
   assert.equal(show(f("(¬p ∧ q) ∨ r")), "¬p ∧ q ∨ r");
   assert.equal(show(f("¬(p ∧ q)")), "¬(p ∧ q)");
   // p → q → r is p → (q → r), which is not (p → q) → r.
