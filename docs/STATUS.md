@@ -85,7 +85,8 @@ Landed in the first PR, the foundation slice:
   proof's time limit (`lii-a7b`): when a document is new or its imports
   change, even to none, the load is a step of its own under the long
   limit. This was what made "loading a library never counts against a
-  proof's time" fail now and then (the core library takes about 2 s).
+  proof's time" fail now and then (a fresh worker on the core library takes
+  about 2 s here).
 - Spot the flaw (`lii-6xv.4`): the kind `flaw`, an argument in words with
   one wrong step to find, marked against the author's answer; the
   explanation shows once the step is found. No lesson uses it yet.

@@ -184,6 +184,7 @@ test("the header of a file is its imports with the comments around them", () => 
   assert.equal(headerOf("/- never closed\nimport Mathlib\n"), "");
   assert.equal(headerOf("example : True := trivial\nimport Mathlib\n"), "", "an import after a command is not a header");
   assert.equal(headerOf(""), "");
+  assert.equal(headerOf("module\nexample : True := trivial\n"), "module", "module alone is a header: what is loaded must match the body's");
 });
 
 test("loading a library never counts against a proof's time, wherever the imports sit and whenever they change", { skip }, async (t) => {
@@ -212,7 +213,7 @@ test("a file with no imports still loads Lean's core library, and that load does
   // A new document with no imports at all.
   await clean("lsp-bare", "example : True := trivial\n");
   // Its imports removed: Lean starts the document over on the core library alone.
-  await clean("lsp-unimport", "import Mathlib\nexample : (2 : ℝ) + 2 = 4 := by norm_num\n");
+  await clean("lsp-unimport", "import Mathlib\nexample : True := trivial\n");
   await clean("lsp-unimport", "example : 1 + 1 = 2 := rfl\n");
 });
 
