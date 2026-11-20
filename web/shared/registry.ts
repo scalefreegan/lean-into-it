@@ -6,6 +6,7 @@ import { escapesIn, fillBody, fillProblem, GAP, lex } from "./proof.ts";
 import { splitStatement, valuesProblem } from "./truefalse.ts";
 import { lettersOf, MAX_LETTERS, parseFormula } from "./truthtable.ts";
 import { optionProblem } from "./recognize.ts";
+import { readSteps } from "./paired.ts";
 
 // The catalogue of widgets a lesson may embed and exercise kinds it may
 // declare, with the parameters each accepts. This file is the single source
@@ -77,7 +78,7 @@ export const WIDGET_KEYS = ["type"] as const;
  *  not reuse these names. */
 export const EXERCISE_KEYS = ["id", "kind", "title", "concept"] as const;
 
-export type WidgetType = "proof-state" | "move-list" | "plot" | "number-line" | "square-of-sum" | "truth-table" | "induction-dominoes";
+export type WidgetType = "proof-state" | "move-list" | "plot" | "number-line" | "square-of-sum" | "truth-table" | "induction-dominoes" | "informal-formal";
 
 /** At most this many curves on one plot: each has its own line style. */
 export const MAX_CURVES = 4;
@@ -200,6 +201,24 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       const letters = lettersOf(f);
       return letters.length > MAX_LETTERS ? [`\`formula\` has ${letters.length} letters; at most ${MAX_LETTERS} (${2 ** MAX_LETTERS} rows) fit`] : [];
     },
+  },
+  "informal-formal": {
+    doc: "A proof as a mathematician writes it, sentence by sentence, beside the Lean proof of one of the lesson's exercises (its reference solution, which Lean accepts). Selecting a sentence lights the lines that say it in Lean, and selecting a line lights its sentences and shows the proof state after it. A line no sentence covers is marked: Lean needed a step the prose left unsaid.",
+    params: {
+      exercise: { type: "string", required: true, doc: "The id of a `prove` exercise in this lesson. Its statement and `solution` are the Lean side." },
+      steps: { type: "string[]", required: true, doc: "The sentences, in order, each `<lines>: <sentence>` with the solution's lines counted from 1: `\"2-3: To show R, it is enough to show Q.\"`. Lines may be `2`, `2-4` or `1, 3`; a line may be in more than one sentence." },
+      lesson: { type: "string", doc: "Gallery and Lab only: the lesson the exercise is in. In a lesson it is always the lesson's own, and the loader refuses this." },
+      caption: { type: "string", doc: "One line shown under the two sides." },
+    },
+    examples: [
+      {
+        lesson: "logic-1-if-then",
+        exercise: "chain",
+        steps: ["1: Suppose P; we show R.", "2: Since Q implies R, it is enough to show Q.", "3: Since P implies Q, it is enough to show P.", "4: And P is what we supposed."],
+        caption: "Each sentence is one line of Lean here; often one sentence is several.",
+      },
+    ],
+    check: (p) => readSteps(p.steps).problems.map((m) => `\`steps\`: ${m}`),
   },
   "induction-dominoes": {
     doc: "Induction as a row of dominoes. The base case knocks over the first; the step is the rule that if domino n falls, so does domino n + 1. The learner can take either away and push again: without the base nothing falls, without the step only the first does.",

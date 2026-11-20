@@ -4,6 +4,7 @@ import { NumberLine } from "./NumberLine.tsx";
 import { Plot } from "./Plot.tsx";
 import { ProofState } from "./ProofState.tsx";
 import { InductionDominoes } from "./InductionDominoes.tsx";
+import { InformalFormal } from "./InformalFormal.tsx";
 import { SquareOfSum } from "./SquareOfSum.tsx";
 import { TruthTable } from "./TruthTable.tsx";
 import type { Widget } from "./types.ts";
@@ -19,4 +20,5 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Widget> = {
   "square-of-sum": SquareOfSum,
   "truth-table": TruthTable,
   "induction-dominoes": InductionDominoes,
+  "informal-formal": InformalFormal,
 };

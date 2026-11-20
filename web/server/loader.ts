@@ -15,6 +15,7 @@ import { ROOT } from "../../scripts/env.mjs";
 import type { Block, Content, ContentProblem, Exercise, Lesson, Level, Track } from "../shared/content.ts";
 import { sortLessons, type TrueFalse } from "../shared/content.ts";
 import { splitStatement, writeAnswer, type Witness } from "../shared/truefalse.ts";
+import { proofLines, readSteps } from "../shared/paired.ts";
 import { checkParams, EXERCISE_KEYS, EXERCISES, isExerciseKind, isWidget, WIDGET_KEYS, WIDGETS } from "../shared/registry.ts";
 
 /** LEAN_INTO_IT_CONTENT_DIR lets tests point at a fixture; else <repo>/content. */
@@ -335,6 +336,11 @@ function parseBlocks(body: string, exercises: Exercise[], problem: (message: str
     }
     if (kind === "widget") {
       const block = parseWidget(parsed, unreadable, widgets, problem);
+      if (block?.type === "widget" && block.widget === "informal-formal") {
+        const wrong = pairingProblems(block.params, exercises);
+        for (const message of wrong) problem(`widget block ${widgets} (informal-formal): ${message}`);
+        if (wrong.length) continue;
+      }
       if (block) blocks.push(block);
       continue;
     }
@@ -349,6 +355,16 @@ function parseBlocks(body: string, exercises: Exercise[], problem: (message: str
   flush();
   for (const e of exercises) if (!placed.has(e.id)) blocks.push({ type: "exercise", id: e.id });
   return blocks;
+}
+
+/** An informal-formal widget's pairing, against the lesson's exercises:
+ *  the exercise is here and a proof, and every line named is in its solution. */
+function pairingProblems(params: Record<string, unknown>, exercises: Exercise[]): string[] {
+  if (params.lesson !== undefined) return ["`lesson` is for the Gallery and the Lab; in a lesson the exercise is the lesson's own"];
+  const exercise = exercises.find((e) => e.id === params.exercise);
+  if (!exercise) return [`there is no exercise "${String(params.exercise)}" in this lesson's frontmatter`];
+  if (exercise.kind !== "prove") return [`exercise "${exercise.id}" is a ${exercise.kind}; the Lean side must be a proof (kind prove)`];
+  return readSteps(params.steps, proofLines(exercise.solution).length).problems.map((m) => `\`steps\`: ${m}`);
 }
 
 /** One ```widget fence. `n` counts the lesson's widget blocks from 1, so a

@@ -220,6 +220,27 @@ fill: true
 ```
 ````
 
+### `informal-formal`
+
+A proof as a mathematician writes it, sentence by sentence, beside the Lean proof of one of the lesson's exercises (its reference solution, which Lean accepts). Selecting a sentence lights the lines that say it in Lean, and selecting a line lights its sentences and shows the proof state after it. A line no sentence covers is marked: Lean needed a step the prose left unsaid.
+
+| Parameter | Value | |
+|---|---|---|
+| `exercise` (required) | one line of text | The id of a `prove` exercise in this lesson. Its statement and `solution` are the Lean side. |
+| `steps` (required) | a list of text: `[a, b]` | The sentences, in order, each `<lines>: <sentence>` with the solution's lines counted from 1: `"2-3: To show R, it is enough to show Q."`. Lines may be `2`, `2-4` or `1, 3`; a line may be in more than one sentence. |
+| `lesson` | one line of text | Gallery and Lab only: the lesson the exercise is in. In a lesson it is always the lesson's own, and the loader refuses this. |
+| `caption` | one line of text | One line shown under the two sides. |
+
+````
+```widget
+type: informal-formal
+lesson: logic-1-if-then
+exercise: chain
+steps: ["1: Suppose P; we show R.", "2: Since Q implies R, it is enough to show Q.", "3: Since P implies Q, it is enough to show P.", "4: And P is what we supposed."]
+caption: "Each sentence is one line of Lean here; often one sentence is several."
+```
+````
+
 ### `induction-dominoes`
 
 Induction as a row of dominoes. The base case knocks over the first; the step is the rule that if domino n falls, so does domino n + 1. The learner can take either away and push again: without the base nothing falls, without the step only the first does.

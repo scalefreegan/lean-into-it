@@ -232,10 +232,11 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
  *  on the same day only once (web/shared/progress.ts). On a later day a
  *  solve is kept again: then it is a review. */
 async function keep(lessonId: string, exerciseId: string, body: string, reply: CheckReply, record: unknown): Promise<void> {
+  // First: a check that records nothing must not need the database.
+  if (record !== "rejected" && record !== "submitted" && record !== "live") return;
   const refused = reply.error !== null || reply.forbidden.length > 0 || reply.refusal !== null;
   const db = rawDb();
   const learner = await learnerId();
-  if (record !== "rejected" && record !== "submitted" && record !== "live") return;
   // The Tutor's hints on this exercise today: rung 3 gave the line, and
   // makes the check assisted (seen, not credited).
   const rung = (await hintRung(db, learner, lessonId, exerciseId, startOfDay(new Date()))) || null;

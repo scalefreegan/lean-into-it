@@ -82,6 +82,16 @@ Landed in the first PR, the foundation slice:
   `match` (pair sentences with Lean) are marked against the author's answer,
   the one exception to "Lean decides" (decided 2026-11-19); Lean checks
   that their Lean is readable. No lesson uses them yet.
+- Informal beside formal (`lii-53v.3`): the widget `informal-formal` sets a
+  proof in sentences beside the Lean of one of the lesson's exercises (its
+  reference solution, so Lean has accepted it). Each sentence names the
+  lines that say it (`"2-3: …"`, many-to-many); selecting either side
+  lights the other, and selecting a line asks Lean for the state after it
+  (a check without `record`, so not an attempt). A line no sentence covers
+  is marked unsaid. The loader refuses an exercise that is not the
+  lesson's or not a proof, and a line past the solution. In its own lesson
+  it waits until the exercise is solved. First used
+  under "Putting them together" in "If… then".
 - Truth tables and induction dominoes (`lii-53v.5`, `lii-dvy.9`): two more
   widgets. `truth-table` draws every row of a formula in and, or, not,
   implies and iff (its own parser, `web/shared/truthtable.ts`, never
@@ -432,7 +442,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 480, including every reference solution checked by the real Lean,
+- Tests: 490, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -463,7 +473,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-20 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+19 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -494,7 +504,6 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-53v.2` | Function and limit explorers (the plotter and number line are done) | 2 | |
-| `lii-53v.3` | Informal beside formal widget | 2 | |
 | `lii-53v.4` | Program stepper | 3 | |
 
 ### Progress (epic `lii-zjf`)
@@ -517,13 +526,13 @@ land first.
 |---|---|---|---|
 | `lii-oip` | A calc chain that proves ≤ where < is wanted leaves an unexplained goal like c < c | 3 | |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
-| `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3`, `lii-53v.3` |
+| `lii-dvy.7` | Proof-craft lessons | 2 | `lii-6xv.3` |
 
 ### Lab (epic `lii-kqz`)
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-kqz.2` | Famous Proofs gallery | 2 | `lii-53v.3`, `lii-8wq.2` |
+| `lii-kqz.2` | Famous Proofs gallery | 2 | `lii-8wq.2` |
 
 ### Docs and content tooling (epic `lii-2zf`)
 

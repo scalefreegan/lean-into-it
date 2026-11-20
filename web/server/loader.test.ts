@@ -140,6 +140,25 @@ test("a fill-the-gap exercise loads with its proof and its options, and is not a
   assert.deepEqual([first.kind, first.mode, first.proof, first.options], ["prove", "board", "", []]);
 });
 
+const PAIR = (exercise: string, steps: string) => `\`\`\`widget\ntype: informal-formal\nexercise: ${exercise}\nsteps: [${steps}]\n\`\`\``;
+
+test("a paired proof loads when its exercise is the lesson's and its lines are in the solution", () => {
+  const content = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "lessons/logic/a.md": LESSON.replace("Closing prose.", PAIR("first", '"1: Suppose P.", "1-2: Then P, as supposed."')) }));
+  assert.deepEqual(content.problems, []);
+  assert.deepEqual(content.lessons[0].blocks.find((b) => b.type === "widget"), { type: "widget", widget: "informal-formal", params: { exercise: "first", steps: ["1: Suppose P.", "1-2: Then P, as supposed."] } });
+});
+
+test("the Gallery's paired proofs name real exercises, and lines their solutions have", async () => {
+  const { WIDGETS } = await import("../shared/registry.ts");
+  const { proofLines, readSteps } = await import("../shared/paired.ts");
+  const content = loadContent();
+  for (const ex of WIDGETS["informal-formal"].examples) {
+    const exercise = content.lessons.find((l) => l.id === ex.lesson)?.exercises.find((e) => e.id === ex.exercise);
+    assert.ok(exercise && exercise.kind === "prove", `${String(ex.lesson)}/${String(ex.exercise)}`);
+    assert.deepEqual(readSteps(ex.steps, proofLines(exercise.solution).length).problems, []);
+  }
+});
+
 const broken: [string, (lesson: string) => string, RegExp][] = [
   ["a fill-the-gap proof with no gap", (l) => l.replace("---\n\nOpening", `${FILL.replace("exact <gap>", "exact hP")}---\n\nOpening`), /exercise "gap": `proof` must contain <gap> exactly once/],
   ["options that leave the solution out", (l) => l.replace("---\n\nOpening", `${FILL.replace("[hP, P]", "[P, Q]")}---\n\nOpening`), /exercise "gap": `options` must include the `solution`/],
@@ -176,6 +195,11 @@ const broken: [string, (lesson: string) => string, RegExp][] = [
   ["a duplicate exercise id", (l) => l.replace("id: second\n    title", "id: first\n    title"), /used twice|not in the frontmatter/],
   ["a block naming no exercise", (l) => l.replace("```exercise\nid: second", "```exercise\nid: nope"), /names "nope"/],
   ["no frontmatter", () => "Just prose.\n", /no frontmatter/],
+  ["a pairing with an exercise not in the lesson", (l) => l.replace("Closing prose.", PAIR("nope", '"1: Suppose P."')), /widget block 1 \(informal-formal\): there is no exercise "nope"/],
+  ["a pairing naming a line past the solution", (l) => l.replace("Closing prose.", PAIR("first", '"1: Suppose P.", "2-3: Then P."')), /names line 3, but the solution has 2 lines/],
+  ["a pairing step with no line numbers", (l) => l.replace("Closing prose.", PAIR("first", '"Suppose P."')), /must be the line numbers, a colon, then the sentence/],
+  ["a pairing that names another lesson", (l) => l.replace("Closing prose.", PAIR("first", '"1: Suppose P."') .replace("exercise: first", "exercise: first\nlesson: logic-1-a")), /`lesson` is for the Gallery and the Lab/],
+  ["a pairing on an exercise that is not a proof", (l) => l.replace("    solution: exact hP\n", "    solution: exact hP\n" + FILL).replace("Closing prose.", PAIR("gap", '"1: P."')), /exercise "gap" is a fill; the Lean side must be a proof/],
 ];
 
 for (const [name, mutate, expected] of broken) {
