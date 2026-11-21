@@ -356,12 +356,19 @@ test("docs/PRD.md's Curriculum section and curriculum.yaml agree on each outline
   }
 });
 
-test("a concept that needs a later level's, or is declared for one level and taught in another, is a problem", () => {
+test("a concept that needs a later one, or is taught before the level declaring it, is a problem; coming back to one later is not", () => {
   const later = CURRICULUM.replace("  - { id: 1, title: One, summary: s }", "  - id: 1\n    title: One\n    concepts: [{ id: early, title: Early, needs: [later-idea] }]").replace("  - { id: 2, title: Two, summary: s, status: outline, topics: [a, b] }", `  - id: 2\n    title: Two\n    status: outline${PLAN}`);
   const a = loadContent(fixture({ "curriculum.yaml": later, "lessons/logic/a.md": LESSON }));
   assert.ok(a.problems.some((p) => /level 1: the concept early needs later-idea, which comes later, in level 2/.test(p.message)), JSON.stringify(a.problems));
   const elsewhere = loadContent(fixture({ "curriculum.yaml": planned(PLAN), "lessons/logic/a.md": LESSON.replace("concepts: [implication]", "concepts: [implication, later-idea]") }));
-  assert.ok(elsewhere.problems.some((p) => /level 2: the concept later-idea is declared here but taught by logic-1-a, a level 1 lesson/.test(p.message)), JSON.stringify(elsewhere.problems));
+  assert.ok(elsewhere.problems.some((p) => /level 2: the concept later-idea is declared here but taught earlier, by the lesson logic-1-a, at level 1/.test(p.message)), JSON.stringify(elsewhere.problems));
+  // A later level coming back to a declared concept is fine.
+  const back = CURRICULUM.replace("  - { id: 1, title: One, summary: s }", "  - id: 1\n    title: One\n    concepts: [{ id: early, title: Early, needs: [implication] }]");
+  assert.deepEqual(loadContent(fixture({ "curriculum.yaml": back, "lessons/logic/a.md": LESSON.replace("concepts: [implication]", "concepts: [implication, early]") })).problems, []);
+  // A need on a concept only a later lesson teaches comes later too.
+  const lessonLater = planned(PLAN.replace("needs: [implication]", "needs: [taught-later]"));
+  const b = loadContent(fixture({ "curriculum.yaml": lessonLater.replace("{ id: 1, title: One, summary: s }", "{ id: 1, title: One, summary: s }\n  - { id: 3, title: Three, summary: s }"), "lessons/logic/a.md": LESSON.replace("level: 1", "level: 3").replace("concepts: [implication]", "concepts: [implication, taught-later]") }));
+  assert.ok(b.problems.some((p) => /level 2: the concept later-idea needs taught-later, which comes later, in level 3/.test(p.message)), JSON.stringify(b.problems));
 });
 
 test("a written level's moves each need a sentence and a Lab example; an outline's need neither yet", () => {

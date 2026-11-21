@@ -282,16 +282,16 @@ Landed in the first PR, the foundation slice:
   widgets still to build (set diagram, function arrows, program stepper,
   blueprint graph). The loader checks that every concept, track and
   widget a plan names exists, that no concept rests on itself or on a
-  later level's, that a concept declared for a level is taught nowhere
-  else, that a plan has no stray fields, and that a written planned
+  later one, that a concept declared for a level is not taught before
+  it, that a plan has no stray fields, and that a written planned
   lesson sits where it was planned; a level loses `status: outline` only
   once every move it has has a sentence and a Lab example. The Path lists an
   outlined level's lessons to write and its concepts; `check:content --
   --gaps` lists them too. An outline's moves are a plan only: the Moves
   page, the Lab and mastery count a written level's. The Tutor's writing
   brief says how to write a planned lesson, and that it stays unreachable
-  until the level is opened, which needs app code. `tacticsIn` now takes
-  the longest move first, so `simp only` is not also counted as `simp`. A test keeps
+  until the level is opened, which needs app code. Counting moves now takes
+  the longest first, so `simp only` is not also counted as `simp`. A test keeps
   `docs/PRD.md`'s outlined levels (titles and moves) the same as the file's.
 - A board move that gets nowhere is kept as a stumble (`lii-zjf.6`). Lean
   takes `norm_num` on a goal it cannot touch without an error, so the

@@ -281,7 +281,7 @@ levels:
       - id: programs-7-termination
         track: programs
         title: Why it stops
-        summary: Lean accepts a recursive definition it can reason about only when something shrinks (a partial def it cannot); what to say when Lean cannot see what shrinks.
+        summary: A recursive definition Lean can reason about must make something shrink at each call; what to say when Lean cannot see what shrinks, and what a partial def gives up.
         concepts: [termination]
         widgets: [program-stepper]
       - id: programs-7-binary-search
@@ -296,10 +296,13 @@ levels:
         summary: A binary tree type, its size and its mirror image, and induction with two hypotheses.
         concepts: [structural-induction]
         widgets: [program-stepper]
+      # Lean's tools for proving loops (mvcgen, and the experimental vcgen
+      # after it) are new and changing: check against the pinned Lean when
+      # writing this lesson.
       - id: programs-7-loops
         track: programs
         title: Loops and invariants
-        summary: A loop with mutable state, written in Lean's do notation, and the invariant that proves what it computes. Lean's tools for this (mvcgen, and vcgen after it) are new and changing; check against the pinned Lean when writing it.
+        summary: A loop with mutable state, written in Lean's do notation, and the invariant that proves what it computes.
         concepts: [loop-invariants]
         widgets: [program-stepper, informal-formal]
       - id: programs-7-what-verified-means

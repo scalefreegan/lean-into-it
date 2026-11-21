@@ -67,7 +67,8 @@ the outlined levels (4 to 8) have one. A `concept` needs an id, used once
 in the file, and a title; its `needs` are the concepts it builds on, each
 declared in some level's `concepts` (at that level or an earlier one) or
 listed by a lesson, and never round in a circle. A concept declared for a
-level is taught there only: a lesson at another level may not list it.
+level is first taught there: a lesson or planned lesson at an earlier
+level may not list it (a later one may come back to it).
 Each entry takes only the fields shown, and `needs`, `concepts` and
 `widgets` are lists. A `planned` lesson needs an id, a title and a known track; its
 `concepts` are declared or taught; each of its `widgets` is a registered

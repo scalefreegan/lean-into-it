@@ -340,7 +340,7 @@ function LevelPlan({ level }: { level: Level }) {
             {level.concepts.map((c) => (
               <li key={c.id}>
                 {c.title}
-                {c.needs.length > 0 && <span className="text-fg-3"> — builds on {c.needs.map(named).join("; ")}</span>}
+                {c.needs.length > 0 && <span className="text-fg-3"> — builds on {[...new Set(c.needs.map(named))].join("; ")}</span>}
               </li>
             ))}
           </ul>

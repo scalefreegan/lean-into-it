@@ -217,11 +217,8 @@ function credit(map: Record<string, Mastery>, c: CreditLike): void {
  * there is no concept to put them under.
  */
 export function masteryFrom(content: Pick<Content, "lessons" | "levels">, rows: AttemptLike[], credits: CreditLike[] = []): MasteryMap {
-  const tactics = tacticsOf(content).map((t) => ({ t, re: matcher(t) }));
-  const used = (lean: string) => {
-    const { bare } = lex(lean);
-    return tactics.filter(({ re }) => re.test(bare)).map(({ t }) => t);
-  };
+  const tactics = tacticsOf(content);
+  const used = (lean: string) => tacticsIn(lean, tactics);
   const exercises = new Map<string, Pick<Exercise, "concept" | "mode" | "kind">>();
   for (const l of content.lessons) for (const e of l.exercises) exercises.set(`${l.id}\u0000${e.id}`, e);
   const concepts: Record<string, Mastery> = {};

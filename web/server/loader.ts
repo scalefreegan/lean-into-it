@@ -172,12 +172,15 @@ function checkPlan(levels: Level[], tracks: Track[], lessons: Lesson[], problem:
   const known = new Set([...declared.keys(), ...lessons.flatMap((l) => l.concepts)]);
   const levelOfConcept = new Map<string, number>();
   for (const level of levels) for (const c of level.concepts) if (!levelOfConcept.has(c.id)) levelOfConcept.set(c.id, level.id);
-  // A concept's mastery is one row whoever teaches it: one declared for a level is taught there and nowhere else.
-  for (const lesson of lessons)
-    for (const c of lesson.concepts) {
-      const at = levelOfConcept.get(c);
-      if (at !== undefined && at !== lesson.level) problem(`level ${at}: the concept ${c} is declared here but taught by ${lesson.id}, a level ${lesson.level} lesson; give one of them a new id`);
-    }
+  // Where a concept first comes: the level declaring it, or the earliest lesson teaching it.
+  const earliest = new Map(levelOfConcept);
+  for (const lesson of lessons) for (const c of lesson.concepts) if (!(earliest.get(c)! <= lesson.level)) earliest.set(c, lesson.level);
+  // A declared concept is first taught at its level; later levels may come back to it.
+  const before = (c: string, level: number, who: string) => {
+    const at = levelOfConcept.get(c);
+    if (at !== undefined && level < at) problem(`level ${at}: the concept ${c} is declared here but taught earlier, by ${who}, at level ${level}; give one of them a new id`);
+  };
+  for (const lesson of lessons) for (const c of lesson.concepts) before(c, lesson.level, `the lesson ${lesson.id}`);
   const newWidgets = new Set<string>();
   for (const level of levels)
     for (const w of level.newWidgets) {
@@ -190,7 +193,7 @@ function checkPlan(levels: Level[], tracks: Track[], lessons: Lesson[], problem:
     for (const c of level.concepts)
       for (const n of c.needs) {
         if (!known.has(n)) problem(`level ${level.id}: the concept ${c.id} needs ${n}, which no level declares and no lesson teaches`);
-        else if ((levelOfConcept.get(n) ?? -Infinity) > level.id) problem(`level ${level.id}: the concept ${c.id} needs ${n}, which comes later, in level ${levelOfConcept.get(n)}`);
+        else if (earliest.get(n)! > level.id) problem(`level ${level.id}: the concept ${c.id} needs ${n}, which comes later, in level ${earliest.get(n)}`);
       }
     // A written level's moves are counted and listed (web/shared/progress.ts tacticsOf), so each needs its sentence and Lab example, which are app code.
     if (level.status !== "outline")
@@ -201,6 +204,7 @@ function checkPlan(levels: Level[], tracks: Track[], lessons: Lesson[], problem:
       if (plannedIds.has(p.id)) problem(`level ${level.id}: the planned lesson ${p.id} is listed twice`);
       plannedIds.add(p.id);
       if (!tracks.some((t) => t.id === p.track)) problem(`level ${level.id}: the planned lesson ${p.id} has track "${p.track}", which is not in curriculum.yaml`);
+      for (const c of p.concepts) before(c, level.id, `the planned lesson ${p.id}`);
       for (const c of p.concepts) if (!known.has(c)) problem(`level ${level.id}: the planned lesson ${p.id} teaches ${c}, which no level declares and no lesson teaches`);
       for (const w of p.widgets) if (!isWidget(w) && !newWidgets.has(w)) problem(`level ${level.id}: the planned lesson ${p.id} uses the widget ${w}, which is neither registered nor under any level's \`new_widgets\``);
       const written = lessons.find((l) => l.id === p.id);
