@@ -220,7 +220,7 @@ test("a calc chain that proves ≤ where < is wanted is told so, from Lean's rea
     return reply.diagnostics.find((d) => d.severity === "error" && /^unsolved goals/.test(d.message))!.message;
   };
   // Both links ≤: Lean adds "c < c" and leaves it.
-  assert.match(whatIsLeft(await unsolved("calc a ≤ b := h1\n  _ ≤ c := le_of_lt h2")) ?? "(nothing said)", /^This chain gets to c, but it proves only “≤” where the goal asks for “<”/);
+  assert.match(whatIsLeft(await unsolved("calc a ≤ b := h1\n  _ ≤ c := le_of_lt h2")) ?? "(nothing said)", /^This chain gets to c, but none of its links is strict, so it proves less than the goal’s “<”/);
   // A chain that stops at b leaves "b < c", a link still to write: nothing particular said.
   assert.equal(whatIsLeft(await unsolved("calc a ≤ b := h1")), null);
 });

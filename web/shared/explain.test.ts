@@ -172,12 +172,14 @@ test("a fact given something it cannot take, from Lean's own messages", () => {
 test("a chain that proves ≤ where < is wanted: the c < c Lean adds is named for what it is", () => {
   const weak = "unsolved goals\ncase calc.step\na b c : ℝ\nh1 : a ≤ b\nh2 : b < c\n⊢ c < c";
   const said = chainNotStrict(weak) ?? "";
-  assert.match(said, /^This chain gets to c, but it proves only “≤” where the goal asks for “<”/);
+  assert.match(said, /^This chain gets to c, but none of its links is strict, so it proves less than the goal’s “<”/);
   assert.match(said, /“c < c”, which can never be proved/);
   assert.equal(whatIsLeft(weak), said);
   assert.equal(explain(weak), said);
   // The same with > and a longer expression.
-  assert.match(chainNotStrict("unsolved goals\ncase calc.step\nx : ℝ\n⊢ x ^ 2 + 1 > x ^ 2 + 1") ?? "", /gets to x \^ 2 \+ 1, but it proves only “≥” where the goal asks for “>”/);
+  assert.match(chainNotStrict("unsolved goals\ncase calc.step\nx : ℝ\n⊢ x ^ 2 + 1 > x ^ 2 + 1") ?? "", /gets to x \^ 2 \+ 1, but none of its links is strict, so it proves less than the goal’s “>”/);
+  // Inside a bullet or a case, the tag carries that case's name.
+  assert.match(chainNotStrict("unsolved goals\ncase left.calc.step\na c : ℝ\n⊢ c < c") ?? "", /^This chain gets to c/);
   // A chain that stops short leaves an honest next link: nothing particular to say.
   assert.equal(chainNotStrict("unsolved goals\ncase calc.step\na b c : ℝ\n⊢ b < c"), null);
   // Not a calc leftover, two goals, or a goal that only looks alike.

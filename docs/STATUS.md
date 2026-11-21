@@ -249,8 +249,8 @@ Landed in the first PR, the foundation slice:
   that proves a ≤ c where the goal is a < c is not refused by Lean: it adds
   a last link from c to itself and leaves "case calc.step ⊢ c < c", which
   nothing can prove. `chainNotStrict` in `web/shared/explain.ts` names it
-  ("This chain gets to c, but it proves only “≤” where the goal asks for
-  “<”…"), and the typed editor's "Not finished" notice says it, as it says
+  ("This chain gets to c, but none of its links is strict, so it proves
+  less than the goal’s “<”…"; inside a bullet too), and the typed editor's "Not finished" notice says it, as it says
   what only False left means (`whatIsLeft`). A chain that stops short
   ("⊢ b < c", a link still to write) gets nothing particular. Held to
   Lean's real message in `web/server/lean.test.ts`.

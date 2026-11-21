@@ -29,23 +29,26 @@ export function leftFalse(message: string): boolean {
 }
 
 /**
- * A calc chain that proves ≤ where the goal is < (or ≥ where it is >): Lean
- * does not refuse it, it adds a last link to make up the difference, from
- * the end of the chain to itself, and leaves that as the one goal, "case
- * calc.step ⊢ c < c", which nothing can prove. The sentence for it, or null
+ * A calc chain with no strict link (≤ or = all along) where the goal is <
+ * (or ≥/= where it is >): Lean does not refuse it, it adds a last link to
+ * make up the difference, from the end of the chain to itself, and leaves
+ * that as the one goal, "case calc.step ⊢ c < c", which nothing can prove.
+ * Inside a bullet or a case the tag has that case's name before it
+ * ("left.calc.step"). A goal Lean wraps over several lines is not
+ * recognised, and gets the general sentence. The sentence for it, or null
  * when `message` is not that.
  */
 export function chainNotStrict(message: string): string | null {
-  if (!/^unsolved goals\ncase calc\.step\n/.test(message) || /\n\s*\n/.test(message.trim())) return null;
+  if (!/^unsolved goals\ncase (?:\S+\.)?calc\.step\n/.test(message) || /\n\s*\n/.test(message.trim())) return null;
   const target = /\n⊢ (.+)\s*$/.exec(message)?.[1].trim();
   if (!target) return null;
   // The two sides are the same expression, so the sign is in the very middle.
   const side = (target.length - 3) / 2;
   const sign = target.slice(side, side + 3);
   if (!Number.isInteger(side) || side < 1 || (sign !== " < " && sign !== " > ") || target.slice(0, side) !== target.slice(side + 3)) return null;
-  const [strict, weak] = sign === " < " ? ["<", "≤"] : [">", "≥"];
+  const strict = sign.trim();
   const end = target.slice(0, side);
-  return `This chain gets to ${end}, but it proves only “${weak}” where the goal asks for “${strict}”: none of its links is strict. Lean shows the difference as one more link, “${target}”, which can never be proved. Make one link strict: a link given by a fact that says “${strict}” can say “${strict}” itself.`;
+  return `This chain gets to ${end}, but none of its links is strict, so it proves less than the goal’s “${strict}”. Lean shows what is missing as one more link, “${target}”, which can never be proved. Change a link to “${strict}”: where a fact you have says “${strict}”, give that link with the fact itself.`;
 }
 
 /** What to say about the goal an unfinished proof leaves, when there is something particular to say. */
