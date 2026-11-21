@@ -4,7 +4,8 @@
 
 import { isLadder, onBoard } from "../shared/ladder.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { parseGoals, type Goal } from "../shared/goals.ts";
+import { parseGoals, sameGoals, type Goal } from "../shared/goals.ts";
+import { UNCHANGED } from "../shared/explain.ts";
 import { withRemoved } from "../shared/interactive.ts";
 import { mapGoal, type StepGoals } from "../shared/proofmap.ts";
 import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Position, forbiddenIn } from "../shared/proof.ts";
@@ -232,6 +233,8 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
   const around = notes.length ? (await lean.check("exercise", source, notes.flatMap((d) => [d.start, d.end]))).goals : [];
   const diagnostics = toBody(ringFailures(result.diagnostics, notes, around), body, given);
   const verdict = judge(diagnostics, body, exercise.forbid, axiomsOf(result.diagnostics, body, given), replayOf(result.diagnostics, body, given), written);
+  // The last step got nowhere: Lean took it, and the goals are as they were before it.
+  const unchanged = !verdict.solved && !verdict.error && !verdict.refusal && last !== null && sameGoals(goalsAt(result, 0), goalsAt(result, mapFrom - 1));
   return {
     solved: verdict.solved,
     goals: result.structured[0] ? withRemoved(result.structured[0], last ? result.structured[mapFrom - 1] : null) : parseGoals(result.goals[0] ?? []),
@@ -241,6 +244,7 @@ async function checkBody(lean: LeanServer, exercise: Exercise, body: string, wri
     forbidden: verdict.forbidden,
     refusal: verdict.refusal,
     ...(map ? { map: proofMapOf(result, lines, mapFrom, new Set(diagnostics.flatMap((d) => (d.severity === "error" && d.line !== null ? [d.line] : [])))) } : {}),
+    ...(unchanged ? { unchanged: true as const } : {}),
   };
 }
 
@@ -348,9 +352,11 @@ async function keep(lessonId: string, exerciseId: string, body: string, reply: C
     await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: true, rung, inputRung: ladder, elapsedMs });
     return;
   }
-  if (record === "submitted" || (record === "rejected" && refused)) {
+  // A board move that got nowhere is a stumble too, though Lean raised no error.
+  const nowhere = record === "rejected" && !refused && reply.unchanged === true;
+  if (record === "submitted" || (record === "rejected" && refused) || nowhere) {
     const reading = (await findExercise(lessonId, exerciseId))?.kind;
-    const error = reply.error?.message ?? reply.refusal ?? (reply.forbidden.length ? `uses ${reply.forbidden.join(", ")}` : reading && isReading(reading) ? "a wrong answer" : "unsolved goals");
+    const error = reply.error?.message ?? reply.refusal ?? (reply.forbidden.length ? `uses ${reply.forbidden.join(", ")}` : nowhere ? UNCHANGED : reading && isReading(reading) ? "a wrong answer" : "unsolved goals");
     await recordAttempt(db, learner, { lessonId, exerciseId, body, solved: false, error, rung, inputRung: ladder, elapsedMs });
   }
 }
