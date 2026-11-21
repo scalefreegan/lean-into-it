@@ -9,7 +9,7 @@ import { freshDb } from "../../scripts/tests/testdb.mjs";
 import { authorRepo, LESSON_FILE, withExercise } from "../../scripts/tests/authorrepo.mjs";
 import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
-import { explain, whatIsLeft } from "../shared/explain.ts";
+import { UNCHANGED, explain, whatIsLeft } from "../shared/explain.ts";
 import { goalsText, sameGoals, unsolvedGoals, type Goal } from "../shared/goals.ts";
 import { LAB_FIRST_LINE, labSource, TACTIC_EXAMPLES } from "../shared/lab.ts";
 import { EXERCISES } from "../shared/registry.ts";
@@ -612,6 +612,31 @@ test("/api/check records attempts, not the re-check of a stored solution, and a 
   await post({ ...base, body: "exact hP", record: "submitted" });
   const times = (await query("select elapsed_ms from attempts order by id desc limit 3")) as { elapsed_ms: number | null }[];
   assert.deepEqual(times.map((r) => r.elapsed_ms), [null, null, 12_345]);
+});
+
+test("a board move Lean takes but that gets nowhere is said so and kept as a stumble; a step that moves is not", { skip }, async () => {
+  const learner = await ensureLearner(db);
+  const base = { lessonId: lesson.id, exerciseId: "prove-it" };
+  const count = () => attemptCount(db, learner, lesson.id, "prove-it");
+  const before = await count();
+  // A step that changes the goals: not unchanged, not kept.
+  const moved = await post({ ...base, body: "intro hP", record: "rejected" });
+  assert.equal(moved.reply.unchanged, undefined);
+  assert.equal(await count(), before);
+  // Lean takes `skip`, and the goals after it are the goals before it.
+  const nowhere = await post({ ...base, body: "intro hP\nskip", record: "rejected" });
+  assert.equal(nowhere.reply.error, null);
+  assert.equal(nowhere.reply.solved, false);
+  assert.equal(nowhere.reply.unchanged, true);
+  assert.equal(await count(), before + 1);
+  const [row] = (await query("select solved, error from attempts order by id desc limit 1")) as { solved: boolean; error: string }[];
+  assert.deepEqual(row, { solved: false, error: UNCHANGED });
+  // Not a board move: the flag is in the reply, but a live check keeps nothing.
+  assert.equal((await post({ ...base, body: "intro hP\nskip", record: "live" })).reply.unchanged, true);
+  assert.equal(await count(), before + 1);
+  // A body of one step that gets nowhere is compared with the statement's own goal.
+  assert.equal((await post({ ...base, body: "skip", record: "rejected" })).reply.unchanged, true);
+  assert.equal(await count(), before + 2);
 });
 
 test("rung 3's line is Lean's to pass: one that works is offered, one that does not is not", { skip }, async () => {

@@ -24,8 +24,9 @@ export interface CheckRequest {
    *  for `fill`, where the server reads the goals at the gap. */
   cursor?: Position;
   /** Whether this check is an attempt, and which of its outcomes are kept.
-   *  `rejected`: a move on the board; kept if Lean refuses it, or if it
-   *  finishes a proof not solved yet today. `submitted`: the Check button;
+   *  `rejected`: a move on the board; kept if Lean refuses it, if Lean takes
+   *  it but it gets nowhere (`unchanged`), or if it finishes a proof not
+   *  solved yet today. `submitted`: the Check button;
    *  always kept. `live`: a typed proof re-checked as it is edited; kept only
    *  as a solve, and only if the exercise was not solved yet today. Omitted:
    *  not an attempt (re-checking a stored solution when an exercise opens),
@@ -62,6 +63,11 @@ export interface CheckReply {
   /** Asked for with `map`: the goals before the first line, and around each
    *  line up to the first Lean refused. */
   map?: { start: MapGoal[]; steps: StepGoals[] };
+  /** Lean accepted the last line, and the goals after it are the goals
+   *  before it: a step that got nowhere (norm_num on a goal it cannot
+   *  touch). Not solved, no error. The board says so, and a board move
+   *  (`record: "rejected"`) is kept as a stumble. */
+  unchanged?: true;
 }
 
 /** POST /api/gallery: a Famous Proofs entry (content/gallery.yaml) checked:

@@ -268,6 +268,14 @@ Landed in the first PR, the foundation slice:
   about its internals, or quietly substituted an equation away, or split
   a ≤ between natural numbers into Lean's own cases. Each new pattern is
   played against the real Lean in `web/server/lean.test.ts`.
+- A board move that gets nowhere is kept as a stumble (`lii-zjf.6`). Lean
+  takes `norm_num` on a goal it cannot touch without an error, so the
+  server used to keep nothing. Now `checkBody` compares Lean's goals before
+  the last line with those after it and says `unchanged` in the reply; a
+  board move (`record: "rejected"`) with it is an attempt row, not solved,
+  with the board's own sentence as its error, for the history the Tutor
+  and mastery read. The board's "gets you no further here" now comes from
+  the same comparison, so what is said and what is kept cannot differ.
 - Goal cards show a function applied to an argument as the result
   (`lii-8wq.7`). Taking apart “there is exactly one” left
   `huniq : ∀ (y : ℕ), (fun n ↦ n + 1 = 3) y → y = n`; it now reads
@@ -590,7 +598,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 541, including every reference solution checked by the real Lean,
+- Tests: 542, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -621,7 +629,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-6 beads in 5 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+5 beads in 5 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Widgets (epic `lii-53v`)
@@ -635,7 +643,6 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-zjf.5` | Database backup script | 3 | `lii-2zf.3` |
-| `lii-zjf.6` | Record a board move that changed nothing as an attempt | 3 | |
 
 ### Tutor (epic `lii-2zo`)
 
