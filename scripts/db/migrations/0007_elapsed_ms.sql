@@ -1,0 +1,1 @@
+ALTER TABLE "attempts" ADD COLUMN "elapsed_ms" integer;

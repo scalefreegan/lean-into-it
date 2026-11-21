@@ -387,6 +387,16 @@ Landed in the first PR, the foundation slice:
   Review, Moves, Lab, Playground) take a row of their own under the name and
   the Listen button, and scroll within it if they must, so no page scrolls
   sideways from the header at 390 px. From 768 px up it is one row as before.
+- Time per attempt (`lii-zjf.7`): every attempt row keeps `elapsed_ms`,
+  the working time on the exercise before that check. It runs from the
+  learner's first click or keystroke in the exercise on this visit to the
+  page (a lesson shows all its exercises at once, so not from the page
+  opening), and stops while the tab is hidden (`web/shared/clock.ts`,
+  `web/src/workclock.ts`, started by `useTouch`). Each visit starts again;
+  the time of a solve is the `elapsed_ms` of the row that solved it. The
+  browser sends it with each check that is an attempt; the server keeps
+  whole ms from 0 to a day, and null otherwise (and for older rows). The
+  Tutor's history tool shows it as `secondsWorked`. Nothing grades by it.
 - Listen mode (`lii-1gs.1`), ported from Fret Not: a Listen button in the
   header opens the switch, the voice and the quality; with it on and a
   voice chosen, play controls sit at the foot of the page (back, −5 s,
@@ -560,7 +570,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-10 beads in 7 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+9 beads in 7 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -585,7 +595,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-zjf.7` | Record time taken per exercise attempt | 3 | |
 | `lii-zjf.5` | Database backup script | 3 | `lii-2zf.3` |
 | `lii-zjf.6` | Record a board move that changed nothing as an attempt | 3 | |
 

@@ -98,3 +98,13 @@ test("the input ladder's rung is kept apart from the hint rung, and every reader
   assert.deepEqual((await readerAttemptsForMastery(q, me, 10)).map((r) => r.inputRung), [null, 4, 2]);
   assert.deepEqual((await readerAttempts(q, me, { limit: 10 })).map((r) => [r.rung, r.input_rung]), [[null, null], [1, 4], [null, 2]]);
 });
+
+test("an attempt keeps its working time, in ms; none sent is null", async (t) => {
+  const { db, query, close } = await freshDb();
+  t.after(close);
+  const me = await ensureLearner(db);
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: false, error: "x", elapsedMs: 41_250 });
+  await recordAttempt(db, me, { lessonId: "l", exerciseId: "e", body: "exact h", solved: true });
+  const q = (text, params) => query(text, params);
+  assert.deepEqual((await readerAttempts(q, me, { limit: 10 })).map((r) => r.elapsed_ms), [null, 41_250]);
+});

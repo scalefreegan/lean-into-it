@@ -96,7 +96,7 @@ test("recent_attempts: newest first, with the proof, Lean's error and the hint r
   const { query, db, learner, reader } = await setup(t);
   const [{ id: other }] = await query("insert into learners (name) values ('Other') returning id");
   await recordAttempt(db, other, { lessonId: "implies", exerciseId: "e1", body: "exact someoneElse", solved: false, error: "no" });
-  await recordAttempt(db, learner, { lessonId: "implies", exerciseId: "e1", body: "exact hQ", solved: false, error: "Unknown identifier `hQ`\nmore", rung: 2 });
+  await recordAttempt(db, learner, { lessonId: "implies", exerciseId: "e1", body: "exact hQ", solved: false, error: "Unknown identifier `hQ`\nmore", rung: 2, elapsedMs: 83_600 });
   await recordAttempt(db, learner, { lessonId: "implies", exerciseId: "e1", body: "exact hP", solved: true, rung: 3, assisted: true });
   await recordAttempt(db, learner, { lessonId: "gone", exerciseId: "x", body: "rfl\u0007", solved: true });
   const { attempts } = await reader.recentAttempts();
@@ -106,6 +106,8 @@ test("recent_attempts: newest first, with the proof, Lean's error and the hint r
   assert.deepEqual(attempts[1], { when: attempts[1].when, lesson: "implies", exercise: "e1", lessonTitle: "If, then", exerciseTitle: "Use a fact", concept: "exact-fact", level: 1, solved: true, proof: "exact hP", hintRung: 3, assisted: true });
   assert.equal(attempts[2].leanSaid, "Unknown identifier `hQ`\nmore");
   assert.equal(attempts[2].hintRung, 2);
+  // Working time, in whole seconds; a check with none sent has none (attempts[1] above).
+  assert.equal(attempts[2].secondsWorked, 84);
   assert.deepEqual((await reader.recentAttempts({ failedOnly: true })).attempts.map((a) => a.proof), ["exact hQ"]);
   assert.equal((await reader.recentAttempts({ lesson: "gone" })).attempts.length, 1);
   assert.equal((await reader.recentAttempts({ limit: 1 })).attempts.length, 1);

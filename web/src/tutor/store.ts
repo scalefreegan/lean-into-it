@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo } from "react";
 import type { Goal } from "../../shared/goals.ts";
 import type { TutorContext } from "../../shared/wire.ts";
+import { startWorkClock, useWorkClock } from "../workclock.ts";
 
 // What the Tutor knows of the page: the route, the exercise last worked on,
 // and that exercise's state (its proof so far, Lean's goals and last error).
@@ -53,12 +54,18 @@ export function useTutorWork(lessonId: string, exerciseId: string, w: Work): voi
   }, [store, lessonId, exerciseId, w.body, goals, w.error, w.ladder]);
 }
 
-/** Handlers that make an exercise the one the Tutor is asked about. */
+/** Handlers that make an exercise the one the Tutor is asked about, and
+ *  start its working-time clock (web/src/workclock.ts), which an attempt
+ *  records: every place that shows an exercise uses this. */
 export function useTouch(lessonId: string, exerciseId: string): { onPointerDownCapture: () => void; onFocusCapture: () => void } {
   const store = useContext(TutorCtx);
   const touch = store?.touch;
+  useWorkClock(lessonId, exerciseId);
   return useMemo(() => {
-    const go = () => touch?.(lessonId, exerciseId);
+    const go = () => {
+      startWorkClock(lessonId, exerciseId);
+      touch?.(lessonId, exerciseId);
+    };
     return { onPointerDownCapture: go, onFocusCapture: go };
   }, [touch, lessonId, exerciseId]);
 }

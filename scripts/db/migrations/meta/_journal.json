@@ -50,6 +50,13 @@
       "when": 1795184257699,
       "tag": "0006_input_rung",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795227840738,
+      "tag": "0007_elapsed_ms",
+      "breakpoints": true
     }
   ]
 }
