@@ -63,10 +63,12 @@ export interface CheckReply {
   /** Asked for with `map`: the goals before the first line, and around each
    *  line up to the first Lean refused. */
   map?: { start: MapGoal[]; steps: StepGoals[] };
-  /** Lean accepted the last line, and the goals after it are the goals
-   *  before it: a step that got nowhere (norm_num on a goal it cannot
-   *  touch). Not solved, no error. The board says so, and a board move
-   *  (`record: "rejected"`) is kept as a stumble. */
+  /** The goals after the body's last line are the goals before it: on the
+   *  board, whose last line is the one tactic just played, a step Lean took
+   *  that got nowhere (norm_num on a goal it cannot touch). The board says
+   *  so, and a board move (`record: "rejected"`) is kept as a stumble. Set
+   *  on other checks too, where nothing reads it: a typed proof's last line
+   *  may be a comment, and a true/false reply may add a refusal after it. */
   unchanged?: true;
 }
 
