@@ -226,8 +226,20 @@ Landed in the first PR, the foundation slice:
   dies twice in a row it stays stopped, the app says so and offers a
   Restart button. `GET /api/lean` reports starting, ready, restarting or
   down and the toolchain; `POST /api/lean/restart` restarts it. The app
-  shows "Lean is starting" while Mathlib loads. Left for `lii-1ou.6`:
-  cancelling a superseded check, and a memory limit.
+  shows "Lean is starting" while Mathlib loads.
+- A superseded check is skipped, and a worker has a memory limit
+  (`lii-1ou.6`). A check whose browser request was given up on before its
+  turn came (the editor asks again as the learner types on) is not sent to
+  Lean at all (`wantedWhile` in `web/server/lean/lsp.ts`, tied to the reply
+  by `/api/check`, `/api/playground` and `/api/gallery`), so a pile of
+  stale checks no longer holds up the one wanted on the shared document;
+  nothing is recorded for it. One already running is left to finish or run
+  out of time, since Lean cannot always stop a step mid-way. Every Lean
+  worker runs with Lean's `-M 8192` (8 GB as Lean counts it; Mathlib alone
+  takes over 4 GB, so there even 2 + 2 = 4 dies, and 6 GB checks proofs);
+  a check that wants more dies at once, the learner is told it ran out of
+  memory (Lean's stderr says so; the crash reply does not), and its
+  document is reopened.
 - An adversarial pass on grading (`lii-1ou.5`): about 34 proof bodies
   tried against a false statement, through the app and through Lean with
   the pre-checks off. None was graded solved. Where Lean alone would
@@ -543,7 +555,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 535, including every reference solution checked by the real Lean,
+- Tests: 537, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -574,14 +586,8 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-9 beads in 7 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+8 beads in 6 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
-
-### Lean engine (epic `lii-1ou`)
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
 
 ### Proof board (epic `lii-8wq`)
 

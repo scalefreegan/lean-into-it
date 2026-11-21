@@ -10,7 +10,8 @@
 // library has a longer one, after which the server is replaced; a server
 // that dies is started again once, and after a second time in a row stays
 // stopped until restart(). Only the child process spawned here is ever
-// signalled.
+// signalled. A check whose asker stopped waiting before its turn is skipped
+// (wantedWhile), and every worker has a memory limit (MEMORY_MB).
 //
 // Lean elaborates whatever text it is given with this user's permissions
 // (a `#eval` can run a process). The only callers are the same-origin API
@@ -20,6 +21,7 @@
 // (sandbox.ts), which can read only Lean's own files, write nothing and
 // run nothing else.
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -74,6 +76,28 @@ class LeanRefused extends Error {
 }
 /** Lean's code for "the worker for this file crashed". */
 const WORKER_CRASHED = -32902;
+/** What a worker writes to stderr as it dies over its memory limit (`-M`). */
+const OUT_OF_MEMORY = /memory_exception|excessive memory consumption/;
+
+/** A check whose asker stopped waiting before its turn came: it was never
+ *  sent to Lean. Not a failure of Lean; nobody is left to tell. */
+export class LeanAbandoned extends Error {}
+
+/** The signal of the request a check is made for (wantedWhile). */
+const wantedBy = new AsyncLocalStorage<AbortSignal>();
+
+/**
+ * Run `fn` with every check it makes skipped, not sent to Lean, if `signal`
+ * has aborted by the time the check's turn comes: the browser stopped
+ * waiting (the learner typed on, and the editor asked again). Checks of one
+ * document run one at a time, and all exercises share one, so a pile of
+ * checks nobody wants would hold up the one that is. A check already
+ * running is left to finish, or to run out of time: Lean cannot always stop
+ * a step mid-way, and the time limit is what ends one that never would.
+ */
+export function wantedWhile<T>(signal: AbortSignal, fn: () => Promise<T>): Promise<T> {
+  return wantedBy.run(signal, fn);
+}
 
 /** `starting`: first start, Mathlib not yet loaded. `restarting`: the same
  *  after a stop. `down`: there is no Lean process and none is on its way. */
@@ -205,7 +229,18 @@ export interface LeanServerOptions {
    *  nothing but itself, and has no network. For Lean the learner did not
    *  write. */
   sandboxed?: boolean;
+  /** The most memory, in MB, one Lean worker may use (Lean's `-M`, which
+   *  the server passes to every worker). A check that wants more is refused
+   *  with Lean's "out of memory", not left to run into the time limit or
+   *  the machine's swap. */
+  memoryMb?: number;
 }
+
+/** A worker's memory limit by default, in MB (Lean's `-M`, as Lean counts
+ *  it). Loading Mathlib alone takes over 4096 (there even a proof of
+ *  2 + 2 = 4 dies); 6144 checks proofs; 8192 leaves room for a heavy
+ *  proof and stops a runaway allocation short of the machine's memory. */
+export const MEMORY_MB = 8192;
 
 export class LeanServer {
   private dir: string;
@@ -214,6 +249,9 @@ export class LeanServer {
   private loadTimeoutMs: number;
   private bootTimeoutMs: number;
   private sandboxed: boolean;
+  private memoryMb: number;
+  /** When a worker last died over its memory limit (Date.now()); 0 never. */
+  private outOfMemoryAt = 0;
   private sandbox: SandboxSetup | null = null;
   /** A check has finished on the current server process: Mathlib is loaded. */
   private warm = false;
@@ -240,6 +278,7 @@ export class LeanServer {
     this.loadTimeoutMs = opts.loadTimeoutMs ?? 120_000;
     this.bootTimeoutMs = opts.bootTimeoutMs ?? 60_000;
     this.sandboxed = opts.sandboxed ?? false;
+    this.memoryMb = opts.memoryMb ?? MEMORY_MB;
   }
 
   /** The folder documents are named under: the Lake project, or the sandbox's empty one. */
@@ -251,14 +290,15 @@ export class LeanServer {
    *  that cannot be set up is a reason Lean is unavailable, never a
    *  fall-back to running without one. */
   private async launch(): Promise<ChildProcessWithoutNullStreams> {
-    if (!this.sandboxed) return spawn("lake", ["serve"], { cwd: this.dir, env: leanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const memory = ["-M", String(this.memoryMb)];
+    if (!this.sandboxed) return spawn("lake", ["serve", "--", ...memory], { cwd: this.dir, env: leanEnv(), stdio: ["pipe", "pipe", "pipe"] });
     try {
       this.sandbox ??= await sandboxSetup(this.dir, leanEnv());
     } catch (e) {
       throw new LeanUnavailable(`The sandbox for the Tutor's Lean could not be set up: ${(e as Error)?.message || e}.`);
     }
     const s = this.sandbox;
-    return spawn(SANDBOX_EXEC, ["-p", s.profile, s.lean, "--server"], { cwd: s.workDir, env: sandboxEnv(s), stdio: ["pipe", "pipe", "pipe"] });
+    return spawn(SANDBOX_EXEC, ["-p", s.profile, s.lean, "--server", ...memory], { cwd: s.workDir, env: sandboxEnv(s), stdio: ["pipe", "pipe", "pipe"] });
   }
 
   /**
@@ -276,7 +316,13 @@ export class LeanServer {
     await this.start();
     const doc = this.doc(key);
     doc.active++;
-    const attempt = () => this.checkDoc(doc, source, positions, structured, printedUntil);
+    const signal = wantedBy.getStore();
+    const started = { at: 0 };
+    const attempt = () => {
+      if (signal?.aborted) throw new LeanAbandoned("no one is waiting for this check");
+      started.at = Date.now();
+      return this.checkDoc(doc, source, positions, structured, printedUntil, signal);
+    };
     const run = doc.tail.then(attempt, attempt).finally(() => {
       doc.active--;
     });
@@ -298,10 +344,15 @@ export class LeanServer {
         // finds the library loaded.
         const crashed = e.code === WORKER_CRASHED;
         if (crashed) this.replace(doc, source);
+        // Lean's stderr can arrive a moment after the crash reply.
+        if (crashed) await new Promise((r) => setTimeout(r, 100));
+        const memory = crashed && this.outOfMemoryAt >= started.at;
         throw new LeanUnavailable(
-          crashed
-            ? "Lean crashed while checking this. The usual cause is a definition that calls itself without end. Lean is running again: change the proof, or check it once more."
-            : `Lean could not check this: ${e.message.replace(/file:\/\/\S+/g, "this file")}`,
+          memory
+            ? `Lean ran out of memory on this: one check may use ${Math.round(this.memoryMb / 1024)} GB. A step that builds something enormous, such as a huge list or a search over a vast range, does this. Change the proof and check again.`
+            : crashed
+              ? "Lean crashed while checking this. The usual cause is a definition that calls itself without end. Lean is running again: change the proof, or check it once more."
+              : `Lean could not check this: ${e.message.replace(/file:\/\/\S+/g, "this file")}`,
         );
       }
       throw e;
@@ -359,7 +410,7 @@ export class LeanServer {
     if (this.failures > 1 || this.closed) return false;
     this.start().then(
       () => {
-        for (const [key, header] of open) this.check(key, header).catch(() => {});
+        for (const [key, header] of open) wantedBy.exit(() => this.check(key, header)).catch(() => {});
       },
       () => {},
     );
@@ -380,7 +431,8 @@ export class LeanServer {
    *  reads what happened. */
   private replace(doc: Doc, source: string): void {
     this.drop(doc);
-    if (!this.closed) this.check(doc.key, headerOf(source)).catch(() => {});
+    // Wanted whatever happens to the check that led here: outside its scope.
+    if (!this.closed) wantedBy.exit(() => this.check(doc.key, headerOf(source))).catch(() => {});
   }
 
   /** For tests: end the server process the way a crash would, with none of
@@ -432,7 +484,11 @@ export class LeanServer {
     proc.stdout.on("data", (chunk: Buffer) => {
       if (this.proc === proc) this.onData(chunk);
     });
-    proc.stderr.on("data", () => {}); // Lean logs worker chatter here; nothing a learner needs
+    // Lean logs worker chatter here; nothing a learner needs, except that a
+    // worker died over its memory limit, which the crash reply does not say.
+    proc.stderr.on("data", (chunk: Buffer) => {
+      if (this.proc === proc && OUT_OF_MEMORY.test(chunk.toString())) this.outOfMemoryAt = Date.now();
+    });
     const gone = (why: string) => {
       if (this.proc === proc) {
         console.error(`[lean-into-it] lean server ${why}`);
@@ -498,7 +554,7 @@ export class LeanServer {
     }
   }
 
-  private async checkDoc(doc: Doc, source: string, positions: Position[], structured: boolean, printedUntil: number): Promise<LeanCheck> {
+  private async checkDoc(doc: Doc, source: string, positions: Position[], structured: boolean, printedUntil: number, signal?: AbortSignal): Promise<LeanCheck> {
     const proc = this.proc;
     if (doc.generation !== this.generation || !proc) {
       // The same text as the check that just ran out of time here, asked
@@ -522,6 +578,8 @@ export class LeanServer {
       const loaded = await this.timed(doc, proc, header, header === source ? positions : [], true, structured, printedUntil);
       doc.header = header;
       if (header === source) return loaded;
+      // The library is loaded, which the next check wants anyway; the proof need not be.
+      if (signal?.aborted) throw new LeanAbandoned("no one is waiting for this check");
     }
     const result = await this.timed(doc, proc, source, positions, false, structured, printedUntil);
     doc.header = header;
