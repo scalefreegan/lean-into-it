@@ -28,6 +28,31 @@ export function leftFalse(message: string): boolean {
   return /^unsolved goals/.test(message) && /(^|\n)⊢ False\s*$/.test(message) && !/\n\s*\n/.test(message.trim());
 }
 
+/**
+ * A calc chain that proves ≤ where the goal is < (or ≥ where it is >): Lean
+ * does not refuse it, it adds a last link to make up the difference, from
+ * the end of the chain to itself, and leaves that as the one goal, "case
+ * calc.step ⊢ c < c", which nothing can prove. The sentence for it, or null
+ * when `message` is not that.
+ */
+export function chainNotStrict(message: string): string | null {
+  if (!/^unsolved goals\ncase calc\.step\n/.test(message) || /\n\s*\n/.test(message.trim())) return null;
+  const target = /\n⊢ (.+)\s*$/.exec(message)?.[1].trim();
+  if (!target) return null;
+  // The two sides are the same expression, so the sign is in the very middle.
+  const side = (target.length - 3) / 2;
+  const sign = target.slice(side, side + 3);
+  if (!Number.isInteger(side) || side < 1 || (sign !== " < " && sign !== " > ") || target.slice(0, side) !== target.slice(side + 3)) return null;
+  const [strict, weak] = sign === " < " ? ["<", "≤"] : [">", "≥"];
+  const end = target.slice(0, side);
+  return `This chain gets to ${end}, but it proves only “${weak}” where the goal asks for “${strict}”: none of its links is strict. Lean shows the difference as one more link, “${target}”, which can never be proved. Make one link strict: a link given by a fact that says “${strict}” can say “${strict}” itself.`;
+}
+
+/** What to say about the goal an unfinished proof leaves, when there is something particular to say. */
+export function whatIsLeft(message: string): string | null {
+  return leftFalse(message) ? LEFT_FALSE : chainNotStrict(message);
+}
+
 /** A plain sentence for a Lean error, or null when there is none for it. */
 export function explain(message: string): string | null {
   const first = message.split("\n")[0];
@@ -172,7 +197,8 @@ export function explain(message: string): string | null {
   if (/^`exact\?` could not close the goal/.test(first)) {
     return "exact? searched Lean's library and the facts on the board, and found no single step that finishes this goal as it stands. Take a step yourself first (intro, constructor, a rewrite) and search again, or the goal may not follow from what is on the board.";
   }
-  if (leftFalse(message)) return LEFT_FALSE;
+  const left = whatIsLeft(message);
+  if (left) return left;
   if (/^unsolved goals/.test(first)) {
     return "Every line is fine so far, but there is still something left to show.";
   }
