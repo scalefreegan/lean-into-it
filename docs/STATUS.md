@@ -258,7 +258,11 @@ Landed in the first PR, the foundation slice:
   for “there is exactly one” (`obtain ⟨x, hx, huniq⟩`), for membership in
   a Set's ∩ and ∪ (an “and” and an “or” about the two sets), and for
   False (`obtain ⟨⟩`, which ends the goal), besides and, or, iff, exists,
-  Even, Odd and ∣. On any other fact the board does not send it
+  Even, Odd and ∣. ∩ and ∪ only where every set in them is known to be a
+  Set (a Finset's or a List's are not an “and” or an “or” by definition),
+  and only when the membership is the fact itself, not inside an
+  implication or a “for all”. The replay of every board solution now also
+  asks whether the board would refuse its obtain lines. On any other fact the board does not send it
   (`obtainMisfit` in `web/shared/moves.ts`) and says why; on an equation it
   points to rw. Before, it wrote ⟨h1, h2⟩: Lean refused that in words
   about its internals, or quietly substituted an equation away, or split
@@ -610,8 +614,14 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-6 beads in 5 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+7 beads in 6 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
+
+### Proof board (epic `lii-8wq`)
+
+| Bead | Title | P | Needs |
+|---|---|---|---|
+| `lii-8wq.7` | After obtain on ∃!, the uniqueness card shows an unreduced lambda | 3 | |
 
 ### Widgets (epic `lii-53v`)
 

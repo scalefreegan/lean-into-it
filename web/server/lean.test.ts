@@ -13,7 +13,7 @@ import { explain, whatIsLeft } from "../shared/explain.ts";
 import { goalsText, sameGoals, unsolvedGoals, type Goal } from "../shared/goals.ts";
 import { LAB_FIRST_LINE, labSource, TACTIC_EXAMPLES } from "../shared/lab.ts";
 import { EXERCISES } from "../shared/registry.ts";
-import { misfit, moveLine, obtainLine, readLine } from "../shared/moves.ts";
+import { misfit, moveLine, obtainLine, obtainMisfit, readLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, judge, replayOf, toBody } from "../shared/proof.ts";
 import { buildMap, type ProofMap } from "../shared/proofmap.ts";
 import { checkExercise, handleCheck, handleGallery, handleLean, handlePlayground, leanError } from "./check.ts";
@@ -149,6 +149,7 @@ async function replay(label: string, e: Exercise): Promise<number> {
     const state = await checkExercise(leanServer(), e, solution.slice(0, i).join("\n"));
     assert.ok(state.goals.length && state.goals.every((g) => g.targetTagged), `${label} line ${i + 1}: Lean's structured goals`);
     assert.equal(misfit(move, state.goals[0]), null, `${label} line ${i + 1}: the board would refuse "${want}"`);
+    if (move.id === "obtain") assert.equal(obtainMisfit(state.goals[0], arg ?? ""), null, `${label} line ${i + 1}: the board would refuse "${want}"`);
     assert.equal(moveLine(move, state.goals[0], arg), want, `${label} line ${i + 1}`);
   }
   return solution.length;

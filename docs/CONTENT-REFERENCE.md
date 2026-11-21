@@ -695,7 +695,7 @@ The ids a board exercise's `moves` and a `move-list` widget may name. Each click
 | `exact` | a fact, clicked | `exact h` | Finish the goal with a fact that says exactly what the goal says. |
 | `apply` | a fact, clicked | `apply h` | Use a fact of the form “if A then B” on the goal B. The goal becomes A: it is now enough to prove A. Also uses a “for all” fact on a particular case, and a “not A” fact on the goal False. |
 | `constructor` | nothing | `constructor` | Split a goal “A and B” (or “A if and only if B”) into its two parts, to be proved one after the other. |
-| `obtain` | a fact, clicked | `obtain ⟨…⟩ := h` (the board names the parts) | Take a fact apart. “A and B” gives two facts. “A or B” gives two cases. “There exists an x such that…” gives the x and the fact about it. |
+| `obtain` | a fact, clicked | `obtain ⟨…⟩ := h` (the board names the parts) | Take a fact apart. “A and B” gives two facts. “A or B” gives two cases. “There exists an x such that…” gives the x and the fact about it. False needs no taking apart: it ends the goal. |
 | `left` | nothing | `left` | To prove “A or B”, choose to prove A. |
 | `right` | nothing | `right` | To prove “A or B”, choose to prove B. |
 | `exfalso` | nothing | `exfalso` | Replace the goal by False. Useful when your facts contradict each other: from a contradiction anything follows. |

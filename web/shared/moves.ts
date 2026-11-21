@@ -70,7 +70,7 @@ export const MOVES: Record<string, Move> = {
     id: "obtain",
     label: "obtain",
     needs: "fact",
-    does: "Take a fact apart. “A and B” gives two facts. “A or B” gives two cases. “There exists an x such that…” gives the x and the fact about it.",
+    does: "Take a fact apart. “A and B” gives two facts. “A or B” gives two cases. “There exists an x such that…” gives the x and the fact about it. False needs no taking apart: it ends the goal.",
     prompt: "Click the fact to take apart.",
   },
   left: {
@@ -329,16 +329,36 @@ function topLevel(t: string, op: string): number {
   return at;
 }
 
+/** Does a binder or an implication own the whole of `t`? Then a ∈ or an = in it is not the fact's own. */
+function bound(t: string): boolean {
+  return /^(∀|∃|∑|∏|λ|fun )/.test(t) || topLevel(t, " → ") >= 0;
+}
+
+/** Is every set `set` is made of with ∪ and ∩ known to be a Set: an object
+ *  of type Set …, or written {x | …} or Set.…? (A Finset's or a List's ∩ and
+ *  ∪ are not an “and” and an “or” by definition, and Lean refuses the pattern;
+ *  Lean's printed goal does not say which it is.) */
+function allSets(set: string, goal: Goal): boolean {
+  for (const op of [" ∪ ", " ∩ "]) {
+    const i = topLevel(set, op);
+    if (i >= 0) return allSets(unwrap(set.slice(0, i)), goal) && allSets(unwrap(set.slice(i + 3)), goal);
+  }
+  if (/^(\{|Set\.)/.test(set)) return true;
+  const type = goal.hypotheses.find((h) => h.names.includes(set))?.type.trim() ?? "";
+  return /^Set\s/.test(type);
+}
+
 /**
- * Membership in an intersection or a union, `x ∈ A ∩ B` or `x ∈ A ∪ B`: an
- * “and” or an “or” about the two sets, which obtain takes apart the same
- * way. The kind and the two sets, or null. (For a Set; a Finset's is not
- * one by definition, and Lean refuses the pattern.)
+ * Membership in an intersection or a union of Sets, `x ∈ A ∩ B` or
+ * `x ∈ A ∪ B`: an “and” or an “or” about the two sets, which obtain takes
+ * apart the same way. The kind and the two sets, or null.
  */
-function memberOf(t: string): { kind: "and" | "or"; left: string; right: string } | null {
+function memberOf(t: string, goal: Goal): { kind: "and" | "or"; left: string; right: string } | null {
+  if (bound(t)) return null;
   const at = topLevel(t, " ∈ ");
   if (at < 0) return null;
   const set = unwrap(t.slice(at + 3));
+  if (!allSets(set, goal)) return null;
   // ∪ binds looser than ∩: A ∩ B ∪ C is (A ∩ B) ∪ C.
   for (const [op, kind] of [[" ∪ ", "or"], [" ∩ ", "and"]] as const) {
     const i = topLevel(set, op);
@@ -370,7 +390,7 @@ export function obtainPattern(goal: Goal, fact: string): string | null {
     const v = freshIn(taken, one.vars[0]);
     return `obtain ⟨${v}, ${freshIn(taken, `h${v}`)}, ${freshIn(taken, "huniq")}⟩ := ${fact}`;
   }
-  const member = shape.kind === "other" ? memberOf(t) : null;
+  const member = shape.kind === "other" ? memberOf(t, goal) : null;
   if (member) {
     const left = freshIn(taken, factName(member.left, "h1"));
     const right = freshIn(taken, factName(member.right, "h2"));
@@ -413,7 +433,7 @@ export function obtainLine(goal: Goal, fact: string): string {
 export function obtainMisfit(goal: Goal, fact: string): string | null {
   if (obtainPattern(goal, fact) !== null) return null;
   const type = unwrap((goal.hypotheses.find((h) => h.names.includes(fact))?.type ?? "").replace(/\s+/g, " "));
-  return topLevel(type, " = ") >= 0 ? NO_PARTS_EQUATION : NO_PARTS;
+  return !bound(type) && topLevel(type, " = ") >= 0 ? NO_PARTS_EQUATION : NO_PARTS;
 }
 
 /** A name for the assumption `by_contra` makes: that the goal is false. */

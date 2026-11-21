@@ -21,9 +21,9 @@ export const NOT_AN_EXISTS = "The goal is not of the form ∃ x, …, so the boa
  *  it would do something else quietly (an equation is substituted away, a
  *  ≤ between natural numbers split into Lean's own cases), so the board
  *  does not send it. */
-export const NO_PARTS = "The fact is not of the form A ∧ B, A ∨ B, A ↔ B or ∃ x, …, so the board did not send this move to Lean.";
+export const NO_PARTS = "The fact is not of the form A ∧ B, A ∨ B, A ↔ B or ∃ x, … (nor one of those by definition), so the board did not send this move to Lean.";
 /** The same for a fact that is an equation. */
-export const NO_PARTS_EQUATION = "The fact is an equation, not of the form A ∧ B, A ∨ B, A ↔ B or ∃ x, …, so the board did not send this move to Lean.";
+export const NO_PARTS_EQUATION = "The fact is an equation, not of the form A ∧ B, A ∨ B, A ↔ B or ∃ x, … (nor one of those by definition), so the board did not send this move to Lean.";
 
 /** What the board reports for `induction` when the goal has nothing to do induction on. */
 export const NO_NUMBER = "There is no natural number and no list among this goal's objects, so the board did not send this move to Lean.";
