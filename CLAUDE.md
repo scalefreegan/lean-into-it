@@ -36,6 +36,8 @@ web/server/api.ts        wrap() and the route table
 web/server/tutor.ts      /api/tutor: the Tutor (read-only, or writing lessons in a worktree), the hint ladder, rung 3 checked by Lean
 web/server/turn.ts       where a writing turn writes: a git worktree outside the repo, its commit, the fast-forward by plumbing
 web/server/author.ts     what the Tutor wrote, judged before the commit: the loader, lost ids, the word filter, Lean on every exercise
+web/server/research.ts   /api/research: Field notes, the Tutor's research maps of results in the news (web search on, nothing written but the saved map)
+web/shared/research.ts   a research map's shape, and the Tutor's JSON held to its rules: every claim sourced, claimed apart from verified (pure)
 web/server/tts.ts        /api/tts: Listen mode's ElevenLabs proxy (key from .env.local, audio cached under data/tts-cache/)
 web/shared/tts/          Listen mode's pure parts: word timings, speakable text, which block next
 scripts/claude.mjs       the headless `claude -p` the Tutor runs on (read-only, or Edit/Write under a worktree's content/ only; argv pinned by tests)
@@ -50,7 +52,7 @@ web/src/widgets/         one component per widget; registry.ts maps registered n
 web/src/exercises/       one component per exercise kind (ProveIt, FillGap, TrueOrFalse, Recognize), mapped the same way
 web/src/tutor/           the Tutor drawer and what pages tell it (store.ts)
 web/src/listen/          Listen mode: the provider, the header button, the play controls, a lesson's reading
-web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/moves), Lab (#/lab; FamousProofs at #/lab/famous), Playground, Gallery (#/gallery)
+web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/moves), Lab (#/lab; FamousProofs at #/lab/famous), Playground, FieldNotes (#/notes), Gallery (#/gallery)
 ```
 
 ## Rules that keep it working

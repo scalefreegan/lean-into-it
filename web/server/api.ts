@@ -8,6 +8,7 @@ import { loadContent } from "./loader.ts";
 import { localHost, sameOrigin } from "./origin.ts";
 import { handleProgress } from "./progress.ts";
 import { handleTutor, sweepAuthoring } from "./tutor.ts";
+import { handleResearch } from "./research.ts";
 import { handleTts } from "./tts.ts";
 import { HttpError, INTERNAL_ERROR, methodNotAllowed, sendJson } from "./sse.ts";
 
@@ -79,6 +80,8 @@ export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: bool
       server.middlewares.use("/api/progress", wrap(handleProgress));
       // The Tutor: explain and hint, read-only, never grading.
       server.middlewares.use("/api/tutor", wrap(handleTutor));
+      // Field notes: the Tutor's research maps, made from the web and saved.
+      server.middlewares.use("/api/research", wrap(handleResearch));
       // Listen mode: text read aloud by ElevenLabs, cached under data/.
       server.middlewares.use("/api/tts", wrap(handleTts));
       // Anything else under /api is a typo, not the SPA shell: answer in the

@@ -13,7 +13,7 @@
 // must never change once live.
 
 import { sql } from "drizzle-orm";
-import { bigserial, boolean, check, index, integer, pgTable, primaryKey, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigserial, boolean, check, index, integer, jsonb, pgTable, primaryKey, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 const tz = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -169,4 +169,26 @@ export const conceptCredits = pgTable(
     dueAt: tz("due_at").notNull(),
   },
   (t) => [primaryKey({ columns: [t.learnerId, t.concept] })],
+);
+
+/**
+ * The Tutor's research maps (Field notes, lii-2zo.4): a result in the news
+ * mapped from the web, with its sources and the date it was made. `map` is
+ * the map as web/shared/research.ts readMap checked it (ResearchMapBody);
+ * `title` and `question` are copied out for the list. Not read by the
+ * Tutor's history tools: they are not attempts.
+ */
+export const researchMaps = pgTable(
+  "research_maps",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    learnerId: uuid("learner_id")
+      .notNull()
+      .references(() => learners.id, { onDelete: "cascade" }),
+    question: text("question").notNull(),
+    title: text("title").notNull(),
+    map: jsonb("map").notNull(),
+    createdAt: tz("created_at").notNull().defaultNow(),
+  },
+  (t) => [index("research_maps_learner_idx").on(t.learnerId, t.createdAt)],
 );

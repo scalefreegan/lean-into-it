@@ -282,3 +282,24 @@ export interface TtsSpeakReply {
   audioUrl: string;
   words: SpokenWord[];
 }
+
+/** POST /api/research: map a result in the news (web/server/research.ts). */
+export interface ResearchRequest {
+  question: string;
+}
+
+/** A research run: going on, or how the last one ended (a saved map, or why not). */
+export interface ResearchJob {
+  question: string;
+  startedAt: string;
+  running: boolean;
+  mapId?: number;
+  error?: string;
+}
+
+/** GET /api/research: the saved maps, newest first, whether the Tutor is busy, and the run. */
+export interface ResearchListReply {
+  maps: { id: number; title: string; question: string; madeAt: string }[];
+  busy: boolean;
+  job: ResearchJob | null;
+}

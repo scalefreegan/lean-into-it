@@ -1,5 +1,6 @@
 import type { Content } from "../../shared/content.ts";
-import type { CheckReply, CheckRequest, ErrorReply, GalleryRequest, LeanStatus, OpenLevelRequest, PlacementRequest, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest, ListenSettings, ListenSettingsPatch, TtsSpeakReply, TtsSpeakRequest, TtsVoicesReply } from "../../shared/wire.ts";
+import type { CheckReply, CheckRequest, ErrorReply, GalleryRequest, LeanStatus, OpenLevelRequest, PlacementRequest, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest, ResearchJob, ResearchListReply, ListenSettings, ListenSettingsPatch, TtsSpeakReply, TtsSpeakRequest, TtsVoicesReply } from "../../shared/wire.ts";
+import type { ResearchMap } from "../../shared/research.ts";
 import { workedOn } from "../workclock.ts";
 
 // The one fetch. Every call to the server goes through here, so an error is
@@ -54,6 +55,12 @@ export const askTutor = (req: TutorRequest, signal?: AbortSignal) => api<TutorRe
 export const tutorHistory = () => api<TutorHistoryReply>("/api/tutor/history");
 export const clearTutor = () => api<{ ok: boolean }>("/api/tutor/history", undefined, undefined, "DELETE");
 export const tutorLadder = (lessonId: string, exerciseId: string) => api<TutorLadderReply>(`/api/tutor/ladder?lesson=${encodeURIComponent(lessonId)}&exercise=${encodeURIComponent(exerciseId)}`);
+// Field notes: the Tutor's research maps (web/server/research.ts).
+export const researchMaps = () => api<ResearchListReply>("/api/research");
+export const researchMap = (id: number) => api<ResearchMap>(`/api/research/${id}`);
+export const startResearch = (question: string) => api<ResearchJob>("/api/research", { question });
+export const stopResearch = () => api<{ ok: boolean }>("/api/research/run", undefined, undefined, "DELETE");
+export const deleteResearchMap = (id: number) => api<{ ok: boolean }>(`/api/research/${id}`, undefined, undefined, "DELETE");
 // Listen mode (web/server/tts.ts). The ElevenLabs key stays on the server.
 export const listenSettings = () => api<ListenSettings>("/api/tts/settings");
 export const putListenSettings = (patch: ListenSettingsPatch) => api<ListenSettings>("/api/tts/settings", patch, undefined, "PUT");

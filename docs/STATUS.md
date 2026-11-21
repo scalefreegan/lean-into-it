@@ -274,6 +274,33 @@ Landed in the first PR, the foundation slice:
   with `pg_dump` and `pg_restore`. Its setup, migrate, backup, restore and
   rename-swap steps were tried on scratch databases: the restored copy
   had its rows, all 8 migrations recorded, and the Tutor role's schema access and five grants (and still no access to the chat).
+- Field notes, the Tutor's research maps (`lii-2zo.4`): `#/notes`. Ask
+  about a result in the news and a research turn maps it. That turn is
+  the headless Claude with WebSearch and WebFetch in place of the file
+  tools (fetched pages can say anything, so it can read no file to send
+  out), in an empty folder, barred from fetching this machine, taking the
+  Tutor's one-turn slot. It runs on the server, so leaving the page does
+  not stop it; Stop does. The server holds its JSON to the rules
+  (`web/shared/research.ts`): every claim cites a source with an http(s)
+  link or is moved to "could not confirm"; "claimed" and "formally
+  verified" are separate, and a verified item names a real system; with
+  nothing verified the note is a fixed sentence, never the Tutor's;
+  concepts link to the lesson that teaches them or say "outlined, not yet
+  written"; a map with no sources is refused. Each source link is opened
+  once (never one on this machine or a private network, redirects checked
+  hop by hop), and an item whose every source did not open moves to
+  "could not confirm". Each connection is pinned to the address checked,
+  so a name that turns into a local one is caught too; a host on this
+  machine or a private network is never opened and backs nothing; the link
+  stage has a minute in all. Maps are saved in `research_maps` (migration
+  0008) with the date, listed, reopened and deleted. Offline, nothing
+  starts and the page says the feature needs the internet. Tried in the
+  real app with a stand-in `claude` (no real research turn was run):
+  made, saved, listed, reopened, deleted; a run went on while another
+  page was open, and Stop ended one with nothing saved; a dead link was
+  marked and a local one not opened. The link check was also run against
+  the real network (a public page, `localhost`, 127.0.0.1, ::1, a public
+  name pointing at 127.0.0.1, a name that does not exist).
 - Levels 4–8 as a plan (`lii-dvy.6`): each outlined level in
   `content/curriculum.yaml` lists its concepts with what each builds on
   (37 in all, resting on Levels 0–3's), its moves (checked as real
@@ -623,7 +650,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 559, including every reference solution checked by the real Lean,
+- Tests: 578, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -654,8 +681,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-3 beads in 3 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
-land first.
+3 beads in 3 areas, all P3. "Needs" lists beads that must land first.
 
 ### Widgets (epic `lii-53v`)
 
@@ -673,5 +699,4 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |
-
+| `lii-2zo.7` | wrap(): refuse API requests that did not come from the app's own page | 3 | |

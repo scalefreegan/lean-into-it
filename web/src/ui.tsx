@@ -23,9 +23,15 @@ export function Button({ variant = "quiet", className, ...rest }: ButtonProps) {
   );
 }
 
-export function Notice({ tone, children }: { tone: "bad" | "warn" | "good"; children: ReactNode }) {
+/** A boxed message. `live` makes it announce itself when it appears: only
+ *  where no parent region already does (most callers sit inside one). */
+export function Notice({ tone, live, children }: { tone: "bad" | "warn" | "good"; live?: "alert" | "status"; children: ReactNode }) {
   const tones = { bad: "border-bad bg-bad-soft", warn: "border-warn bg-warn-soft", good: "border-good bg-good-soft" };
-  return <div className={cx("rounded-xl border px-4 py-3 text-sm text-fg", tones[tone])}>{children}</div>;
+  return (
+    <div {...(live ? { role: live } : {})} className={cx("rounded-xl border px-4 py-3 text-sm text-fg", tones[tone])}>
+      {children}
+    </div>
+  );
 }
 
 /** The mark of a proof-craft lesson, on the Path and its own page. */

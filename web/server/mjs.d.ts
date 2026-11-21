@@ -63,17 +63,19 @@ declare module "*/scripts/claude.mjs" {
   export const REPO_ROOT: string;
   export const DEFAULT_MODEL: string;
   export const READ_TOOLS: string[];
+  export const WEB_TOOLS: string[];
+  export const LOCAL_FETCH: string[];
   export const DENIED: string[];
   export const SECRET_PATHS: string[];
   export function armReaper(): void;
   export function failureHint(text: string): string | null;
   export function secretDenials(root?: string): string[];
-  export function buildArgs(o: { systemPrompt?: string; model?: string; maxTurns?: number; mcpConfigPath?: string; repoRoot?: string; mcpTools?: string[]; write?: { contentDir: string } | null }): string[];
+  export function buildArgs(o: { systemPrompt?: string; model?: string; maxTurns?: number; mcpConfigPath?: string; repoRoot?: string; mcpTools?: string[]; write?: { contentDir: string } | null; web?: boolean }): string[];
   export function childEnv(env?: Record<string, string | undefined>): Record<string, string | undefined>;
   export function resultEnvelope(stdout: string): Record<string, unknown> | null;
   export function classifyExit(o: { code: number | null; stdout: string; stderr: string }): { ok: true; text: string } | { ok: false; message: string };
   export function sweepRunDirs(o?: { maxAgeMs?: number; now?: number; tmp?: string }): number;
-  export function startClaude(o: { prompt: string; systemPrompt?: string; model?: string; cwd?: string; signal?: AbortSignal; maxTurns?: number; timeoutSec?: number; mcpServers?: Record<string, { command: string; args: string[]; env: Record<string, string> }>; mcpTools?: string[]; write?: { contentDir: string } | null }): { result: Promise<{ text: string }>; kill: () => void };
+  export function startClaude(o: { prompt: string; systemPrompt?: string; model?: string; cwd?: string; signal?: AbortSignal; maxTurns?: number; timeoutSec?: number; mcpServers?: Record<string, { command: string; args: string[]; env: Record<string, string> }>; mcpTools?: string[]; write?: { contentDir: string } | null; web?: boolean }): { result: Promise<{ text: string }>; kill: () => void };
 }
 
 declare module "*/scripts/history-mcp.mjs" {

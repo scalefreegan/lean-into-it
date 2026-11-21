@@ -57,6 +57,13 @@
       "when": 1795227840738,
       "tag": "0007_elapsed_ms",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795270474812,
+      "tag": "0008_research_maps",
+      "breakpoints": true
     }
   ]
 }
