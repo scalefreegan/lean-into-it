@@ -60,6 +60,11 @@ export interface BodyDiagnostic {
 
 /** One line, so that adding the replay's import moved no line number. */
 export const HEADER = "import Mathlib import LeanIntoIt.Replay\n\n";
+/** Put on the theorem's own line, so no line number moves: Lean prints a
+ *  function applied to an argument as the result, `y + 1 = 3` and not
+ *  `(fun n ↦ n + 1 = 3) y` (which is what taking apart a “there is exactly
+ *  one” leaves, for one). Display only: what is proved is the same. */
+export const DISPLAY = "set_option pp.beta true in ";
 /** The name the exercise's statement is proved under, so Lean can be asked about it. */
 export const THEOREM = "lii_exercise";
 /** Lines before the body's first line: the import, a blank, the statement, the opening bracket. */
@@ -82,7 +87,7 @@ export function bodyLines(body: string): string[] {
  *     import Mathlib
  *
  *     <given, and a blank line, when the exercise has definitions>
- *     theorem lii_exercise <statement> := by
+ *     set_option pp.beta true in theorem lii_exercise <statement> := by
  *       (
  *         <body>
  *       )
@@ -95,7 +100,7 @@ export function assemble(statement: string, body: string, given = ""): string {
   // Comments alone are not a tactic block: the placeholder goes in front of them.
   const shown = !lines.length ? [PLACEHOLDER] : isBlank(body) ? [`${PLACEHOLDER} ${lines[0]}`, ...lines.slice(1)] : lines;
   const before = bodyLines(given);
-  return `${HEADER}${before.length ? `${before.join("\n")}\n\n` : ""}theorem ${THEOREM} ${statement.replace(/\s+/g, " ").trim()} := by\n  (\n${shown.map((l) => INDENT + l).join("\n")}\n  )\n\n#print axioms ${THEOREM}\n#lii_replay\n`;
+  return `${HEADER}${before.length ? `${before.join("\n")}\n\n` : ""}${DISPLAY}theorem ${THEOREM} ${statement.replace(/\s+/g, " ").trim()} := by\n  (\n${shown.map((l) => INDENT + l).join("\n")}\n  )\n\n#print axioms ${THEOREM}\n#lii_replay\n`;
 }
 
 /** True when a body has no tactic in it: nothing at all, or only comments. */

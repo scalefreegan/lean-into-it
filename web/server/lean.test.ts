@@ -168,6 +168,12 @@ test("obtain's patterns for exactly one, ∩, ∪ and False are ones Lean accept
     const start = await checkExercise(leanServer(), e, "");
     const line = obtainLine(start.goals[0], "h");
     assert.equal(line, want, statement);
+    // What the cards show after it: no function applied to an argument (DISPLAY in proof.ts).
+    const after = await checkExercise(leanServer(), e, line);
+    for (const g of after.goals) {
+      for (const h of g.hypotheses) assert.doesNotMatch(h.type, /\(fun /, `${statement}: ${h.names.join(" ")} : ${h.type}`);
+      assert.doesNotMatch(g.target, /\(fun /, `${statement}: ⊢ ${g.target}`);
+    }
     const done = await checkExercise(leanServer(), e, rest ? `${line}\n${rest}` : line);
     assert.ok(done.solved, `${statement}: ${done.error?.message ?? JSON.stringify(done.goals.map((g) => g.target))}`);
   }

@@ -268,6 +268,13 @@ Landed in the first PR, the foundation slice:
   about its internals, or quietly substituted an equation away, or split
   a ≤ between natural numbers into Lean's own cases. Each new pattern is
   played against the real Lean in `web/server/lean.test.ts`.
+- Goal cards show a function applied to an argument as the result
+  (`lii-8wq.7`). Taking apart “there is exactly one” left
+  `huniq : ∀ (y : ℕ), (fun n ↦ n + 1 = 3) y → y = n`; it now reads
+  `∀ (y : ℕ), y + 1 = 3 → y = n`. Every exercise's theorem is checked
+  under `set_option pp.beta true in`, on the theorem's own line so no line
+  number moves (`DISPLAY` in `web/shared/proof.ts`). Display only: what
+  is proved is the same. Held in `web/server/lean.test.ts`.
 - An adversarial pass on grading (`lii-1ou.5`): about 34 proof bodies
   tried against a false statement, through the app and through Lean with
   the pre-checks off. None was graded solved. Where Lean alone would
@@ -614,14 +621,8 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-7 beads in 6 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+6 beads in 5 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
-
-### Proof board (epic `lii-8wq`)
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-8wq.7` | After obtain on ∃!, the uniqueness card shows an unreduced lambda | 3 | |
 
 ### Widgets (epic `lii-53v`)
 
