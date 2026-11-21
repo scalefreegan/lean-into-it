@@ -45,6 +45,7 @@ async function withLean<T>(run: (lean: LeanServer) => Promise<T>): Promise<T> {
  *  this resolves to null: there is no one to answer and nothing to record. */
 async function whileAsked<T>(res: ServerResponse, run: (lean: LeanServer) => Promise<T>): Promise<T | null> {
   const asked = new AbortController();
+  if (res.destroyed) asked.abort();
   res.on("close", () => {
     if (!res.writableFinished) asked.abort();
   });
@@ -294,7 +295,11 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
   const body = exercise.kind === "fill" ? input.body.trim() : input.body;
   // A fixed answer needs no Lean, so it is marked even while Lean is down.
   const fixed = isFixed(exercise.kind);
-  const reply = fixed ? checkFixed(exercise, body) : await whileAsked(res, (lean) => checkExercise(lean, exercise, body, cursor, input.map === true));
+  // A press of Check is an attempt whether or not the page is still there
+  // to show its verdict: it is always run, and kept. Live checks are skipped
+  // once the editor has asked again.
+  const run = (lean: LeanServer) => checkExercise(lean, exercise, body, cursor, input.map === true);
+  const reply = fixed ? checkFixed(exercise, body) : input.record === "submitted" ? await withLean(run) : await whileAsked(res, run);
   if (!reply) return;
   // Looking at an empty gap is not an attempt at it, nor is choosing the
   // right side of a true-or-false before writing anything (the wrong side

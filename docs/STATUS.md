@@ -233,13 +233,18 @@ Landed in the first PR, the foundation slice:
   Lean at all (`wantedWhile` in `web/server/lean/lsp.ts`, tied to the reply
   by `/api/check`, `/api/playground` and `/api/gallery`), so a pile of
   stale checks no longer holds up the one wanted on the shared document;
-  nothing is recorded for it. One already running is left to finish or run
-  out of time, since Lean cannot always stop a step mid-way. Every Lean
+  nothing is recorded for it. A press of Check is never skipped: it is an
+  attempt even if the page went away before its verdict. One already
+  running is left to finish or run out of time, since Lean cannot always
+  stop a step mid-way. Every Lean
   worker runs with Lean's `-M 8192` (8 GB as Lean counts it; Mathlib alone
   takes over 4 GB, so there even 2 + 2 = 4 dies, and 6 GB checks proofs);
   a check that wants more dies at once, the learner is told it ran out of
-  memory (Lean's stderr says so; the crash reply does not), and its
-  document is reopened.
+  memory (Lean's stderr says so, naming no file, so only a memory death in
+  the 2 s before the crash counts; the crash reply does not say), and its
+  document is reopened. Not measured: whether the shared exercise
+  document's worker grows over a long session towards the limit; if it
+  did, a check would be refused and the document reopened, which heals it.
 - An adversarial pass on grading (`lii-1ou.5`): about 34 proof bodies
   tried against a false statement, through the app and through Lean with
   the pre-checks off. None was graded solved. Where Lean alone would

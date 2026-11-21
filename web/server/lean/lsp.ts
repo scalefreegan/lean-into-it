@@ -95,6 +95,10 @@ const wantedBy = new AsyncLocalStorage<AbortSignal>();
  * running is left to finish, or to run out of time: Lean cannot always stop
  * a step mid-way, and the time limit is what ends one that never would.
  */
+// The scope follows everything started inside it, the Lean process itself
+// included (its events, and the timers set in a check): a check the server
+// makes for its own sake must be started under `wantedBy.exit`, as `lost`
+// and `replace` do, or it inherits the signal of whoever started Lean.
 export function wantedWhile<T>(signal: AbortSignal, fn: () => Promise<T>): Promise<T> {
   return wantedBy.run(signal, fn);
 }
@@ -346,7 +350,10 @@ export class LeanServer {
         if (crashed) this.replace(doc, source);
         // Lean's stderr can arrive a moment after the crash reply.
         if (crashed) await new Promise((r) => setTimeout(r, 100));
-        const memory = crashed && this.outOfMemoryAt >= started.at;
+        // Lean's stderr names no file: only a memory death just before this
+        // crash is this one's, and it is told once.
+        const memory = crashed && started.at > 0 && Date.now() - this.outOfMemoryAt < 2000;
+        if (memory) this.outOfMemoryAt = 0;
         throw new LeanUnavailable(
           memory
             ? `Lean ran out of memory on this: one check may use ${Math.round(this.memoryMb / 1024)} GB. A step that builds something enormous, such as a huge list or a search over a vast range, does this. Change the proof and check again.`

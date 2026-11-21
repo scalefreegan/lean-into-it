@@ -71,6 +71,10 @@ async function call<T>(handler: (req: IncomingMessage, res: ServerResponse) => P
     end(chunk?: string) {
       text = chunk ?? "";
     },
+    // A reply the browser waits for to the end: it never closes early.
+    on() {
+      return this;
+    },
   } as unknown as ServerResponse;
   await handler(req, res);
   return { status, reply: JSON.parse(text) as T };
@@ -937,7 +941,7 @@ test("/api/lean says what Lean is doing, and /api/lean/restart starts it again",
   const ask = async (method: string, url: string) => {
     let status = 0;
     let text = "";
-    const res = { writeHead: (code: number) => ((status = code), res), end: (chunk?: string) => void (text = chunk ?? "") } as unknown as ServerResponse;
+    const res = { writeHead: (code: number) => ((status = code), res), end: (chunk?: string) => void (text = chunk ?? ""), on: () => res } as unknown as ServerResponse;
     await handleLean(Object.assign(Readable.from([]), { method, headers: {}, url }) as unknown as IncomingMessage, res);
     return { status, reply: JSON.parse(text) as LeanStatus & { error?: string } };
   };

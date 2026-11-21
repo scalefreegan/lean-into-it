@@ -202,7 +202,7 @@ test(`a check that wants more memory than a worker may have (${MEMORY_MB} MB) is
   const lean = new LeanServer();
   t.after(() => lean.stop());
   await lean.check("lsp-memory", fine(1));
-  // About 3 GB of list on top of Mathlib: past the limit (without one it finishes, in some 16 s).
+  // A list of 400 million: gigabytes on top of Mathlib, past the limit (with no limit it finishes, in some 16 s).
   const huge = "import Mathlib\n#eval (List.replicate 400000000 (7 : Nat)).length\n";
   await assert.rejects(lean.check("lsp-memory", huge), (e: Error) => e instanceof LeanUnavailable && /ran out of memory on this: one check may use 8 GB/.test(e.message));
   assert.equal(lean.health().state, "ready");
