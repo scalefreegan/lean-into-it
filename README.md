@@ -109,6 +109,7 @@ npm run lint
 - [`docs/PRD.md`](docs/PRD.md): what it is and what was decided.
 - [`docs/STATUS.md`](docs/STATUS.md): what is done and what remains, by bead.
 - [`docs/CONTENT.md`](docs/CONTENT.md): how lessons and exercises are written.
+- [`docs/DATA.md`](docs/DATA.md): what is stored where, and backup and restore.
 - [`docs/CONTENT-REFERENCE.md`](docs/CONTENT-REFERENCE.md): every widget, exercise kind and move, generated from the code.
 - [`CLAUDE.md`](CLAUDE.md): layout and rules for agents working on the code.
 

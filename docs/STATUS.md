@@ -268,6 +268,12 @@ Landed in the first PR, the foundation slice:
   about its internals, or quietly substituted an equation away, or split
   a ≤ between natural numbers into Lean's own cases. Each new pattern is
   played against the real Lean in `web/server/lean.test.ts`.
+- `docs/DATA.md` (`lii-2zf.3`): what is stored where (the database table
+  by table, `data/`, `.env.local`, the settings the server reads), the one
+  learner, setup and migrations, the worktree rule, and backup and restore
+  with `pg_dump` and `pg_restore`. Its setup, migrate, backup, restore and
+  rename-swap steps were tried on scratch databases: the restored copy
+  had its rows, all 8 migrations recorded, and the Tutor role's schema access and five grants (and still no access to the chat).
 - A board move that gets nowhere is kept as a stumble (`lii-zjf.6`). Lean
   takes `norm_num` on a goal it cannot touch without an error, so the
   server used to keep nothing. Now `checkBody` compares Lean's goals before
@@ -629,7 +635,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-5 beads in 5 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+4 beads in 4 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Widgets (epic `lii-53v`)
@@ -642,7 +648,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-zjf.5` | Database backup script | 3 | `lii-2zf.3` |
+| `lii-zjf.5` | Database backup script | 3 | |
 
 ### Tutor (epic `lii-2zo`)
 
@@ -655,9 +661,3 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
-
-### Docs and content tooling (epic `lii-2zf`)
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-2zf.3` | `docs/DATA.md` | 3 | |
