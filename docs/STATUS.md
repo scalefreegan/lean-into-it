@@ -387,6 +387,20 @@ Landed in the first PR, the foundation slice:
   Review, Moves, Lab, Playground) take a row of their own under the name and
   the Listen button, and scroll within it if they must, so no page scrolls
   sideways from the header at 390 px. From 768 px up it is one row as before.
+- Time per attempt (`lii-zjf.7`): every attempt row keeps `elapsed_ms`,
+  the working time on the exercise before that check: how long it had been
+  on screen (some of it in the middle 80% of the window) with the tab
+  showing, on this visit to the page (`web/shared/clock.ts`;
+  `web/src/workclock.ts` watches the element `useTouch` is spread on).
+  Not from the page opening, since a lesson shows all its exercises at
+  once, nor from the first click, since for a one-click answer that click
+  is the answer. Reading it counts; so does sitting idle with it on screen;
+  two exercises on screen together both count. Each visit starts again, so
+  a solve's time is that visit's, not the total. The browser sends it with
+  each check that is an attempt; the server keeps whole ms from 0 to a day,
+  and null otherwise (past a day the browser sends none), and older rows
+  have null. The Tutor's history tool shows it as `secondsWorked`. Nothing
+  grades by it.
 - Listen mode (`lii-1gs.1`), ported from Fret Not: a Listen button in the
   header opens the switch, the voice and the quality; with it on and a
   voice chosen, play controls sit at the foot of the page (back, −5 s,
@@ -529,7 +543,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 531, including every reference solution checked by the real Lean,
+- Tests: 535, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -560,7 +574,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-10 beads in 7 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+9 beads in 7 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -585,7 +599,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-zjf.7` | Record time taken per exercise attempt | 3 | |
 | `lii-zjf.5` | Database backup script | 3 | `lii-2zf.3` |
 | `lii-zjf.6` | Record a board move that changed nothing as an attempt | 3 | |
 

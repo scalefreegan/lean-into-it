@@ -37,6 +37,9 @@ export interface CheckRequest {
   /** Kind `prove`: also send Lean's goals around every line, for the proof
    *  map (web/shared/proofmap.ts). */
   map?: boolean;
+  /** With `record`: the working time on the exercise before this check, in
+   *  ms (web/shared/clock.ts), kept on the attempt row. */
+  elapsedMs?: number;
 }
 
 export interface CheckReply {

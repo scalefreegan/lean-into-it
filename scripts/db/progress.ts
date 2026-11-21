@@ -38,12 +38,14 @@ export interface AttemptInput {
   rung?: number | null;
   /** The input ladder's rung it was made at (web/shared/ladder.ts). */
   inputRung?: number | null;
+  /** Working time before the check, in ms (web/shared/clock.ts). */
+  elapsedMs?: number | null;
 }
 
 /** Record one check. Rung 3 (the Tutor gave the line) marks it assisted. A solved one also marks the exercise solved, keeping
  *  the first solution if it was solved before. */
 export async function recordAttempt(db: Db, learnerId: string, a: AttemptInput): Promise<void> {
-  await db.insert(attempts).values({ learnerId, lessonId: a.lessonId, exerciseId: a.exerciseId, body: a.body, solved: a.solved, error: a.error ?? null, rung: a.rung ?? null, inputRung: a.inputRung ?? null, assisted: (a.rung ?? 0) >= 3 });
+  await db.insert(attempts).values({ learnerId, lessonId: a.lessonId, exerciseId: a.exerciseId, body: a.body, solved: a.solved, error: a.error ?? null, rung: a.rung ?? null, inputRung: a.inputRung ?? null, elapsedMs: a.elapsedMs ?? null, assisted: (a.rung ?? 0) >= 3 });
   if (a.solved) {
     await db.insert(solvedExercises).values({ learnerId, lessonId: a.lessonId, exerciseId: a.exerciseId, solution: a.body }).onConflictDoNothing();
   }
@@ -274,7 +276,7 @@ export type ReaderQuery = (text: string, params?: unknown[]) => Promise<Record<s
  *  exercise's, the refused ones, or those after `since`. */
 export function readerAttempts(q: ReaderQuery, learnerId: string, o: { limit: number; lesson?: string | null; exercise?: string | null; failedOnly?: boolean; since?: Date | null }) {
   return q(
-    `select lesson_id, exercise_id, body, solved, error, rung, input_rung, assisted, created_at
+    `select lesson_id, exercise_id, body, solved, error, rung, input_rung, assisted, elapsed_ms, created_at
        from attempts
       where learner_id = $1
         and ($2::text is null or lesson_id = $2)

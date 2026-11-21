@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo } from "react";
 import type { Goal } from "../../shared/goals.ts";
 import type { TutorContext } from "../../shared/wire.ts";
+import { useWorkClock } from "../workclock.ts";
 
 // What the Tutor knows of the page: the route, the exercise last worked on,
 // and that exercise's state (its proof so far, Lean's goals and last error).
@@ -53,14 +54,17 @@ export function useTutorWork(lessonId: string, exerciseId: string, w: Work): voi
   }, [store, lessonId, exerciseId, w.body, goals, w.error, w.ladder]);
 }
 
-/** Handlers that make an exercise the one the Tutor is asked about. */
-export function useTouch(lessonId: string, exerciseId: string): { onPointerDownCapture: () => void; onFocusCapture: () => void } {
+/** Handlers that make an exercise the one the Tutor is asked about, and the
+ *  ref its working-time clock watches (web/src/workclock.ts), which an
+ *  attempt records: every place that shows an exercise spreads these on it. */
+export function useTouch(lessonId: string, exerciseId: string): { onPointerDownCapture: () => void; onFocusCapture: () => void; ref: (el: Element | null) => void } {
   const store = useContext(TutorCtx);
   const touch = store?.touch;
+  const ref = useWorkClock(lessonId, exerciseId);
   return useMemo(() => {
     const go = () => touch?.(lessonId, exerciseId);
-    return { onPointerDownCapture: go, onFocusCapture: go };
-  }, [touch, lessonId, exerciseId]);
+    return { onPointerDownCapture: go, onFocusCapture: go, ref };
+  }, [touch, lessonId, exerciseId, ref]);
 }
 
 /** A free Lean file, for the Tutor: the Playground's, or the example open in the Lab (`key`). Forgotten when the page that holds it goes. */

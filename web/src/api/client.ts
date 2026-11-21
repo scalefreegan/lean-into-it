@@ -1,5 +1,6 @@
 import type { Content } from "../../shared/content.ts";
 import type { CheckReply, CheckRequest, ErrorReply, GalleryRequest, LeanStatus, OpenLevelRequest, PlacementRequest, PlaygroundReply, PlaygroundRequest, ProgressReply, TutorHistoryReply, TutorLadderReply, TutorReply, TutorRequest, ListenSettings, ListenSettingsPatch, TtsSpeakReply, TtsSpeakRequest, TtsVoicesReply } from "../../shared/wire.ts";
+import { workedOn } from "../workclock.ts";
 
 // The one fetch. Every call to the server goes through here, so an error is
 // always an ApiError carrying the server's own sentence.
@@ -42,7 +43,11 @@ export const openLevel = (req: OpenLevelRequest) => api<ProgressReply>("/api/pro
 export const placeAt = (req: PlacementRequest) => api<ProgressReply>("/api/progress/placement", req);
 export const getLean = () => api<LeanStatus>("/api/lean");
 export const restartLean = () => api<LeanStatus>("/api/lean/restart", {});
-export const check = (req: CheckRequest, signal?: AbortSignal) => api<CheckReply>("/api/check", req, signal);
+/** A check that is an attempt carries the working time on its exercise (web/src/workclock.ts). */
+export const check = (req: CheckRequest, signal?: AbortSignal) => {
+  const elapsed = req.record && req.elapsedMs === undefined ? workedOn(req.lessonId, req.exerciseId) : null;
+  return api<CheckReply>("/api/check", elapsed === null ? req : { ...req, elapsedMs: elapsed }, signal);
+};
 export const galleryCheck = (req: GalleryRequest, signal?: AbortSignal) => api<CheckReply>("/api/gallery", req, signal);
 export const playground = (req: PlaygroundRequest, signal?: AbortSignal) => api<PlaygroundReply>("/api/playground", req, signal);
 export const askTutor = (req: TutorRequest, signal?: AbortSignal) => api<TutorReply>("/api/tutor", req, signal);

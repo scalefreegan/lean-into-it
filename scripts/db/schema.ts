@@ -13,7 +13,7 @@
 // must never change once live.
 
 import { sql } from "drizzle-orm";
-import { bigserial, boolean, check, index, pgTable, primaryKey, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { bigserial, boolean, check, index, integer, pgTable, primaryKey, smallint, text, timestamp, uuid } from "drizzle-orm/pg-core";
 
 const tz = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -57,6 +57,11 @@ export const attempts = pgTable(
     inputRung: smallint("input_rung"),
     /** Rung 3 had given them the line: the check is seen, not credited. */
     assisted: boolean("assisted").notNull().default(false),
+    /** Working time before this check, in ms: how long the exercise had
+     *  been on screen, with the tab showing, on this visit to the page
+     *  (web/shared/clock.ts). Null when the browser sent none (or more than
+     *  a day), and for rows from before it was recorded. */
+    elapsedMs: integer("elapsed_ms"),
     createdAt: tz("created_at").notNull().defaultNow(),
   },
   (t) => [index("attempts_learner_exercise").on(t.learnerId, t.lessonId, t.exerciseId, t.createdAt)],

@@ -563,6 +563,13 @@ test("/api/check records attempts, not the re-check of a stored solution, and a 
   await post({ ...base, body: "exact hP", record: "submitted" });
   const rungs = (await query("select input_rung from attempts order by id desc limit 3")) as { input_rung: number | null }[];
   assert.deepEqual(rungs.map((r) => r.input_rung), [null, null, 2]);
+  // So does the working time the browser sent (web/shared/clock.ts); one
+  // that is not a time is kept as null.
+  await post({ ...base, body: "exact hP", record: "rejected", elapsedMs: 12_345 });
+  await post({ ...base, body: "exact hP", record: "submitted", elapsedMs: -5 });
+  await post({ ...base, body: "exact hP", record: "submitted" });
+  const times = (await query("select elapsed_ms from attempts order by id desc limit 3")) as { elapsed_ms: number | null }[];
+  assert.deepEqual(times.map((r) => r.elapsed_ms), [null, null, 12_345]);
 });
 
 test("rung 3's line is Lean's to pass: one that works is offered, one that does not is not", { skip }, async () => {
