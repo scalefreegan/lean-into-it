@@ -68,6 +68,7 @@ test("the real content/ loads with no problems, and every level is there", () =>
   assert.deepEqual(content.tracks.map((t) => t.id), ["logic", "math", "lean", "programs"]);
   assert.ok(content.lessons.length >= 1);
   for (const lesson of content.lessons) assert.ok(lesson.exercises.length > 0, `${lesson.id} has exercises`);
+  assert.ok((content.gallery ?? []).length >= 5, "the Famous Proofs gallery");
 });
 
 test("a lesson's exercises are placed where the file puts them, the rest after", () => {
@@ -258,4 +259,33 @@ test("a missing curriculum.yaml is a problem, not a crash", () => {
   const content = loadContent(fixture({}));
   assert.equal(content.lessons.length, 0);
   assert.match(content.problems[0].message, /cannot be read/);
+});
+
+test("the Famous Proofs gallery: entries read in order; a bad one is refused with its reason, the rest kept", () => {
+  const entry = (id: string, extra = "") => `
+  - id: ${id}
+    title: T
+    says: S
+    who: W
+    why: Y
+    level: 1
+    statement: "(P : Prop) (hP : P) : P"
+    solution: |
+      exact hP
+    steps: ["1: P is given."]${extra}`;
+  const good = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "gallery.yaml": `entries:${entry("one")}${entry("two", "\n    mathlib: Nat.exists_infinite_primes")}` }));
+  assert.deepEqual(good.problems, []);
+  assert.deepEqual(good.gallery?.map((e) => [e.id, e.solution, e.mathlib ?? null]), [["one", "exact hP", null], ["two", "exact hP", "Nat.exists_infinite_primes"]]);
+  const bad = loadContent(fixture({ "curriculum.yaml": CURRICULUM, "gallery.yaml": `entries:${entry("one", "\n    colour: red")}${entry("two").replace("level: 1", "level: 9").replace("1: P", "2: P")}${entry("three")}` }));
+  assert.deepEqual(bad.gallery?.map((e) => e.id), ["three"]);
+  assert.deepEqual(
+    bad.problems.map((p) => `${p.file}: ${p.message}`),
+    [
+      "gallery.yaml: entry \"one\": `colour` is not a field of an entry (id, title, says, who, why, level, statement, solution, steps, formal, mathlib)",
+      "gallery.yaml: entry \"two\": `level` must be one of the curriculum's levels (1, 2)",
+      "gallery.yaml: entry \"two\": `steps`: “P is given.” names line 2, but the solution has 1 line",
+    ],
+  );
+  // No gallery.yaml: no gallery, and nothing wrong.
+  assert.equal(loadContent(fixture({ "curriculum.yaml": CURRICULUM })).gallery, undefined);
 });

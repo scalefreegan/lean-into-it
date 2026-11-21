@@ -109,6 +109,51 @@ export interface Lesson {
   file: string;
 }
 
+/** One classic proof in the Lab's Famous Proofs gallery (content/gallery.yaml):
+ *  the proof in words beside a Lean proof Lean accepts, with its proof map. */
+export interface GalleryEntry {
+  id: string;
+  title: string;
+  /** The claim in plain words. */
+  says: string;
+  /** Who proved it, and when. */
+  who: string;
+  /** Why it matters. */
+  why: string;
+  /** The level whose moves are enough to follow its Lean. */
+  level: number;
+  /** The Lean statement after the keyword, as in an exercise. */
+  statement: string;
+  /** The Lean proof (a body, as an exercise's solution); the tests check Lean accepts it. */
+  solution: string;
+  /** The sentences of the proof in words, each `<lines>: <sentence>` (web/shared/paired.ts). */
+  steps: string[];
+  /** How the Lean statement says the theorem, where it says less or says it differently. */
+  formal: string;
+  /** Mathlib's own name for the theorem, when it has one. */
+  mathlib?: string;
+}
+
+/** A gallery entry as an exercise, to be checked the way an exercise's proof is. */
+export function galleryExercise(entry: GalleryEntry): Exercise {
+  return {
+    id: entry.id,
+    kind: "prove",
+    mode: "typed",
+    ladder: 4,
+    title: entry.title,
+    says: entry.says,
+    statement: entry.statement,
+    given: "",
+    moves: [],
+    forbid: [],
+    proof: "",
+    options: [],
+    solution: entry.solution,
+    concept: "",
+  };
+}
+
 export interface ContentProblem {
   file: string;
   message: string;
@@ -118,6 +163,8 @@ export interface Content {
   tracks: Track[];
   levels: Level[];
   lessons: Lesson[];
+  /** The Famous Proofs gallery, in file order (absent where there is no gallery.yaml). */
+  gallery?: GalleryEntry[];
   /** What the loader refused, and why. A file with a problem is not served. */
   problems: ContentProblem[];
 }

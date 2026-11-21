@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import type { ErrorReply } from "../shared/wire.ts";
-import { handleCheck, handleLean, handlePlayground, warmLean } from "./check.ts";
+import { handleCheck, handleGallery, handleLean, handlePlayground, warmLean } from "./check.ts";
 import { checkDatabase, setDb, type Db } from "./db.ts";
 import { closeLean } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
@@ -74,6 +74,7 @@ export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: bool
       // installed.
       server.middlewares.use("/api/check", wrap(handleCheck));
       server.middlewares.use("/api/playground", wrap(handlePlayground));
+      server.middlewares.use("/api/gallery", wrap(handleGallery));
       server.middlewares.use("/api/lean", wrap(handleLean));
       server.middlewares.use("/api/progress", wrap(handleProgress));
       // The Tutor: explain and hint, read-only, never grading.

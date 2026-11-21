@@ -11,7 +11,7 @@ before touching content or the loader.
 
 ## Layout
 ```
-content/                 curriculum.yaml, lessons/<track>/*.md   (the product)
+content/                 curriculum.yaml, lessons/<track>/*.md, gallery.yaml (the Famous Proofs)   (the product)
 lean/                    Lake project: Lean 4 + Mathlib; .lake/ is fetched by `npm run lean:setup`
 web/shared/goals.ts      the Goal cards show, and Lean's printed goals parsed into them (pure)
 web/shared/proofmap.ts   the live proof map's graph and layout, from Lean's goals around each line (pure)
@@ -49,7 +49,7 @@ web/src/widgets/         one component per widget; registry.ts maps registered n
 web/src/exercises/       one component per exercise kind (ProveIt, FillGap, TrueOrFalse, Recognize), mapped the same way
 web/src/tutor/           the Tutor drawer and what pages tell it (store.ts)
 web/src/listen/          Listen mode: the provider, the header button, the play controls, a lesson's reading
-web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/moves), Lab (#/lab), Playground, Gallery (#/gallery)
+web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/moves), Lab (#/lab; FamousProofs at #/lab/famous), Playground, Gallery (#/gallery)
 ```
 
 ## Rules that keep it working

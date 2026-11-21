@@ -1,0 +1,128 @@
+# The Famous Proofs gallery in the Lab (#/lab/famous): classic proofs, each
+# in words beside a Lean proof that Lean accepts, with its proof map.
+# Format: docs/CONTENT.md ("The Famous Proofs gallery"). Every `solution` is
+# checked against the real Lean by `npm test` and `npm run check:content`,
+# exactly as an exercise's is. `steps` pair the sentences with the lines of
+# the solution, counted from 1, as in the informal-formal widget.
+
+entries:
+  - id: sqrt-two-irrational
+    title: The square root of 2 is irrational
+    says: No fraction p/q squares to 2.
+    who: Found by the Pythagoreans in Greece, in the 5th century BC. Aristotle refers to this proof, by odd and even.
+    why: It was the first proof that some lengths are not a ratio of whole numbers. The diagonal of a square with side 1 cannot be measured by any fraction. It is a proof by contradiction that has been taught for over two thousand years.
+    level: 3
+    formal: "If √2 were p/q in lowest terms, then p² = 2q² with p and q sharing no factor. The Lean shows that cannot happen, for whole numbers p and q. Mathlib proves the statement about the real number √2 as `irrational_sqrt_two`."
+    mathlib: irrational_sqrt_two
+    statement: "(p q : ℕ) (hcop : Nat.Coprime p q) : p ^ 2 ≠ 2 * q ^ 2"
+    solution: |
+      intro h
+      have hp : 2 ∣ p := Nat.prime_two.dvd_of_dvd_pow ⟨q ^ 2, h⟩
+      obtain ⟨k, rfl⟩ := hp
+      have hq2 : q ^ 2 = 2 * k ^ 2 := by linarith
+      have hq : 2 ∣ q := Nat.prime_two.dvd_of_dvd_pow ⟨k ^ 2, hq2⟩
+      exact Nat.not_coprime_of_dvd_of_dvd (by norm_num) (dvd_mul_right 2 k) hq hcop
+    steps:
+      - "1: Suppose p² = 2q², where p and q have no common factor."
+      - "2: Then p² is even, and since 2 is prime, p is even."
+      - "3: Write p = 2k."
+      - "4: Then 4k² = 2q², so q² = 2k²."
+      - "5: So q² is even, and q is even too."
+      - "6: Now 2 divides both p and q, which have no common factor: a contradiction."
+
+  - id: infinitely-many-primes
+    title: There are infinitely many primes
+    says: However far you count, there is a prime further on.
+    who: Euclid, in the Elements (Book IX, Proposition 20), around 300 BC.
+    why: The primes are what every whole number is built from by multiplying, and this says the supply never runs out. Euclid's idea, multiply what you have and add one, is still the standard proof.
+    level: 3
+    formal: "“Infinitely many” is said as: for every number n there is a prime at least as big. Euclid multiplies the primes found so far; here n! = 1 × 2 × … × n does the same work, since every number from 1 to n divides it."
+    mathlib: Nat.exists_infinite_primes
+    statement: "(n : ℕ) : ∃ p, n ≤ p ∧ Nat.Prime p"
+    solution: |
+      have h1 : n.factorial + 1 ≠ 1 := by
+        have := Nat.factorial_pos n
+        omega
+      have hp : (n.factorial + 1).minFac.Prime := Nat.minFac_prime h1
+      refine ⟨(n.factorial + 1).minFac, ?_, hp⟩
+      by_contra hlt
+      push_neg at hlt
+      have hdvd : (n.factorial + 1).minFac ∣ n.factorial := Nat.dvd_factorial hp.pos hlt.le
+      have hone : (n.factorial + 1).minFac ∣ 1 := (Nat.dvd_add_right hdvd).mp (Nat.minFac_dvd _)
+      exact hp.not_dvd_one hone
+    steps:
+      - "1-3: Take N = n! + 1, which is more than 1."
+      - "4: Its smallest factor p other than 1 is a prime."
+      - "5: We show that p is at least n."
+      - "6-7: Suppose instead that p is less than n."
+      - "8: Then p is one of the numbers multiplied together in n!, so p divides n!."
+      - "9: It divides n! + 1 as well, so it divides the difference, 1."
+      - "10: But no prime divides 1."
+
+  - id: cantor-diagonal
+    title: Cantor's diagonal argument
+    says: No function from a set to its subsets reaches every subset.
+    who: Georg Cantor, in 1891.
+    why: A set always has more subsets than elements, even an infinite set, so some infinities are bigger than others. The same trick, building the one thing a list must miss, comes back in Gödel's and Turing's results on what cannot be proved or computed.
+    level: 4
+    formal: "For any type α and any f sending each element of α to a set of elements of α, f is not surjective: some set is never reached."
+    mathlib: Function.cantor_surjective
+    statement: "{α : Type} (f : α → Set α) : ¬ Function.Surjective f"
+    solution: |
+      intro hf
+      obtain ⟨a, ha⟩ := hf {x | x ∉ f x}
+      have h : a ∈ f a ↔ a ∉ f a := by
+        rw [Set.ext_iff] at ha
+        exact ha a
+      by_cases ha' : a ∈ f a
+      · exact h.mp ha' ha'
+      · exact ha' (h.mpr ha')
+    steps:
+      - "1: Suppose f reaches every set."
+      - "2: Then it reaches D, the set of the x that are not in f x: say f a = D."
+      - "3-5: So a is in f a exactly when a is in D, that is, exactly when a is not in f a."
+      - "6-7: If a is in f a, then it is not: a contradiction."
+      - "8: If a is not in f a, then it is: a contradiction again."
+
+  - id: sum-of-odd-numbers
+    title: The odd numbers add up to squares
+    says: 1 + 3 + 5 + … + (2n − 1) = n².
+    who: Known to the Pythagoreans as a picture of dots. Francesco Maurolico proved it in 1575, in one of the first proofs by induction.
+    why: Each odd number adds an L-shaped border to a square of dots, making the next square. It is the classic first proof by induction.
+    level: 3
+    formal: "`Finset.range n` is 0, 1, …, n − 1, so 2i + 1 runs over the first n odd numbers, 1 to 2n − 1."
+    statement: "(n : ℕ) : ∑ i ∈ Finset.range n, (2 * i + 1) = n ^ 2"
+    solution: |
+      induction n with
+      | zero => simp
+      | succ k ih =>
+        rw [Finset.sum_range_succ, ih]
+        ring
+    steps:
+      - "1: By induction on n."
+      - "2: With no numbers the sum is 0, which is 0²."
+      - "3: Suppose the first k odd numbers add up to k²."
+      - "4: The first k + 1 are those and the next one, 2k + 1, so they add up to k² + 2k + 1."
+      - "5: And k² + 2k + 1 = (k + 1)²."
+
+  - id: pigeonhole
+    title: The pigeonhole principle
+    says: Put three pigeons in two holes, and two of them share a hole.
+    who: Named for Dirichlet, who used it in 1834 as the drawer principle. The idea is much older.
+    why: Obvious, and yet it proves surprising things. Among any 367 people two share a birthday, and Dirichlet used it to show that every real number has fractions unusually close to it.
+    level: 2
+    formal: "The pigeons are 0, 1 and 2 (`Fin 3`), the holes 0 and 1 (`Fin 2`), and f says which hole each pigeon is in. Mathlib's general form, for any finite sets with more pigeons than holes, is `Fintype.exists_ne_map_eq_of_card_lt`."
+    mathlib: Fintype.exists_ne_map_eq_of_card_lt
+    statement: "(f : Fin 3 → Fin 2) : ∃ i j, i ≠ j ∧ f i = f j"
+    solution: |
+      by_cases h01 : f 0 = f 1
+      · exact ⟨0, 1, by decide, h01⟩
+      by_cases h02 : f 0 = f 2
+      · exact ⟨0, 2, by decide, h02⟩
+      refine ⟨1, 2, by decide, ?_⟩
+      omega
+    steps:
+      - "1-2: If pigeons 0 and 1 are in the same hole, we are done."
+      - "3-4: So are we if pigeons 0 and 2 are."
+      - "5: Otherwise we show that pigeons 1 and 2 share a hole."
+      - "6: Pigeon 0 is in one of the two holes and neither 1 nor 2 is in it, so both are in the other."

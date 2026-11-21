@@ -80,8 +80,8 @@ function sayNode(n: MapNode): string {
 interface Props {
   start: MapGoal[];
   steps: StepGoals[];
-  /** The body line picked in the Lean beside it; its nodes are ringed. */
-  picked?: number | null;
+  /** The body line, or lines, picked in the Lean beside it; their nodes are ringed. */
+  picked?: number | readonly number[] | null;
   /** A node was clicked: the body line that made it. */
   onPick?: (line: number) => void;
   /** Lean is checking a newer version: the map is of the one before. */
@@ -128,7 +128,7 @@ export function ProofMap({ start, steps, picked = null, onPick, stale = false }:
             })}
             {map.nodes.map((n) => {
               const key = n.kind === "fact" ? "fact" : n.kind === "move" ? (n.state === "closes" ? "move closes" : "move") : `goal ${n.state}`;
-              const ringed = picked !== null && n.line === picked;
+              const ringed = n.line !== null && (typeof picked === "number" ? n.line === picked : !!picked?.includes(n.line));
               const can = n.line !== null && !!onPick;
               const pick = () => {
                 if (can) onPick!(n.line!);

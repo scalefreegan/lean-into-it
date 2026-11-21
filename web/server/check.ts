@@ -1,6 +1,6 @@
 // The routes that ask Lean: /api/check (an exercise's proof), /api/playground
-// (any Lean source, nothing scored) and /api/lean (can Lean check a proof
-// now, and start it again).
+// (any Lean source, nothing scored), /api/gallery (a Famous Proofs entry)
+// and /api/lean (can Lean check a proof now, and start it again).
 
 import { isLadder, onBoard } from "../shared/ladder.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
@@ -8,8 +8,8 @@ import { parseGoals, type Goal } from "../shared/goals.ts";
 import { withRemoved } from "../shared/interactive.ts";
 import { mapGoal, type StepGoals } from "../shared/proofmap.ts";
 import { assemble, axiomsOf, replayOf, bodyLines, endOfBody, escapesIn, fillBody, fillProblem, gapPosition, judge, ringFailures, ringNotes, toBody, toSource, type BodyDiagnostic, type Position, forbiddenIn } from "../shared/proof.ts";
-import type { CheckReply, CheckRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
-import type { Exercise } from "../shared/content.ts";
+import type { CheckReply, CheckRequest, GalleryRequest, LeanStatus, PlaygroundReply, PlaygroundRequest } from "../shared/wire.ts";
+import { galleryExercise, type Exercise } from "../shared/content.ts";
 import { isFixed, isReading, optionGoals, readPairing, sameState } from "../shared/recognize.ts";
 import { unsolvedGoals } from "../shared/goals.ts";
 import { bareAnswer, COUNTER_PREFIX, counterBody, negation, readAnswer, splitStatement, valuesProblem, wrongSide } from "../shared/truefalse.ts";
@@ -286,6 +286,21 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
     (tf !== null && (typeof tf === "string" || (bareAnswer(tf, exercise.truefalse!.witness) && reply.refusal === null)));
   if (!bare) await keep(lesson.id, exercise.id, body, reply, input.record, exercise.kind === "prove" && isLadder(input.ladder) && !(onBoard(input.ladder) && exercise.mode === "typed") ? input.ladder : null);
   sendJson(res, 200, reply);
+}
+
+/** /api/gallery: one Famous Proofs entry checked by Lean: with no cursor,
+ *  its proof map; with one, the goals there (and no map, which costs two
+ *  goal queries a line). Only the entry's id comes from the
+ *  browser: its statement and proof are read from content/gallery.yaml.
+ *  Nothing is recorded; the gallery is not an exercise. */
+export async function handleGallery(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  if (req.method !== "POST") return methodNotAllowed(res, "POST");
+  const input = await readJsonBody<Partial<GalleryRequest>>(req);
+  if (typeof input.id !== "string") throw new HttpError(400, "id is required");
+  const entry = loadContent().gallery?.find((e) => e.id === input.id);
+  if (!entry) throw new HttpError(404, "no such proof in the gallery");
+  const cursor = isPosition(input.cursor) ? input.cursor : undefined;
+  sendJson(res, 200, await withLean((lean) => checkExercise(lean, galleryExercise(entry), entry.solution, cursor, cursor === undefined)));
 }
 
 /** Which checks become attempt rows (wire.ts CheckRequest.record). A check

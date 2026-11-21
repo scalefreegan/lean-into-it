@@ -293,7 +293,7 @@ test("Lean accepts a sound lesson: its solutions, its wrong option, its snippets
   const seen: string[] = [];
   const pass = await checkWithLean(lean(), loadContent(dir), { dir, onLesson: (l, problems, n) => seen.push(`${l.id}:${problems.length}:${n.solutions}:${n.snippets}:${n.signatures}`) });
   assert.deepEqual(pass.problems, []);
-  assert.deepEqual(pass.counts, { lessons: 1, solutions: 2, options: 1, snippets: 2, signatures: 1, fragments: 2 });
+  assert.deepEqual(pass.counts, { lessons: 1, solutions: 2, options: 1, snippets: 2, signatures: 1, fragments: 2, famous: 0 });
   assert.deepEqual(seen, ["good:0:2:2:1"]);
 });
 

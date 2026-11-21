@@ -17,6 +17,7 @@ around them. More widgets and exercise kinds are tracked in
 content/
   curriculum.yaml             tracks and levels
   lessons/<track>/<name>.md   one lesson per file
+  gallery.yaml                the Lab's Famous Proofs
 ```
 
 A lesson file must sit in the folder of the track it names. File names are
@@ -550,13 +551,36 @@ A new name or symbol that is said badly everywhere belongs in the tables
 - Check it: `npm run check:content -- --lesson <id>` and open the lesson in
   the app.
 
+## The Famous Proofs gallery
+
+`content/gallery.yaml` holds the classic proofs shown in the Lab
+(`#/lab/famous`), each in words beside a Lean proof, with its proof map.
+It is a list under `entries:`; each entry has these fields, all required
+but `formal` and `mathlib`:
+
+| Field | What it is |
+|---|---|
+| `id` | Lowercase with hyphens; the page's address is `#/lab/famous/<id>`. |
+| `title`, `says` | The theorem's name, and the claim in plain words. |
+| `who`, `why` | Who proved it and when; why it matters. A sentence or two each. |
+| `level` | The level whose moves are enough to follow the Lean. The entry links to it on the Path. |
+| `statement`, `solution` | The Lean statement and proof, written as an exercise's are (see "What Lean is given"). |
+| `steps` | The proof in words, one sentence a step, each tied to lines of `solution` as in the `informal-formal` widget: `"2-3: To show R, it is enough to show Q."` |
+| `formal` | How the Lean statement says the theorem, where it says less or says it differently. |
+| `mathlib` | Mathlib's name for the theorem, when it has one: linked to Mathlib's documentation. |
+
+Lean checks every `solution` as it checks an exercise's, in `npm test` and
+in `npm run check:content`. Where the theorem's full proof is long, prove
+the heart of it (the square root of 2 is irrational is proved for whole
+numbers p and q) and say so in `formal`, with Mathlib's name for the whole.
+
 ## Checking content
 
 `npm run check:content` reads `content/` as the app does and prints what the
 loader refuses. Then it starts a Lean of its own and, lesson by lesson:
 
-- gives every exercise's `solution` to Lean the way the app gives it a
-  learner's answer, and reports Lean's message, a goal left over, or a
+- gives every exercise's `solution`, and every Famous Proofs entry's, to
+  Lean the way the app gives it a learner's answer, and reports Lean's message, a goal left over, or a
   forbidden tactic if it is not accepted;
 - gives every other `options` entry of a fill exercise to Lean, and reports
   one that Lean accepts;

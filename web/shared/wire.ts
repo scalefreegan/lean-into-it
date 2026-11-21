@@ -61,6 +61,13 @@ export interface CheckReply {
   map?: { start: MapGoal[]; steps: StepGoals[] };
 }
 
+/** POST /api/gallery: a Famous Proofs entry (content/gallery.yaml) checked:
+ *  with no cursor, its proof map in the reply; with one, the goals there. */
+export interface GalleryRequest {
+  id: string;
+  cursor?: Position;
+}
+
 /** POST /api/playground: check any Lean source, nothing scored. */
 export interface PlaygroundRequest {
   source: string;

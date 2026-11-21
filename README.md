@@ -67,7 +67,7 @@ This is an early build. [`docs/STATUS.md`](docs/STATUS.md) lists what is done an
   </tr>
 </table>
 
-There is also a Lab, where nothing is scored: every move with an example to run and change, and explorers for functions, the number line and an identity from algebra. With an ElevenLabs key in `.env.local` (`ELEVENLABS_API_KEY=…`), Listen mode reads lessons, exercise claims and the Tutor's replies aloud and marks the word being read; without one, the Listen button says how to add it. Planned: more exercise kinds, more explorers, a program stepper, and a gallery of famous proofs.
+There is also a Lab, where nothing is scored: every move with an example to run and change, explorers for functions, the number line and an identity from algebra, and a gallery of famous proofs (the square root of 2 is irrational, infinitely many primes, Cantor's diagonal argument, the odd numbers adding up to squares, pigeonhole), each in words beside its Lean, with its proof map. With an ElevenLabs key in `.env.local` (`ELEVENLABS_API_KEY=…`), Listen mode reads lessons, exercise claims and the Tutor's replies aloud and marks the word being read; without one, the Listen button says how to add it. Planned: more exercise kinds, more explorers, and a program stepper.
 
 ## How it works
 

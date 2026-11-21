@@ -124,7 +124,9 @@ Landed in the first PR, the foundation slice:
   drawn. Clicking a node picks
   its line (on the board the line is marked, in the editor it is
   selected); a line picked on the board, or the editor's caret line, rings
-  its nodes. The Famous Proofs gallery (`lii-kqz.2`) is to reuse it.
+  its nodes. A part proved on its own line (`have h : P := by linarith`)
+  keeps the rest of the proof, which Lean shows under a new goal, and a fact
+  whose type a line changed (`obtain ⟨k, rfl⟩ := hp`) is drawn as made by it.
 - Proof-craft lessons (`lii-dvy.7`): six short lessons on how
   mathematicians work, each round one worked problem, marked "Proof craft"
   on the Path and their page (the lesson field `craft: true`): work
@@ -363,9 +365,24 @@ Landed in the first PR, the foundation slice:
   sum; and a link to the Playground. What is on offer is data in
   `web/shared/lab.ts`; tests hold it to the curriculum (every move has an
   example), to the registry, and to Lean (every example is accepted). The
-  Tutor is told the page and the example open. Not yet, each with its own
-  bead: the program stepper (`lii-53v.4`), the Famous Proofs gallery
-  (`lii-kqz.2`).
+  Tutor is told the page and the example open. Not yet, with its own
+  bead: the program stepper (`lii-53v.4`).
+- Famous Proofs gallery (`lii-kqz.2`, `#/lab/famous`): five classic proofs
+  from `content/gallery.yaml` (the square root of 2 is irrational, there are
+  infinitely many primes, Cantor's diagonal argument, the odd numbers add up
+  to squares, the pigeonhole principle). Each has who proved it and why it
+  matters, how its Lean statement says the theorem, Mathlib's name for it
+  (linked to Mathlib's documentation), and the level whose moves are enough
+  to follow it, linked to that level on the Path (`#/level/<id>` unfolds it
+  and scrolls to it). The proof is in words beside the Lean, sentence to
+  lines as in the `informal-formal` widget (`PairedView`), with the proof
+  map under both: hovering or selecting a sentence rings its nodes, and
+  clicking a node selects its line and shows Lean's state after it. Lean is
+  asked through `/api/gallery`, which takes only the entry's id, reads the
+  statement and proof from the file, and records nothing. The loader checks
+  each entry's shape; `npm test` and `npm run check:content` check every
+  proof against the real Lean, and `npm test` that its map reaches the last
+  line with every goal done.
 - Listen mode (`lii-1gs.1`), ported from Fret Not: a Listen button in the
   header opens the switch, the voice and the quality; with it on and a
   voice chosen, play controls sit at the foot of the page (back, −5 s,
@@ -508,7 +525,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 526, including every reference solution checked by the real Lean,
+- Tests: 531, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -539,7 +556,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-14 beads in 9 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+13 beads in 8 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -588,12 +605,6 @@ land first.
 |---|---|---|---|
 | `lii-oip` | A calc chain that proves ≤ where < is wanted leaves an unexplained goal like c < c | 3 | |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
-
-### Lab (epic `lii-kqz`)
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-kqz.2` | Famous Proofs gallery | 2 | |
 
 ### Docs and content tooling (epic `lii-2zf`)
 
