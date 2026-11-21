@@ -273,7 +273,7 @@ Landed in the first PR, the foundation slice:
   learner, setup and migrations, the worktree rule, and backup and restore
   with `pg_dump` and `pg_restore`. Its setup, migrate, backup, restore and
   rename-swap steps were tried on scratch databases: the restored copy
-  had its rows, all 8 migrations recorded, and the Tutor role's five grants.
+  had its rows, all 8 migrations recorded, and the Tutor role's schema access and five grants (and still no access to the chat).
 - A board move that gets nowhere is kept as a stumble (`lii-zjf.6`). Lean
   takes `norm_num` on a goal it cannot touch without an error, so the
   server used to keep nothing. Now `checkBody` compares Lean's goals before
