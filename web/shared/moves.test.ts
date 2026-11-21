@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NOT_AN_EXISTS, NOT_SPLITTABLE, NO_NUMBER, explain } from "./explain.ts";
+import { NO_PARTS, NO_PARTS_EQUATION, NOT_AN_EXISTS, NOT_SPLITTABLE, NO_NUMBER, explain } from "./explain.ts";
 import { parseGoal } from "./goals.ts";
-import { MOVES, contraName, hiddenExists, misfit, introName, isMove, moveLine, obtainLine, oneLine, readLine, shapeOf } from "./moves.ts";
+import { MOVES, contraName, hiddenExists, misfit, introName, isMove, moveLine, obtainLine, obtainMisfit, obtainPattern, oneLine, readLine, shapeOf } from "./moves.ts";
 
 test("every move is keyed by its own id and says what it does", () => {
   for (const [key, move] of Object.entries(MOVES)) {
@@ -162,4 +162,31 @@ test("induction on a list names the first element as well", () => {
   assert.equal(moveLine(MOVES.induction, goal, "xs"), "induction' xs with x xs ih");
   assert.equal(misfit(MOVES.induction, goal), null);
   assert.equal(moveLine(MOVES.induction, parseGoal("x : ℕ\nxs : List ℕ\n⊢ P"), "xs"), "induction' xs with x1 xs ih");
+});
+
+test("obtain has a pattern for exactly one, for membership in ∩ and ∪, and for False; other facts the board refuses", () => {
+  const line = (state: string, fact = "h") => obtainPattern(parseGoal(state), fact);
+  assert.equal(line("P : ℕ → Prop\nh : ∃! n, P n\n⊢ True"), "obtain ⟨n, hn, huniq⟩ := h");
+  assert.equal(line("A B : Set ℕ\nx : ℕ\nh : x ∈ A ∩ B\n⊢ x ∈ A"), "obtain ⟨hA, hB⟩ := h");
+  assert.equal(line("A B : Set ℕ\nx : ℕ\nh : x ∈ A ∪ B\n⊢ x ∈ B ∪ A"), "obtain hA | hB := h");
+  // ∪ is the looser: (A ∩ B) ∪ C is an “or”, its left part about A ∩ B.
+  assert.equal(line("A B C : Set ℕ\nx : ℕ\nh : x ∈ A ∩ B ∪ C\n⊢ True"), "obtain h1 | hC := h");
+  assert.equal(line("P : Prop\nh : False\n⊢ P"), "obtain ⟨⟩ := h");
+  // The shapes it had already keep their patterns.
+  assert.equal(line("P Q : Prop\nh : P ∧ Q\n⊢ Q"), "obtain ⟨hP, hQ⟩ := h");
+  assert.equal(line("n : ℕ\nh : Even n\n⊢ True"), "obtain ⟨r, hr⟩ := h");
+  // No pattern: refused on the board, an equation with a pointer to rw.
+  for (const [state, why] of [
+    ["a b : ℕ\nh : a = b\n⊢ True", NO_PARTS_EQUATION],
+    ["a b : ℕ\nh : a ≤ b\n⊢ True", NO_PARTS],
+    ["P : Prop\nh : ¬P\n⊢ True", NO_PARTS],
+    ["P Q : Prop\nh : P → Q\n⊢ True", NO_PARTS],
+    ["P : ℕ → Prop\nh : ∃! x > 0, P x\n⊢ True", NO_PARTS],
+  ] as const) {
+    assert.equal(line(state), null, state);
+    assert.equal(obtainMisfit(parseGoal(state), "h"), why, state);
+  }
+  assert.equal(obtainMisfit(parseGoal("P Q : Prop\nh : P ∧ Q\n⊢ Q"), "h"), null);
+  assert.match(explain(NO_PARTS) ?? "", /^obtain takes a fact apart when it is an “and”/);
+  assert.match(explain(NO_PARTS_EQUATION) ?? "", /An equation is used with rw instead/);
 });

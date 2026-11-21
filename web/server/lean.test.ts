@@ -13,7 +13,7 @@ import { explain, whatIsLeft } from "../shared/explain.ts";
 import { goalsText, sameGoals, unsolvedGoals, type Goal } from "../shared/goals.ts";
 import { LAB_FIRST_LINE, labSource, TACTIC_EXAMPLES } from "../shared/lab.ts";
 import { EXERCISES } from "../shared/registry.ts";
-import { misfit, moveLine, readLine } from "../shared/moves.ts";
+import { misfit, moveLine, obtainLine, readLine } from "../shared/moves.ts";
 import { assemble, axiomsOf, judge, replayOf, toBody } from "../shared/proof.ts";
 import { buildMap, type ProofMap } from "../shared/proofmap.ts";
 import { checkExercise, handleCheck, handleGallery, handleLean, handlePlayground, leanError } from "./check.ts";
@@ -153,6 +153,24 @@ async function replay(label: string, e: Exercise): Promise<number> {
   }
   return solution.length;
 }
+
+test("obtain's patterns for exactly one, ∩, ∪ and False are ones Lean accepts, with the parts named as the board names them", { skip }, async () => {
+  const cases: [string, string, string][] = [
+    ["(P : ℕ → Prop) (h : ∃! n, P n) : ∃ n, P n", "obtain ⟨n, hn, huniq⟩ := h", "exact ⟨n, hn⟩"],
+    ["(A B : Set ℕ) (x : ℕ) (h : x ∈ A ∩ B) : x ∈ B", "obtain ⟨hA, hB⟩ := h", "exact hB"],
+    ["(A B : Set ℕ) (x : ℕ) (h : x ∈ A ∪ B) : x ∈ B ∪ A", "obtain hA | hB := h", "· exact Or.inr hA\n· exact Or.inl hB"],
+    ["(A B C : Set ℕ) (x : ℕ) (h : x ∈ A ∩ B ∪ C) : x ∈ A ∪ C", "obtain h1 | hC := h", "· exact Or.inl h1.1\n· exact Or.inr hC"],
+    ["(P : Prop) (h : False) : P", "obtain ⟨⟩ := h", ""],
+  ];
+  for (const [statement, want, rest] of cases) {
+    const e = { ...exercise("use-it"), statement, forbid: [] };
+    const start = await checkExercise(leanServer(), e, "");
+    const line = obtainLine(start.goals[0], "h");
+    assert.equal(line, want, statement);
+    const done = await checkExercise(leanServer(), e, rest ? `${line}\n${rest}` : line);
+    assert.ok(done.solved, `${statement}: ${done.error?.message ?? JSON.stringify(done.goals.map((g) => g.target))}`);
+  }
+});
 
 test("a switched-off tactic that runs out Lean's time is still named as switched off", async () => {
   const slow = { check: () => Promise.reject(new LeanTimeout("Lean took longer than 20 seconds on this and gave up.")) } as unknown as LeanServer;
