@@ -183,7 +183,7 @@ export function historyReader({ session, query, role = READER_ROLE, learnerId, c
               // How it was entered: 1-2 clicked on the proof board, 3-4 typed (web/shared/ladder.ts).
               ...(r.input_rung ? { enteredAt: r.input_rung <= 2 ? `the proof board (rung ${r.input_rung})` : `typing (rung ${r.input_rung})` } : {}),
               ...(r.assisted ? { assisted: true } : {}),
-              // Working time before the check: from the first click or keystroke in the exercise on that visit, hidden-tab time not counted.
+              // Working time before the check: how long the exercise had been on screen, tab showing, on that visit (web/shared/clock.ts).
               ...(r.elapsed_ms !== null && r.elapsed_ms !== undefined ? { secondsWorked: Math.round(Number(r.elapsed_ms) / 1000) } : {}),
             })),
           },
@@ -328,7 +328,7 @@ export function createHistoryServer(reader) {
     "recent_attempts",
     {
       title: "Recent checks of exercises",
-      description: `The learner's checks of exercises, newest first: when, which exercise (with its concept), solved or not, the proof as they sent it, what Lean said when it refused, the hint rung they had climbed, whether the Tutor had given the line (assisted), and how long they had worked on the exercise before that check (secondsWorked: from their first click or keystroke in it on that visit, not counting time the tab was hidden). Narrow it with a lesson id, an exercise id, or failed_only. ${DATA_NOTE}`,
+      description: `The learner's checks of exercises, newest first: when, which exercise (with its concept), solved or not, the proof as they sent it, what Lean said when it refused, the hint rung they had climbed, whether the Tutor had given the line (assisted), and how long they had been at the exercise before that check (secondsWorked: the time it had been on their screen, with the tab showing, on that visit; reading counts, and so does sitting idle with it on screen; earlier visits do not). Narrow it with a lesson id, an exercise id, or failed_only. ${DATA_NOTE}`,
       inputSchema: {
         limit: z.number().int().min(1).max(CAPS.recentMax).optional().describe(`how many (default ${CAPS.recentDefault}, at most ${CAPS.recentMax})`),
         lesson: id("a lesson id, to see only that lesson"),

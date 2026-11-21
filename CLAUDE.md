@@ -26,7 +26,7 @@ web/shared/lab.ts        the Lab's data: an example per move (each checked by Le
 web/shared/reference.ts  docs/CONTENT-REFERENCE.md as text (scripts/gen-reference.ts writes it)
 web/shared/registry.ts   every widget and exercise kind, with its parameters (the loader checks lessons against it)
 web/shared/progress.ts   mastery per concept and per move, from the attempt rows (pure)
-web/shared/clock.ts      the working time an attempt records: from the first touch of an exercise, hidden-tab time left out (pure)
+web/shared/clock.ts      the working time an attempt records: the time the exercise was on screen with the tab showing (pure)
 web/shared/wire.ts       request and reply types shared by server and client
 web/server/lean/lsp.ts   the warm Lean: one `lake serve`, JSON-RPC over stdio
 web/server/check.ts      /api/check, /api/playground, /api/lean (status), /api/lean/restart
