@@ -9,7 +9,7 @@
 import { and, asc, desc, eq, gte, lt, max } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "./schema.ts";
-import { attempts, chatMessages, conceptCredits, hints, learners, levelOpens, solvedExercises } from "./schema.ts";
+import { attempts, chatMessages, conceptCredits, hints, learners, levelOpens, researchMaps, solvedExercises } from "./schema.ts";
 
 /** The server's pool-backed handle and the tests' PGlite one both fit. */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
@@ -182,6 +182,49 @@ export async function chatFor(db: Db, learnerId: string, limit = CHAT_KEEP): Pro
 
 export async function clearChat(db: Db, learnerId: string): Promise<void> {
   await db.delete(chatMessages).where(eq(chatMessages.learnerId, learnerId));
+}
+
+/* ------------------------------ research maps ----------------------------- */
+
+/** A saved research map's row: the map as checked (web/shared/research.ts ResearchMapBody), its id and date. */
+export interface ResearchRow {
+  id: number;
+  question: string;
+  title: string;
+  map: unknown;
+  createdAt: Date;
+}
+
+export async function saveResearchMap(db: Db, learnerId: string, m: { question: string; title: string; map: unknown }): Promise<ResearchRow> {
+  const [row] = await db
+    .insert(researchMaps)
+    .values({ learnerId, question: m.question, title: m.title, map: m.map })
+    .returning({ id: researchMaps.id, question: researchMaps.question, title: researchMaps.title, map: researchMaps.map, createdAt: researchMaps.createdAt });
+  return row as ResearchRow;
+}
+
+/** The learner's maps, newest first, without their bodies. */
+export async function researchMapList(db: Db, learnerId: string): Promise<Omit<ResearchRow, "map">[]> {
+  return db
+    .select({ id: researchMaps.id, question: researchMaps.question, title: researchMaps.title, createdAt: researchMaps.createdAt })
+    .from(researchMaps)
+    .where(eq(researchMaps.learnerId, learnerId))
+    .orderBy(desc(researchMaps.createdAt), desc(researchMaps.id));
+}
+
+/** One of the learner's maps, or null (another learner's is null too). */
+export async function researchMap(db: Db, learnerId: string, id: number): Promise<ResearchRow | null> {
+  const [row] = await db
+    .select({ id: researchMaps.id, question: researchMaps.question, title: researchMaps.title, map: researchMaps.map, createdAt: researchMaps.createdAt })
+    .from(researchMaps)
+    .where(and(eq(researchMaps.learnerId, learnerId), eq(researchMaps.id, id)));
+  return (row as ResearchRow | undefined) ?? null;
+}
+
+/** Delete one of the learner's maps; whether there was one. */
+export async function deleteResearchMap(db: Db, learnerId: string, id: number): Promise<boolean> {
+  const gone = await db.delete(researchMaps).where(and(eq(researchMaps.learnerId, learnerId), eq(researchMaps.id, id))).returning({ id: researchMaps.id });
+  return gone.length > 0;
 }
 
 /** Record that the Tutor gave a hint at `rung` on an exercise. */

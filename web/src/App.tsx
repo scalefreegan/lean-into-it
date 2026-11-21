@@ -8,6 +8,7 @@ import { Review } from "./pages/Review.tsx";
 import { Placement } from "./pages/Placement.tsx";
 import { Lab } from "./pages/Lab.tsx";
 import { Playground } from "./pages/Playground.tsx";
+import { FieldNotes } from "./pages/FieldNotes.tsx";
 import { href, useRoute } from "./router.ts";
 import { AppProvider, useApp } from "./state.tsx";
 import { TutorDrawer } from "./tutor/Drawer.tsx";
@@ -54,6 +55,7 @@ function Shell() {
     { name: "moves", label: "Moves", active: route.name === "moves" },
     { name: "lab", label: "Lab", active: route.name === "lab" },
     { name: "playground", label: "Playground", active: route.name === "playground" },
+    { name: "notes", label: "Field notes", active: route.name === "notes" },
   ];
   return (
     <div className={cx("flex min-h-dvh flex-col", open && "lg:pr-[28rem]")}>
@@ -107,6 +109,8 @@ function Shell() {
             <Lab {...(route.arg ? { tool: route.arg } : {})} {...(route.sub ? { sub: route.sub } : {})} />
           ) : route.name === "playground" ? (
             <Playground />
+          ) : route.name === "notes" ? (
+            <FieldNotes {...(route.arg && /^\d+$/.test(route.arg) ? { id: Number(route.arg) } : {})} />
           ) : route.name === "gallery" ? (
             <Gallery {...(route.arg ? { only: route.arg } : {})} />
           ) : route.name === "level" && route.arg ? (

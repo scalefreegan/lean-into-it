@@ -10,7 +10,7 @@ accounts: here there is no login and one learner.
 | What | Where | Tracked by git |
 |---|---|---|
 | The curriculum, the Famous Proofs | `content/` | yes |
-| Attempts, solves, hints, the Tutor chat, opened levels, placement credits, Listen settings | Postgres `lean_into_it` | no |
+| Attempts, solves, hints, the Tutor chat, opened levels, placement credits, Listen settings, the Field notes' research maps | Postgres `lean_into_it` | no |
 | Listen's audio cache | `data/tts-cache/` | no (`data/` is ignored) |
 | The ElevenLabs key, local overrides | `.env.local` | no |
 | The Playground's Lean file, Listen's speed, which levels are unfolded, a dismissed placement offer | the browser's localStorage (`lean-into-it:…`) | no, and not in the database |
@@ -73,6 +73,7 @@ are recorded in `drizzle.__drizzle_migrations`, by hash.
 | `hints` | `id` | every hint rung the Tutor gave, kept apart from the chat so trimming it cannot take back an assisted mark |
 | `level_opens` | learner, level | the levels that have opened, and `how`: earned, anyway, placement |
 | `concept_credits` | learner, concept | concepts the placement check credited, and when each is `due_at` for review |
+| `research_maps` | `id` | the Field notes: the Tutor's map of a result in the news (`map`, JSON: claimed, formally verified, concepts, open, could not confirm, sources and whether each link opened), the `question` asked, its `title`, and when it was made |
 
 Every table but `learners` has a `learner_id`, which cascades on delete.
 

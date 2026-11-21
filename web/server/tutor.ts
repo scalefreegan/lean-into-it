@@ -389,6 +389,17 @@ export class TurnStopped extends Error {}
  *  on edit, and a fresh `let` would let a second turn in beside the first. */
 const tutor = ((globalThis as { __leanIntoItTutor?: { running: boolean; leanToken?: string | null } }).__leanIntoItTutor ??= { running: false, leanToken: null });
 export const tutorBusy = (): boolean => tutor.running;
+/** Another kind of Tutor turn (a research map, research.ts) takes the same
+ *  one-at-a-time slot: true when it got it. Checked and set at once. */
+export function claimTutor(): boolean {
+  if (tutor.running) return false;
+  tutor.running = true;
+  tutor.leanToken = null;
+  return true;
+}
+export function releaseTutor(): void {
+  tutor.running = false;
+}
 
 /** The agent, injectable so the tests can run a turn without spawning one. */
 export type Agent = (run: { prompt: string; systemPrompt: string; signal: AbortSignal; learner: string; lean: LeanAccess | null; workspace: Workspace | null }) => Promise<string>;

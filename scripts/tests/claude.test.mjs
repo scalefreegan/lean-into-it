@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildArgs, childEnv, classifyExit, DENIED, READ_TOOLS, SECRET_PATHS, secretDenials } from "../claude.mjs";
+import { buildArgs, childEnv, classifyExit, DENIED, READ_TOOLS, SECRET_PATHS, secretDenials, WEB_TOOLS, LOCAL_FETCH } from "../claude.mjs";
 
 // The Tutor's sandbox, pinned without spawning anything.
 
@@ -23,6 +23,17 @@ test("a Tutor turn may only read: Read, Glob and Grep exist, every way to write 
   assert.ok(denied.includes("Read(//r/.claude/**)") && denied.includes("Glob(//r/.beads/**)"));
   // No prompt argument: the transcript goes in on stdin.
   assert.ok(!args.some((a) => a.includes("Conversation so far")));
+});
+
+test("a research turn may search and fetch the web and nothing else: no file tools, nothing on this machine", () => {
+  const args = buildArgs({ systemPrompt: "s", mcpConfigPath: "/tmp/x/mcp.json", repoRoot: "/run", web: true });
+  assert.equal(after(args, "--tools"), "WebSearch,WebFetch");
+  assert.deepEqual(args.slice(args.indexOf("--allowedTools") + 1, args.indexOf("--disallowedTools")), WEB_TOOLS);
+  const denied = args.slice(args.indexOf("--disallowedTools") + 1, args.indexOf("--append-system-prompt"));
+  for (const t of WEB_TOOLS) assert.ok(!denied.includes(t), t);
+  for (const t of ["Bash", "Edit", "Write", "Agent", "Task", ...READ_TOOLS, ...LOCAL_FETCH]) assert.ok(denied.includes(t), t);
+  assert.ok(LOCAL_FETCH.includes("WebFetch(domain:localhost)") && LOCAL_FETCH.includes("WebFetch(domain:127.0.0.1)"));
+  assert.throws(() => buildArgs({ web: true, write: { contentDir: "/r/content" }, repoRoot: "/r" }), /search the web or write lessons, not both/);
 });
 
 test("MCP tools are granted one by one, by exact name, on top of the read tools", () => {

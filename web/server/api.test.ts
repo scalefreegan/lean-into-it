@@ -85,7 +85,7 @@ test("every route the plugin mounts is behind wrap()", async () => {
   const plugin = apiPlugins({ checkDatabase: false, warm: false });
   await (plugin.configureServer as (server: ViteDevServer) => unknown)(server as unknown as ViteDevServer);
   const routes = mounted.map(([route]) => route);
-  for (const route of ["/api/content", "/api/check", "/api/playground", "/api/lean", "/api/progress", "/api"]) assert.ok(routes.includes(route), `${route} is mounted`);
+  for (const route of ["/api/content", "/api/check", "/api/playground", "/api/lean", "/api/progress", "/api/research", "/api"]) assert.ok(routes.includes(route), `${route} is mounted`);
   assert.ok(routes.every((r) => r === "/api" || r.startsWith("/api/")), "nothing is mounted outside /api");
   // A route that skipped wrap() would run its handler here and answer something other than 403.
   for (const [route, handler] of mounted) {

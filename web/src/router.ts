@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 //                      scored; #/lab/<tool> for one explorer; #/lab/famous/<id>
 //                      for one of the Famous Proofs
 //   #/playground       free Lean, nothing scored
+//   #/notes            Field notes: the Tutor's research maps; #/notes/<id> for one
 //   #/gallery          every widget and exercise kind in the registry;
 //                      #/gallery/<widget> for one widget
 
