@@ -383,6 +383,10 @@ Landed in the first PR, the foundation slice:
   each entry's shape; `npm test` and `npm run check:content` check every
   proof against the real Lean, and `npm test` that its map reaches the last
   line with every goal done.
+- The header fits a phone (`lii-h1d`): below 768 px the sections (Path,
+  Review, Moves, Lab, Playground) take a row of their own under the name and
+  the Listen button, and scroll within it if they must, so no page scrolls
+  sideways from the header at 390 px. From 768 px up it is one row as before.
 - Listen mode (`lii-1gs.1`), ported from Fret Not: a Listen button in the
   header opens the switch, the voice and the quality; with it on and a
   voice chosen, play controls sit at the foot of the page (back, −5 s,
@@ -556,7 +560,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-13 beads in 8 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+10 beads in 7 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Lean engine (epic `lii-1ou`)
@@ -564,20 +568,12 @@ land first.
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-1ou.6` | Lean checks: cancel a superseded check, and a memory limit | 3 | |
-| `lii-5pa` | Flaky test under load: "a check that never ends is given up on inside the limit" (tight timing bounds) | 3 | |
-| `lii-m2l` | Lean timing tests fail in the full suite when the machine is loaded | 3 | |
 
 ### Proof board (epic `lii-8wq`)
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-8wq.6` | obtain on a fact that is not an and, or, iff or exists | 3 | |
-
-### App shell
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-h1d` | The top navigation is wider than a phone screen | 3 | |
 
 ### Widgets (epic `lii-53v`)
 

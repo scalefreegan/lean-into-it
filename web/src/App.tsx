@@ -48,18 +48,20 @@ function Shell() {
   return (
     <div className={cx("flex min-h-dvh flex-col", open && "lg:pr-[28rem]")}>
       <header className="sticky top-0 z-10 border-b border-line bg-panel/95 px-4 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-[2400px] items-center gap-6 py-3">
+        {/* Below md the sections take a row of their own under the name and
+            Listen, and scroll within it if they must: the page never does. */}
+        <div className="mx-auto flex max-w-[2400px] flex-wrap items-center gap-x-6 gap-y-2 py-3">
           <a href={href("home")} className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent font-mono text-lg font-bold text-accent-ink">⊢</span>
             <span className="font-display text-xl font-semibold text-fg">Lean Into It</span>
           </a>
-          <nav className="flex gap-1" aria-label="Sections">
+          <nav className="order-last -mx-1 flex w-[calc(100%+0.5rem)] gap-1 overflow-x-auto px-1 md:order-none md:mx-0 md:w-auto md:overflow-visible md:px-0" aria-label="Sections">
             {tabs.map((t) => (
               <a
                 key={t.name}
                 href={href(t.name)}
                 aria-current={t.active ? "page" : undefined}
-                className={cx("rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors", t.active ? "bg-accent-soft text-accent" : "text-fg-2 hover:bg-raised")}
+                className={cx("shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors", t.active ? "bg-accent-soft text-accent" : "text-fg-2 hover:bg-raised")}
               >
                 {t.label}
                 {t.name === "review" && review.length > 0 && (
