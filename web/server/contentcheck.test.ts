@@ -29,11 +29,15 @@ levels:
     summary: s
     moves: [exact, apply, omega]
     topics: ["Still to write"]
+    planned:
+      - { id: good, track: logic, title: Written already }
   - id: 2
     title: Two
     summary: s
     status: outline
     topics: [Later]
+    planned:
+      - { id: logic-2-later, track: logic, title: Later on }
 `;
 
 const lessonFile = (id: string, front: string, body: string) => `---
@@ -267,7 +271,7 @@ test("why a reference solution was not accepted is said in a sentence", () => {
   assert.match(whyNot({ ...base, goals: [{ hypotheses: [], target: "Q" }] }), /leaves a goal unproved: ⊢ Q/);
 });
 
-test("gaps: untested concepts, moves no exercise uses, empty levels, topics to write", () => {
+test("gaps: untested concepts, moves no exercise uses, empty levels, topics and planned lessons to write", () => {
   const content = loadContent(made({ "good.md": GOOD }));
   assert.deepEqual(coverage(content), {
     untested: [{ concept: "unused-concept", lesson: "good" }],
@@ -278,6 +282,8 @@ test("gaps: untested concepts, moves no exercise uses, empty levels, topics to w
       { level: 1, topic: "Still to write" },
       { level: 2, topic: "Later" },
     ],
+    // Level 1 planned `good`, and it is written.
+    planned: [{ level: 2, id: "logic-2-later", title: "Later on" }],
   });
 });
 

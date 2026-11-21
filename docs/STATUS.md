@@ -274,6 +274,25 @@ Landed in the first PR, the foundation slice:
   with `pg_dump` and `pg_restore`. Its setup, migrate, backup, restore and
   rename-swap steps were tried on scratch databases: the restored copy
   had its rows, all 8 migrations recorded, and the Tutor role's schema access and five grants (and still no access to the chat).
+- Levels 4–8 as a plan (`lii-dvy.6`): each outlined level in
+  `content/curriculum.yaml` lists its concepts with what each builds on
+  (37 in all, resting on Levels 0–3's), its moves (checked as real
+  tactics against the app's Lean and Mathlib), its planned lessons (38,
+  each with the id it will have, track, concepts and widgets) and the
+  widgets still to build (set diagram, function arrows, program stepper,
+  blueprint graph). The loader checks that every concept, track and
+  widget a plan names exists, that no concept rests on itself or on a
+  later one, that a concept declared for a level is not taught before
+  it, that a plan has no stray fields, and that a written planned
+  lesson sits where it was planned; a level loses `status: outline` only
+  once every move it has has a sentence and a Lab example. The Path lists an
+  outlined level's lessons to write and its concepts; `check:content --
+  --gaps` lists them too. An outline's moves are a plan only: the Moves
+  page, the Lab and mastery count a written level's. The Tutor's writing
+  brief says how to write a planned lesson, and that it stays unreachable
+  until the level is opened, which needs app code. Counting moves now takes
+  the longest first, so `simp only` is not also counted as `simp`. A test keeps
+  `docs/PRD.md`'s outlined levels (titles and moves) the same as the file's.
 - A board move that gets nowhere is kept as a stumble (`lii-zjf.6`). Lean
   takes `norm_num` on a goal it cannot touch without an error, so the
   server used to keep nothing. Now `checkBody` compares Lean's goals before
@@ -604,7 +623,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 542, including every reference solution checked by the real Lean,
+- Tests: 559, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -635,7 +654,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-4 beads in 4 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+3 beads in 3 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Widgets (epic `lii-53v`)
@@ -656,8 +675,3 @@ land first.
 |---|---|---|---|
 | `lii-2zo.4` | Tutor research maps for current results | 3 | `lii-2zo.1` |
 
-### Curriculum (epic `lii-dvy`)
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
