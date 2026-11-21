@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { ErrorBoundary } from "./ErrorBoundary.tsx";
 import { Gallery } from "./pages/Gallery.tsx";
 import { Home } from "./pages/Home.tsx";
@@ -34,10 +34,20 @@ export function App() {
   );
 }
 
+/** Tailwind's md breakpoint (48rem): from here the header is one row. */
+const WIDE = "(min-width: 48rem)";
+const subscribeWide = (change: () => void) => {
+  const query = window.matchMedia(WIDE);
+  query.addEventListener("change", change);
+  return () => query.removeEventListener("change", change);
+};
+const useWide = () => useSyncExternalStore(subscribeWide, () => window.matchMedia(WIDE).matches);
+
 function Shell() {
   const route = useRoute();
   const { review } = useApp();
   const { open } = useTutor();
+  const wide = useWide();
   const tabs = [
     { name: "home", label: "Path", active: route.name === "home" || route.name === "lesson" || route.name === "level" },
     { name: "review", label: "Review", active: route.name === "review" },
@@ -48,18 +58,26 @@ function Shell() {
   return (
     <div className={cx("flex min-h-dvh flex-col", open && "lg:pr-[28rem]")}>
       <header className="sticky top-0 z-10 border-b border-line bg-panel/95 px-4 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-[2400px] items-center gap-6 py-3">
+        {/* Below md the sections take a row of their own under the name and
+            Listen, and scroll within it if they must: the page never does.
+            The nav's padding (taken back by its negative margin) is room for
+            the 4 px focus ring, which the scrolling box would clip. The nav
+            and Listen swap places in the page itself, not only on screen, so
+            Tab goes in the order the eye reads at either width; being keyed,
+            Listen keeps its state when they swap. */}
+        <div className="mx-auto flex max-w-[2400px] flex-wrap items-center gap-x-6 gap-y-2 py-3">
           <a href={href("home")} className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent font-mono text-lg font-bold text-accent-ink">⊢</span>
             <span className="font-display text-xl font-semibold text-fg">Lean Into It</span>
           </a>
-          <nav className="flex gap-1" aria-label="Sections">
+          {!wide && <ListenToggle key="listen" />}
+          <nav key="sections" className="-m-1 flex w-[calc(100%+0.5rem)] gap-1 overflow-x-auto p-1 md:m-0 md:w-auto md:overflow-visible md:p-0" aria-label="Sections">
             {tabs.map((t) => (
               <a
                 key={t.name}
                 href={href(t.name)}
                 aria-current={t.active ? "page" : undefined}
-                className={cx("rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors", t.active ? "bg-accent-soft text-accent" : "text-fg-2 hover:bg-raised")}
+                className={cx("shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors", t.active ? "bg-accent-soft text-accent" : "text-fg-2 hover:bg-raised")}
               >
                 {t.label}
                 {t.name === "review" && review.length > 0 && (
@@ -71,7 +89,7 @@ function Shell() {
               </a>
             ))}
           </nav>
-          <ListenToggle />
+          {wide && <ListenToggle key="listen" />}
         </div>
       </header>
       <main className="flex-1 px-4 py-8 sm:px-6">
