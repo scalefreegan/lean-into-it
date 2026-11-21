@@ -15,12 +15,12 @@ const at = (line: number, message: string, severity: Diagnostic["severity"] = "e
 test("the source is the statement as a named theorem, the body in brackets under by, then the axiom report", () => {
   assert.equal(
     assemble("(P : Prop)  (hP : P) :\n P", "exact hP\n\n"),
-    "import Mathlib import LeanIntoIt.Replay\n\ntheorem lii_exercise (P : Prop) (hP : P) : P := by\n  (\n    exact hP\n  )\n\n#print axioms lii_exercise\n#lii_replay\n",
+    "import Mathlib import LeanIntoIt.Replay\n\nset_option pp.beta true in theorem lii_exercise (P : Prop) (hP : P) : P := by\n  (\n    exact hP\n  )\n\n#print axioms lii_exercise\n#lii_replay\n",
   );
 });
 
 test("an empty body is sent as a tactic that does nothing, so Lean reports the opening goal", () => {
-  assert.equal(assemble("(P : Prop) : P → P", "  \n"), "import Mathlib import LeanIntoIt.Replay\n\ntheorem lii_exercise (P : Prop) : P → P := by\n  (\n    skip\n  )\n\n#print axioms lii_exercise\n#lii_replay\n");
+  assert.equal(assemble("(P : Prop) : P → P", "  \n"), "import Mathlib import LeanIntoIt.Replay\n\nset_option pp.beta true in theorem lii_exercise (P : Prop) : P → P := by\n  (\n    skip\n  )\n\n#print axioms lii_exercise\n#lii_replay\n");
   assert.deepEqual(toSource(endOfBody("")), { line: 4, character: 8 });
 });
 
@@ -289,7 +289,7 @@ test("a forbidden name without a dot is found after one; a tactic's relatives ar
 test("an exercise's own definitions sit between the import and the theorem, and every line number moves with them", () => {
   const given = "def twice (n : ℕ) : ℕ := n + n\n\ndef thrice (n : ℕ) : ℕ := n + n + n\n";
   const source = assemble(": twice 2 = 4", "rfl", given).split("\n");
-  assert.deepEqual(source.slice(0, 8), ["import Mathlib import LeanIntoIt.Replay", "", "def twice (n : ℕ) : ℕ := n + n", "", "def thrice (n : ℕ) : ℕ := n + n + n", "", "theorem lii_exercise : twice 2 = 4 := by", "  ("]);
+  assert.deepEqual(source.slice(0, 8), ["import Mathlib import LeanIntoIt.Replay", "", "def twice (n : ℕ) : ℕ := n + n", "", "def thrice (n : ℕ) : ℕ := n + n + n", "", "set_option pp.beta true in theorem lii_exercise : twice 2 = 4 := by", "  ("]);
   // Three lines of definitions and a blank: the body starts four lines further down.
   assert.deepEqual(toSource({ line: 0, character: 0 }, given), { line: 8, character: 4 });
   assert.equal(source[8], "    rfl");
