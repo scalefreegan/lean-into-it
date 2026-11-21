@@ -245,6 +245,15 @@ Landed in the first PR, the foundation slice:
   document is reopened. Not measured: whether the shared exercise
   document's worker grows over a long session towards the limit; if it
   did, a check would be refused and the document reopened, which heals it.
+- A calc chain that is not strict enough is told so (`lii-oip`). A chain
+  that proves a ≤ c where the goal is a < c is not refused by Lean: it adds
+  a last link from c to itself and leaves "case calc.step ⊢ c < c", which
+  nothing can prove. `chainNotStrict` in `web/shared/explain.ts` names it
+  ("This chain gets to c, but none of its links is strict, so it proves
+  less than the goal’s “<”…"; inside a bullet too), and the typed editor's "Not finished" notice says it, as it says
+  what only False left means (`whatIsLeft`). A chain that stops short
+  ("⊢ b < c", a link still to write) gets nothing particular. Held to
+  Lean's real message in `web/server/lean.test.ts`.
 - An adversarial pass on grading (`lii-1ou.5`): about 34 proof bodies
   tried against a false statement, through the app and through Lean with
   the pre-checks off. None was graded solved. Where Lean alone would
@@ -560,7 +569,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 537, including every reference solution checked by the real Lean,
+- Tests: 539, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -591,7 +600,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-8 beads in 6 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
+7 beads in 6 areas. No P1 is left: P2 is next, P3 can wait. "Needs" lists beads that must
 land first.
 
 ### Proof board (epic `lii-8wq`)
@@ -623,7 +632,6 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-oip` | A calc chain that proves ≤ where < is wanted leaves an unexplained goal like c < c | 3 | |
 | `lii-dvy.6` | Outlines for Levels 4–8 as content | 3 | |
 
 ### Docs and content tooling (epic `lii-2zf`)

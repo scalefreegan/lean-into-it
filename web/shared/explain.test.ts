@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { suggestion, NOT_SPLITTABLE, UNCHANGED, explain, LEFT_FALSE, leftFalse } from "./explain.ts";
+import { suggestion, NOT_SPLITTABLE, UNCHANGED, explain, LEFT_FALSE, leftFalse, chainNotStrict, whatIsLeft } from "./explain.ts";
 
 // The messages are Lean 4.36's own, copied from a real run.
 
@@ -167,4 +167,26 @@ test("a fact given something it cannot take, from Lean's own messages", () => {
   assert.equal(leftFalse("unsolved goals\nh : P → False\n⊢ Q"), false);
   assert.equal(leftFalse("unsolved goals\n⊢ False ∧ P"), false);
   assert.equal(leftFalse("unsolved goals\ncase h\n⊢ False\n"), true);
+});
+
+test("a chain that proves ≤ where < is wanted: the c < c Lean adds is named for what it is", () => {
+  const weak = "unsolved goals\ncase calc.step\na b c : ℝ\nh1 : a ≤ b\nh2 : b < c\n⊢ c < c";
+  const said = chainNotStrict(weak) ?? "";
+  assert.match(said, /^This chain gets to c, but none of its links is strict, so it proves less than the goal’s “<”/);
+  assert.match(said, /“c < c”, which can never be proved/);
+  assert.equal(whatIsLeft(weak), said);
+  assert.equal(explain(weak), said);
+  // The same with > and a longer expression.
+  assert.match(chainNotStrict("unsolved goals\ncase calc.step\nx : ℝ\n⊢ x ^ 2 + 1 > x ^ 2 + 1") ?? "", /gets to x \^ 2 \+ 1, but none of its links is strict, so it proves less than the goal’s “>”/);
+  // Inside a bullet or a case, the tag carries that case's name.
+  assert.match(chainNotStrict("unsolved goals\ncase left.calc.step\na c : ℝ\n⊢ c < c") ?? "", /^This chain gets to c/);
+  // A chain that stops short leaves an honest next link: nothing particular to say.
+  assert.equal(chainNotStrict("unsolved goals\ncase calc.step\na b c : ℝ\n⊢ b < c"), null);
+  // Not a calc leftover, two goals, or a goal that only looks alike.
+  assert.equal(chainNotStrict("unsolved goals\n⊢ c < c"), null);
+  assert.equal(chainNotStrict("unsolved goals\ncase calc.step\n⊢ c < c\n\ncase other\n⊢ P"), null);
+  assert.equal(chainNotStrict("unsolved goals\ncase calc.step\n⊢ a < b < a"), null);
+  assert.equal(chainNotStrict("unsolved goals\ncase calc.step\n⊢ c = c"), null);
+  // Only False left is still the False sentence.
+  assert.equal(whatIsLeft("unsolved goals\ncase h\n⊢ False\n"), LEFT_FALSE);
 });

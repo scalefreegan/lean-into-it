@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
-import { explain, LEFT_FALSE, leftFalse as isLeftFalse, suggestion } from "../../shared/explain.ts";
+import { explain, suggestion, whatIsLeft } from "../../shared/explain.ts";
 import { stillOpenGoals, type Goal } from "../../shared/goals.ts";
 import { insertLine } from "../../shared/ladder.ts";
 import { MOVES, moveLine, type Move } from "../../shared/moves.ts";
@@ -137,9 +137,10 @@ export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b
   // No goal at this point, yet the proof is unfinished: a case left open
   // elsewhere (a bullet never started). Lean's "unsolved goals" error names it.
   const stillOpen = stillOpenGoals(reply, goals);
-  // When all that is left is False, say what that means (explain.ts).
+  // When what is left says something particular (only False; a calc chain
+  // not strict enough), say what it means (explain.ts whatIsLeft).
   const unsolved = reply?.diagnostics.find((d) => d.severity === "error" && /^unsolved goals/.test(d.message));
-  const leftFalse = unsolved && isLeftFalse(unsolved.message) ? LEFT_FALSE : null;
+  const leftOver = unsolved ? whatIsLeft(unsolved.message) : null;
   const empty = !body.trim();
   /** A palette click: the move's line at the caret, its \`?\` selected to be typed over. */
   function writeMove(move: Move) {
@@ -235,7 +236,7 @@ export function TypedProof({ lessonId, exercise, solution, onSolved, encode = (b
             <Refusal key={i} plain={`Line ${(d.line as number) + 1}: ${explain(d.message) ?? d.message.split("\n")[0]}`} raw={d.message} />
           ))}
           {verdict && !verdict.solved && errors.length === 0 && reply.forbidden.length === 0 && !reply.refusal && (
-            <Notice tone="warn">{empty ? "Nothing to check yet." : leftFalse ? `Not finished. ${leftFalse}` : "Not finished: every line is fine, but there is still something left to show. The panel says what."}</Notice>
+            <Notice tone="warn">{empty ? "Nothing to check yet." : leftOver ? `Not finished. ${leftOver}` : "Not finished: every line is fine, but there is still something left to show. The panel says what."}</Notice>
           )}
         </div>
       )}

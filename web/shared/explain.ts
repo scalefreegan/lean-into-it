@@ -28,6 +28,34 @@ export function leftFalse(message: string): boolean {
   return /^unsolved goals/.test(message) && /(^|\n)⊢ False\s*$/.test(message) && !/\n\s*\n/.test(message.trim());
 }
 
+/**
+ * A calc chain with no strict link (≤ or = all along) where the goal is <
+ * (or ≥/= where it is >): Lean does not refuse it, it adds a last link to
+ * make up the difference, from the end of the chain to itself, and leaves
+ * that as the one goal, "case calc.step ⊢ c < c", which nothing can prove.
+ * Inside a bullet or a case the tag has that case's name before it
+ * ("left.calc.step"). A goal Lean wraps over several lines is not
+ * recognised, and gets the general sentence. The sentence for it, or null
+ * when `message` is not that.
+ */
+export function chainNotStrict(message: string): string | null {
+  if (!/^unsolved goals\ncase (?:\S+\.)?calc\.step\n/.test(message) || /\n\s*\n/.test(message.trim())) return null;
+  const target = /\n⊢ (.+)\s*$/.exec(message)?.[1].trim();
+  if (!target) return null;
+  // The two sides are the same expression, so the sign is in the very middle.
+  const side = (target.length - 3) / 2;
+  const sign = target.slice(side, side + 3);
+  if (!Number.isInteger(side) || side < 1 || (sign !== " < " && sign !== " > ") || target.slice(0, side) !== target.slice(side + 3)) return null;
+  const strict = sign.trim();
+  const end = target.slice(0, side);
+  return `This chain gets to ${end}, but none of its links is strict, so it proves less than the goal’s “${strict}”. Lean shows what is missing as one more link, “${target}”, which can never be proved. Change a link to “${strict}”: where a fact you have says “${strict}”, give that link with the fact itself.`;
+}
+
+/** What to say about the goal an unfinished proof leaves, when there is something particular to say. */
+export function whatIsLeft(message: string): string | null {
+  return leftFalse(message) ? LEFT_FALSE : chainNotStrict(message);
+}
+
 /** A plain sentence for a Lean error, or null when there is none for it. */
 export function explain(message: string): string | null {
   const first = message.split("\n")[0];
@@ -172,7 +200,8 @@ export function explain(message: string): string | null {
   if (/^`exact\?` could not close the goal/.test(first)) {
     return "exact? searched Lean's library and the facts on the board, and found no single step that finishes this goal as it stands. Take a step yourself first (intro, constructor, a rewrite) and search again, or the goal may not follow from what is on the board.";
   }
-  if (leftFalse(message)) return LEFT_FALSE;
+  const left = whatIsLeft(message);
+  if (left) return left;
   if (/^unsolved goals/.test(first)) {
     return "Every line is fine so far, but there is still something left to show.";
   }

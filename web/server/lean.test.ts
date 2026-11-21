@@ -9,7 +9,7 @@ import { freshDb } from "../../scripts/tests/testdb.mjs";
 import { authorRepo, LESSON_FILE, withExercise } from "../../scripts/tests/authorrepo.mjs";
 import type { CheckReply, CheckRequest, PlaygroundReply, LeanStatus } from "../shared/wire.ts";
 import type { Exercise } from "../shared/content.ts";
-import { explain } from "../shared/explain.ts";
+import { explain, whatIsLeft } from "../shared/explain.ts";
 import { goalsText, sameGoals, unsolvedGoals, type Goal } from "../shared/goals.ts";
 import { LAB_FIRST_LINE, labSource, TACTIC_EXAMPLES } from "../shared/lab.ts";
 import { EXERCISES } from "../shared/registry.ts";
@@ -210,6 +210,19 @@ test("Level 3's refusals get a true sentence, from Lean's real message", { skip 
     assert.ok(reply.error, `${id}: "${body}" should be refused`);
     assert.match(explain(reply.error.message) ?? "(no plain sentence)", plain, `${id}: ${reply.error.message}`);
   }
+});
+
+test("a calc chain that proves ≤ where < is wanted is told so, from Lean's real message", { skip }, async () => {
+  const twoLinks = content.lessons.find((l) => l.id === "math-3-calc")!.exercises.find((e) => e.id === "two-links")!;
+  const unsolved = async (body: string) => {
+    const reply = await checkExercise(leanServer(), twoLinks, body);
+    assert.equal(reply.solved, false, body);
+    return reply.diagnostics.find((d) => d.severity === "error" && /^unsolved goals/.test(d.message))!.message;
+  };
+  // Both links ≤: Lean adds "c < c" and leaves it.
+  assert.match(whatIsLeft(await unsolved("calc a ≤ b := h1\n  _ ≤ c := le_of_lt h2")) ?? "(nothing said)", /^This chain gets to c, but none of its links is strict, so it proves less than the goal’s “<”/);
+  // A chain that stops at b leaves "b < c", a link still to write: nothing particular said.
+  assert.equal(whatIsLeft(await unsolved("calc a ≤ b := h1")), null);
 });
 
 test("a ring that did not finish is refused; a ring that finished the long way is not", { skip }, async () => {
