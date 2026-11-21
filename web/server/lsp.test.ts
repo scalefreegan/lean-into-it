@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { assemble, endOfBody, toSource } from "../shared/proof.ts";
-import { headerOf, LeanServer, LeanTimeout, LeanUnavailable, leanProblem, leanToolchain } from "./lean/lsp.ts";
+import { headerOf, LeanAbandoned, LeanServer, LeanTimeout, LeanUnavailable, leanProblem, leanToolchain, MEMORY_MB, wantedWhile } from "./lean/lsp.ts";
 
 // How the Lean client behaves when its server stops, is slow or is absent.
 // All but the last test start a real `lake serve`; where Lean is not
@@ -171,6 +171,42 @@ test("a check that never ends is given up on inside the limit, and Lean goes on 
   const wrong = await lean.check("lsp-endless", "import Mathlib\nexample : 1 = 2 := rfl\n");
   assert.equal(wrong.diagnostics.filter((d) => d.severity === "error").length, 1);
   assert.equal(wrong.diagnostics[0]?.start.line, 1);
+});
+
+test("a check no one waits for any more is skipped when its turn comes, and the ones after it still run", { skip }, async (t) => {
+  const lean = new LeanServer({ timeoutMs: 3000 });
+  t.after(() => lean.stop());
+  await lean.check("lsp-wanted", fine(1));
+  // A check that holds the document for its 3 seconds, and two behind it: one
+  // whose asker gives up while it waits (the learner typed on), and one wanted.
+  const slow = lean.check("lsp-wanted", ENDLESS);
+  slow.catch(() => {});
+  const asked = new AbortController();
+  const dropped = wantedWhile(asked.signal, () => lean.check("lsp-wanted", fine(2)));
+  const kept = wantedWhile(new AbortController().signal, () => lean.check("lsp-wanted", "import Mathlib\nexample : 1 = 2 := rfl\n"));
+  asked.abort();
+  await assert.rejects(slow, LeanTimeout);
+  const before = Date.now();
+  await assert.rejects(dropped, LeanAbandoned);
+  assert.ok(Date.now() - before < 500, "skipped at once, not checked");
+  // The wanted one ran, on the text it was given.
+  assert.equal((await kept).diagnostics.filter((d) => d.severity === "error").length, 1);
+  // A check whose asker gave up once it was running is left to finish.
+  const late = new AbortController();
+  const running = wantedWhile(late.signal, () => lean.check("lsp-wanted", fine(3)));
+  setTimeout(() => late.abort(), 20);
+  assert.deepEqual((await running).diagnostics, []);
+});
+
+test(`a check that wants more memory than a worker may have (${MEMORY_MB} MB) is refused as that, and Lean goes on`, { skip }, async (t) => {
+  const lean = new LeanServer();
+  t.after(() => lean.stop());
+  await lean.check("lsp-memory", fine(1));
+  // A list of 400 million: gigabytes on top of Mathlib, past the limit (with no limit it finishes, in some 16 s).
+  const huge = "import Mathlib\n#eval (List.replicate 400000000 (7 : Nat)).length\n";
+  await assert.rejects(lean.check("lsp-memory", huge), (e: Error) => e instanceof LeanUnavailable && /ran out of memory on this: one check may use 8 GB/.test(e.message));
+  assert.equal(lean.health().state, "ready");
+  assert.deepEqual((await lean.check("lsp-memory", fine(2))).diagnostics, []);
 });
 
 test("the header of a file is its imports with the comments around them", () => {

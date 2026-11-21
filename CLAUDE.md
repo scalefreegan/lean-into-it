@@ -91,7 +91,9 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   in a test `authoringRoot()` refuses this one.
 - A check has 20 seconds (`web/server/lean/lsp.ts`); past it the document is
   closed, which ends its Lean worker, and the reply says Lean took too long.
-  Only the child process this server spawned is ever signalled.
+  A worker may use 8 GB (Lean's `-M`; Mathlib alone takes over 4): do not
+  lower it without checking every solution. Only the child process this
+  server spawned is ever signalled.
 - Personal rows are read and written only through `scripts/db/progress.ts`,
   whose functions all take the learner id.
 - Never change a lesson `id` or an exercise `id` once live: progress is keyed

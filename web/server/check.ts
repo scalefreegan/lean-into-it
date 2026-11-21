@@ -17,7 +17,7 @@ import { hintRung, recordAttempt, solvedSince } from "../../scripts/db/progress.
 import { startOfDay } from "../shared/progress.ts";
 import { elapsedFrom } from "../shared/clock.ts";
 import { learnerId, rawDb } from "./db.ts";
-import { LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, restartTutorLean, type LeanCheck, type LeanServer } from "./lean/lsp.ts";
+import { LeanAbandoned, LeanTimeout, LeanUnavailable, leanProblem, leanServer, leanToolchain, restartTutorLean, wantedWhile, type LeanCheck, type LeanServer } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
 import { HttpError, methodNotAllowed, readJsonBody, sendJson } from "./sse.ts";
 
@@ -36,6 +36,24 @@ async function withLean<T>(run: (lean: LeanServer) => Promise<T>): Promise<T> {
     return await run(leanServer());
   } catch (e) {
     throw leanError(e);
+  }
+}
+
+/** Lean, for as long as the browser waits for this reply. A check whose turn
+ *  comes after the browser has stopped waiting (it asked again as the
+ *  learner typed on) is skipped, not sent to Lean (lsp.ts wantedWhile), and
+ *  this resolves to null: there is no one to answer and nothing to record. */
+async function whileAsked<T>(res: ServerResponse, run: (lean: LeanServer) => Promise<T>): Promise<T | null> {
+  const asked = new AbortController();
+  if (res.destroyed) asked.abort();
+  res.on("close", () => {
+    if (!res.writableFinished) asked.abort();
+  });
+  try {
+    return await wantedWhile(asked.signal, () => withLean(run));
+  } catch (e) {
+    if (e instanceof LeanAbandoned) return null;
+    throw e;
   }
 }
 
@@ -277,7 +295,12 @@ export async function handleCheck(req: IncomingMessage, res: ServerResponse): Pr
   const body = exercise.kind === "fill" ? input.body.trim() : input.body;
   // A fixed answer needs no Lean, so it is marked even while Lean is down.
   const fixed = isFixed(exercise.kind);
-  const reply = fixed ? checkFixed(exercise, body) : await withLean((lean) => checkExercise(lean, exercise, body, cursor, input.map === true));
+  // A press of Check is an attempt whether or not the page is still there
+  // to show its verdict: it is always run, and kept. Live checks are skipped
+  // once the editor has asked again.
+  const run = (lean: LeanServer) => checkExercise(lean, exercise, body, cursor, input.map === true);
+  const reply = fixed ? checkFixed(exercise, body) : input.record === "submitted" ? await withLean(run) : await whileAsked(res, run);
+  if (!reply) return;
   // Looking at an empty gap is not an attempt at it, nor is choosing the
   // right side of a true-or-false before writing anything (the wrong side
   // is), nor asking for the state a prediction starts from.
@@ -301,7 +324,8 @@ export async function handleGallery(req: IncomingMessage, res: ServerResponse): 
   const entry = loadContent().gallery?.find((e) => e.id === input.id);
   if (!entry) throw new HttpError(404, "no such proof in the gallery");
   const cursor = isPosition(input.cursor) ? input.cursor : undefined;
-  sendJson(res, 200, await withLean((lean) => checkExercise(lean, galleryExercise(entry), entry.solution, cursor, cursor === undefined)));
+  const reply = await whileAsked(res, (lean) => checkExercise(lean, galleryExercise(entry), entry.solution, cursor, cursor === undefined));
+  if (reply) sendJson(res, 200, reply);
 }
 
 /** Which checks become attempt rows (wire.ts CheckRequest.record). A check
@@ -338,7 +362,8 @@ export async function handlePlayground(req: IncomingMessage, res: ServerResponse
   if (input.source.length > MAX_SOURCE) throw new HttpError(413, "that file is too long");
   const cursor = isPosition(input.cursor) ? input.cursor : undefined;
   const source = input.source.endsWith("\n") ? input.source : `${input.source}\n`;
-  const result = await withLean((lean) => lean.check("playground", source, cursor ? [cursor] : [], true));
+  const result = await whileAsked(res, (lean) => lean.check("playground", source, cursor ? [cursor] : [], true));
+  if (!result) return;
   const reply: PlaygroundReply = {
     // Everything Lean said, linters included: here the file is the learner's own.
     diagnostics: result.diagnostics.map((d) => ({ severity: d.severity, message: d.message, line: d.start.line, range: { start: d.start, end: d.end } })),
