@@ -16,6 +16,15 @@ export const NOT_SPLITTABLE = "The goal is not of the form A ∧ B or A ↔ B, s
 /** What the board reports for `use` on a goal that is not a "there exists". */
 export const NOT_AN_EXISTS = "The goal is not of the form ∃ x, …, so the board did not send this move to Lean.";
 
+/** What the board reports for `obtain` on a fact it has no pattern for. On
+ *  some such facts Lean would refuse in words about its internals; on others
+ *  it would do something else quietly (an equation is substituted away, a
+ *  ≤ between natural numbers split into Lean's own cases), so the board
+ *  does not send it. */
+export const NO_PARTS = "The fact is not of the form A ∧ B, A ∨ B, A ↔ B or ∃ x, … (nor one of those by definition), so the board did not send this move to Lean.";
+/** The same for a fact that is an equation. */
+export const NO_PARTS_EQUATION = "The fact is an equation, not of the form A ∧ B, A ∨ B, A ↔ B or ∃ x, … (nor one of those by definition), so the board did not send this move to Lean.";
+
 /** What the board reports for `induction` when the goal has nothing to do induction on. */
 export const NO_NUMBER = "There is no natural number and no list among this goal's objects, so the board did not send this move to Lean.";
 
@@ -164,6 +173,10 @@ export function explain(message: string): string | null {
   }
   if (message === NO_NUMBER) {
     return "Induction is done on a natural number or on a list, and there is neither among the objects of this goal.";
+  }
+  if (message === NO_PARTS || message === NO_PARTS_EQUATION) {
+    const rest = message === NO_PARTS_EQUATION ? " An equation is used with rw instead: it replaces one side with the other." : "";
+    return `obtain takes a fact apart when it is an “and”, an “or”, an “if and only if” or a “there exists”. This fact is none of those, so it has no parts to take apart.${rest}`;
   }
   if (message === NOT_AN_EXISTS) {
     return "use gives the thing for a “there exists” goal, and this goal is not asking for a thing. If you have already given one and it was the wrong one, Undo takes it back.";

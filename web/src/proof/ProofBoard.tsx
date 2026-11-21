@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Exercise } from "../../shared/content.ts";
 import { UNCHANGED, explain } from "../../shared/explain.ts";
 import { namesIn, sameGoals, type Goal } from "../../shared/goals.ts";
-import { MOVES, misfit, moveLine, type Move } from "../../shared/moves.ts";
+import { MOVES, misfit, moveLine, obtainMisfit, type Move } from "../../shared/moves.ts";
 import type { CheckReply } from "../../shared/wire.ts";
 import { ApiError, check } from "../api/client.ts";
 import { ProofMap } from "../widgets/ProofMap.tsx";
@@ -172,7 +172,16 @@ export function ProofBoard({ lessonId, exercise, solution, onSolved, ladder, mov
 
   function pickFact(name: string) {
     if (!now || !pending || pending.needs !== "fact") return;
-    void play(moveLine(pending, now.goals[0] ?? { hypotheses: [], target: "" }, name));
+    const goal = now.goals[0] ?? { hypotheses: [], target: "" };
+    // obtain on a fact it has no pattern for is not sent (moves.ts obtainMisfit).
+    const no = pending.id === "obtain" ? obtainMisfit(goal, name) : null;
+    if (no) {
+      setPending(null);
+      setRefusal({ line: `obtain … := ${name}`, raw: no });
+      setShake((n) => n + 1);
+      return;
+    }
+    void play(moveLine(pending, goal, name));
   }
 
   function pickObject(name: string) {

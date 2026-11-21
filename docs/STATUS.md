@@ -254,6 +254,20 @@ Landed in the first PR, the foundation slice:
   what only False left means (`whatIsLeft`). A chain that stops short
   ("⊢ b < c", a link still to write) gets nothing particular. Held to
   Lean's real message in `web/server/lean.test.ts`.
+- obtain on any fact (`lii-8wq.6`). The board's obtain writes a pattern
+  for “there is exactly one” (`obtain ⟨x, hx, huniq⟩`), for membership in
+  a Set's ∩ and ∪ (an “and” and an “or” about the two sets), and for
+  False (`obtain ⟨⟩`, which ends the goal), besides and, or, iff, exists,
+  Even, Odd and ∣. ∩ and ∪ only where every set in them is known to be a
+  Set (a Finset's or a List's are not an “and” or an “or” by definition),
+  and only when the membership is the fact itself, not inside an
+  implication or a “for all”. The replay of every board solution now also
+  asks whether the board would refuse its obtain lines. On any other fact the board does not send it
+  (`obtainMisfit` in `web/shared/moves.ts`) and says why; on an equation it
+  points to rw. Before, it wrote ⟨h1, h2⟩: Lean refused that in words
+  about its internals, or quietly substituted an equation away, or split
+  a ≤ between natural numbers into Lean's own cases. Each new pattern is
+  played against the real Lean in `web/server/lean.test.ts`.
 - An adversarial pass on grading (`lii-1ou.5`): about 34 proof bodies
   tried against a false statement, through the app and through Lean with
   the pre-checks off. None was graded solved. Where Lean alone would
@@ -569,7 +583,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 539, including every reference solution checked by the real Lean,
+- Tests: 541, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -607,7 +621,7 @@ land first.
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-8wq.6` | obtain on a fact that is not an and, or, iff or exists | 3 | |
+| `lii-8wq.7` | After obtain on ∃!, the uniqueness card shows an unreduced lambda | 3 | |
 
 ### Widgets (epic `lii-53v`)
 
