@@ -49,13 +49,15 @@ function Shell() {
     <div className={cx("flex min-h-dvh flex-col", open && "lg:pr-[28rem]")}>
       <header className="sticky top-0 z-10 border-b border-line bg-panel/95 px-4 backdrop-blur sm:px-6">
         {/* Below md the sections take a row of their own under the name and
-            Listen, and scroll within it if they must: the page never does. */}
+            Listen, and scroll within it if they must: the page never does.
+            The nav's padding (taken back by its negative margin) is room for
+            the 4 px focus ring, which the scrolling box would clip. */}
         <div className="mx-auto flex max-w-[2400px] flex-wrap items-center gap-x-6 gap-y-2 py-3">
           <a href={href("home")} className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent font-mono text-lg font-bold text-accent-ink">⊢</span>
             <span className="font-display text-xl font-semibold text-fg">Lean Into It</span>
           </a>
-          <nav className="order-last -mx-1 flex w-[calc(100%+0.5rem)] gap-1 overflow-x-auto px-1 md:order-none md:mx-0 md:w-auto md:overflow-visible md:px-0" aria-label="Sections">
+          <nav className="order-last -m-1 flex w-[calc(100%+0.5rem)] gap-1 overflow-x-auto p-1 md:order-none md:m-0 md:w-auto md:overflow-visible md:p-0" aria-label="Sections">
             {tabs.map((t) => (
               <a
                 key={t.name}
