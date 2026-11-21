@@ -289,3 +289,84 @@ test("the Famous Proofs gallery: entries read in order; a bad one is refused wit
   // No gallery.yaml: no gallery, and nothing wrong.
   assert.equal(loadContent(fixture({ "curriculum.yaml": CURRICULUM })).gallery, undefined);
 });
+
+const PLAN = `
+    concepts:
+      - { id: later-idea, title: A later idea, needs: [implication] }
+      - { id: last-idea, title: The last idea, needs: [later-idea] }
+    planned:
+      - { id: logic-2-later, track: logic, title: Later, summary: The later lesson., concepts: [later-idea], widgets: [truth-table, venn] }
+    new_widgets:
+      - { id: venn, does: Overlapping circles. }`;
+const planned = (plan: string) => CURRICULUM.replace("  - { id: 2, title: Two, summary: s, status: outline, topics: [a, b] }", `  - id: 2\n    title: Two\n    status: outline${plan}`);
+
+test("a level's plan: concepts with what they build on, lessons to write, widgets still to build", () => {
+  const content = loadContent(fixture({ "curriculum.yaml": planned(PLAN), "lessons/logic/a.md": LESSON }));
+  assert.deepEqual(content.problems, []);
+  const two = content.levels.find((l) => l.id === 2)!;
+  assert.deepEqual(two.concepts, [
+    { id: "later-idea", title: "A later idea", needs: ["implication"] },
+    { id: "last-idea", title: "The last idea", needs: ["later-idea"] },
+  ]);
+  assert.deepEqual(two.planned, [{ id: "logic-2-later", title: "Later", track: "logic", summary: "The later lesson.", concepts: ["later-idea"], widgets: ["truth-table", "venn"] }]);
+  assert.deepEqual(two.newWidgets, [{ id: "venn", does: "Overlapping circles." }]);
+  // A level without a plan has empty ones.
+  assert.deepEqual([content.levels[0].concepts, content.levels[0].planned, content.levels[0].newWidgets], [[], [], []]);
+});
+
+const PLAN_REFUSALS: [string, (plan: string) => string, RegExp][] = [
+  ["a need nobody declares or teaches", (p) => p.replace("needs: [implication]", "needs: [telepathy]"), /the concept later-idea needs telepathy, which no level declares and no lesson teaches/],
+  ["a concept declared twice", (p) => p.replace("id: last-idea", "id: later-idea"), /the concept later-idea is declared twice/],
+  ["concepts in a circle", (p) => p.replace("needs: [implication]", "needs: [last-idea]"), /rest on each other in a circle: later-idea → last-idea → later-idea/],
+  ["an unknown track", (p) => p.replace("track: logic", "track: music"), /has track "music", which is not in curriculum.yaml/],
+  ["an unknown concept taught", (p) => p.replace("concepts: [later-idea]", "concepts: [nothing]"), /teaches nothing, which no level declares/],
+  ["a widget nobody plans", (p) => p.replace("widgets: [truth-table, venn]", "widgets: [hologram]"), /uses the widget hologram, which is neither registered nor under any level's `new_widgets`/],
+  ["a new widget that exists", (p) => p.replace("id: venn, does", "id: truth-table, does"), /truth-table is a widget already/],
+  ["a planned lesson without a track", (p) => p.replace("track: logic, ", ""), /a planned lesson needs an id \(lowercase, hyphens\), a title and a track/],
+  ["a concept without a title", (p) => p.replace("title: A later idea, ", ""), /a concept needs an id \(lowercase, hyphens\) and a title/],
+  ["a plan that is not a list", () => "\n    planned: soon", /level 2: `planned` must be a list/],
+  ["a field a plan does not have", (p) => p.replace("needs: [implication]", "need: [implication]"), /`need` is not a field of an entry of `concepts` \(id, title, needs\)/],
+  ["needs that are not a list", (p) => p.replace("needs: [implication]", "needs: implication"), /`needs` must be a list of names/],
+  ["a planned lesson written somewhere else", (p) => p.replace("id: logic-2-later", "id: logic-1-a"), /the planned lesson logic-1-a was written as level 1, track logic \(lessons\/logic\/a.md\); move the plan or the lesson/],
+];
+
+for (const [what, mutate, reason] of PLAN_REFUSALS) {
+  test(`a plan with ${what} is a problem`, () => {
+    const content = loadContent(fixture({ "curriculum.yaml": planned(mutate(PLAN)), "lessons/logic/a.md": LESSON }));
+    assert.ok(
+      content.problems.some((p) => p.file === "curriculum.yaml" && reason.test(p.message)),
+      JSON.stringify(content.problems),
+    );
+  });
+}
+
+test("docs/PRD.md's Curriculum section and curriculum.yaml agree on each outlined level: its title, and the moves it introduces", () => {
+  const content = loadContent(path.resolve(import.meta.dirname, "../../content"));
+  const prd = fs.readFileSync(path.resolve(import.meta.dirname, "../../docs/PRD.md"), "utf8");
+  const section = prd.slice(prd.indexOf("\n## Curriculum\n"), prd.indexOf("\n## ", prd.indexOf("\n## Curriculum\n") + 1));
+  for (const level of content.levels.filter((l) => l.status === "outline")) {
+    const at = section.indexOf(`- **Level ${level.id} — `);
+    assert.ok(at >= 0, `the PRD has no entry for level ${level.id}`);
+    const end = section.indexOf("\n- **", at + 1);
+    const entry = section.slice(at, end < 0 ? undefined : end);
+    assert.ok(entry.startsWith(`- **Level ${level.id} — ${level.title}.**`), `level ${level.id}: the PRD calls it ${entry.slice(0, 80)}`);
+    assert.ok(entry.includes("Moves:"), `level ${level.id}: the PRD lists no moves`);
+    const moves = [...entry.slice(entry.indexOf("Moves:")).matchAll(/`([^`]+)`/g)].map((m) => m[1]);
+    assert.deepEqual(moves, level.moves, `level ${level.id}: the moves after "Moves:" in the PRD`);
+  }
+});
+
+test("a concept that needs a later level's, or is declared for one level and taught in another, is a problem", () => {
+  const later = CURRICULUM.replace("  - { id: 1, title: One, summary: s }", "  - id: 1\n    title: One\n    concepts: [{ id: early, title: Early, needs: [later-idea] }]").replace("  - { id: 2, title: Two, summary: s, status: outline, topics: [a, b] }", `  - id: 2\n    title: Two\n    status: outline${PLAN}`);
+  const a = loadContent(fixture({ "curriculum.yaml": later, "lessons/logic/a.md": LESSON }));
+  assert.ok(a.problems.some((p) => /level 1: the concept early needs later-idea, which comes later, in level 2/.test(p.message)), JSON.stringify(a.problems));
+  const elsewhere = loadContent(fixture({ "curriculum.yaml": planned(PLAN), "lessons/logic/a.md": LESSON.replace("concepts: [implication]", "concepts: [implication, later-idea]") }));
+  assert.ok(elsewhere.problems.some((p) => /level 2: the concept later-idea is declared here but taught by logic-1-a, a level 1 lesson/.test(p.message)), JSON.stringify(elsewhere.problems));
+});
+
+test("a written level's moves each need a sentence and a Lab example; an outline's need neither yet", () => {
+  const withMoves = (status: string) => CURRICULUM.replace("  - { id: 2, title: Two, summary: s, status: outline, topics: [a, b] }", `  - { id: 2, title: Two, summary: s${status}, moves: [exact, ext] }`);
+  assert.deepEqual(loadContent(fixture({ "curriculum.yaml": withMoves(", status: outline"), "lessons/logic/a.md": LESSON })).problems, []);
+  const written = loadContent(fixture({ "curriculum.yaml": withMoves(""), "lessons/logic/a.md": LESSON }));
+  assert.deepEqual(written.problems.map((p) => p.message), ["level 2: the move ext has no sentence or no Lab example in web/shared/lab.ts, which a written level's moves need; until it has, keep the level `status: outline`"]);
+});

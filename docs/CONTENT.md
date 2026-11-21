@@ -41,6 +41,17 @@ levels:
     ladder: 1                 # optional, 1-4; how its proofs are entered (below)
     topics:                   # optional; what is still to be written
       - "And: proving both parts, using either part"
+    concepts:                 # optional; the plan: what it will teach
+      - { id: sets, title: "Sets, membership and subset", needs: [forall, implication] }
+    planned:                  # optional; the lessons to write, in order
+      - id: math-4-sets       # the id the lesson will have
+        track: math
+        title: What a set is
+        summary: One sentence, shown on the Path.
+        concepts: [sets]
+        widgets: [set-diagram, proof-state]
+    new_widgets:              # optional; widgets a plan needs that do not exist yet
+      - { id: set-diagram, does: "Venn regions for two or three sets." }
 ```
 
 A track needs an `id` and a `title`; a level needs a whole-number `id`, used
@@ -50,6 +61,29 @@ Path as written and are not checked against the board's moves, so they may
 name tactics the board has no button for (`calc`, `have`). A topic
 containing a colon needs quotes, as above: without them YAML reads it as
 something else and the topic is dropped, with no message.
+
+A level's plan says what is still to write, for the Tutor and the author;
+the outlined levels (4 to 8) have one. A `concept` needs an id, used once
+in the file, and a title; its `needs` are the concepts it builds on, each
+declared in some level's `concepts` (at that level or an earlier one) or
+listed by a lesson, and never round in a circle. A concept declared for a
+level is taught there only: a lesson at another level may not list it.
+Each entry takes only the fields shown, and `needs`, `concepts` and
+`widgets` are lists. A `planned` lesson needs an id, a title and a known track; its
+`concepts` are declared or taught; each of its `widgets` is a registered
+one or is listed under some level's `new_widgets` (whose ids must not be
+registered already). The Path lists a planned lesson until a lesson file
+has its id; that lesson must then be in the level and track it was planned
+for. A titled entry containing a comma or a colon needs quotes in the
+`{ … }` form, as above. An outline level's `moves` are its plan as well:
+they are shown on the Path, but the Moves page, the Lab and mastery count
+only a written level's. `npm run check:content -- --gaps` lists the planned
+lessons not yet written. A level marked `status: outline` never opens,
+lessons or not. Before that line goes, each of the level's moves needs a
+sentence and a Lab example in `web/shared/lab.ts` (the loader refuses a
+written level without them). docs/PRD.md's Curriculum section says each
+outlined level in prose, and a test keeps its titles and moves the same as
+this file's.
 
 A level's `ladder` is the rung its proofs default to, from clicking to
 typing (default 1):

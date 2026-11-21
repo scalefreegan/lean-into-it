@@ -102,6 +102,7 @@ if (flags.has("--gaps")) {
   list("Moves a level says it introduces that no exercise up to that level uses:", gaps.unexercised.map((g) => `level ${g.level}: ${g.moves.join(", ")}`));
   list("Levels with no lesson yet:", gaps.empty.map(String));
   list("Topics still to be written:", gaps.topics.map((t) => `level ${t.level}: ${t.topic}`));
+  list("Lessons planned and not yet written:", gaps.planned.map((p) => `level ${p.level}: ${p.id} (${p.title})`));
   const spoken = spokenCoverage(content);
   list("Formulas with no spoken form that Listen mode is not sure how to say (write `code`{say: …}; shown with what is said now):", spoken.formulas.map((f) => `${f.lesson}: \`${f.code}\` is said "${f.said}"${f.claim ? " (in an exercise's title or claim, which is shown as written: reword it there, a form would be seen)" : ""}`));
   list("Symbols in running text that Listen mode has no word for (web/shared/tts/say.ts):", spoken.symbols.map((s) => `${s.lesson}: ${s.symbols.join(" ")}`));

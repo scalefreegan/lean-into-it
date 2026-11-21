@@ -165,28 +165,48 @@ the pattern, then the statement; work backwards from the goal; look for a
 counterexample before trying to prove; split into cases; strengthen the
 induction hypothesis; state a lemma and reuse it; what "clearly" hides.
 
-Outlined only, for the Tutor and me to fill in:
+Outlined only, for the Tutor and me to fill in. `content/curriculum.yaml`
+holds each outlined level's plan: its concepts and what each builds on,
+the lessons to write (each with the id it will have, its track, concepts
+and widgets), and the widgets still to build. The Path shows the plan; the
+Tutor writes a planned lesson on request. A test keeps the titles and
+moves below the same as the file's.
 
-- **Level 4 — Sets and functions.** Sets, subsets, union and intersection;
-  functions as objects; injective, surjective, bijective; images and
-  preimages; relations and equivalence classes. Moves: `ext`, `funext`,
-  `rintro`, `simp only`, `refine`.
-- **Level 5 — Sequences and limits (epsilon-N).** Sequences; what "tends
-  to" means; epsilon-N proofs by hand; uniqueness of limits; sums and
-  products of limits; bounded monotone sequences. Moves: `specialize`,
-  `choose`, `filter_upwards`, working with `∀ ε > 0, ∃ N`.
-- **Level 6 — Continuity, derivatives, integrals.** Epsilon-delta
-  continuity; the derivative as a limit; rules of differentiation; the mean
-  value theorem; the integral and the fundamental theorem. Moves: Mathlib's
-  calculus API (`HasDerivAt`, `deriv`, `fun_prop`, `continuity`).
-- **Level 7 — Verified programs: specs, invariants, sort, search.**
-  Insertion sort and its two-part specification (sorted, a permutation);
-  binary search; trees; termination; then imperative code with loops and
-  mutable state, proved with invariants.
-- **Level 8 — How large formalisations are built.** Mathlib and how it is
-  organised; blueprints and dependency graphs; reading a statement you
-  cannot yet prove; what AI provers do and what the kernel still checks;
-  what a formal proof does and does not establish.
+- **Level 4 — Sets and functions.** `math`: sets, membership and subset;
+  union, intersection and complement; two sets equal when they have the
+  same members; images and preimages; injective, surjective and bijective;
+  composition and inverses; relations and equivalence classes. `lean`: a
+  set is a predicate. `logic`: Cantor's diagonal argument. New widgets: a
+  set diagram, function arrows.
+  Moves: `ext`, `rintro`, `refine`, `funext`, `simp only`.
+- **Level 5 — Sequences and limits.** `math`: sequences as functions of
+  n; what "tends to" means, for every ε an N; epsilon-N proofs by hand;
+  uniqueness of limits; sums and products of limits; the squeeze theorem;
+  bounded monotone sequences. `lean`: Mathlib's `Tendsto`, limits as
+  filters.
+  Moves: `specialize`, `choose`, `filter_upwards`.
+- **Level 6 — Continuity, derivatives, integrals.** `math`: epsilon-delta
+  limits of functions; continuity; the derivative as a limit of secant
+  slopes; the rules of differentiation, proved; the mean value theorem;
+  Riemann sums and the integral; the fundamental theorem. `lean`:
+  Mathlib's calculus (`HasDerivAt`, `deriv`, and an integral that
+  is not built from Riemann sums but agrees with them on continuous
+  functions).
+  Moves: `fun_prop`, `continuity`.
+- **Level 7 — Verified programs.** `programs`: what a specification
+  leaves out; sorting's two-part specification (sorted, a permutation);
+  insertion sort proved; termination; binary search and its invariant;
+  trees and structural induction; then imperative code with loops and
+  mutable state, proved with invariants (Lean's tools for this are new
+  and changing); what "verified" does and does not
+  promise. New widget: the program stepper.
+  Moves: `unfold`, `split`, `simp_all`.
+- **Level 8 — How large formalisations are built.** `lean`: Mathlib and
+  how it grows; blueprints and dependency graphs; reading a statement you
+  cannot yet prove; what automation and AI provers do and what the kernel
+  still checks. `logic`: what a formal proof does and does not establish.
+  New widget: a blueprint graph.
+  Moves: `apply?`, `aesop`.
 
 ## Exercises
 

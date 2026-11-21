@@ -43,7 +43,7 @@
 
 import { attemptOnBoard } from "./ladder.ts";
 import { isReading } from "./recognize.ts";
-import type { Content, Exercise } from "./content.ts";
+import type { Content, Exercise, Level } from "./content.ts";
 import { lex } from "./proof.ts";
 
 export const RECENT_WINDOW = 12;
@@ -123,21 +123,32 @@ export function blankMastery(): Mastery {
   return { mastery: 0, attempts: 0, correct: 0, mastered: false, lastSeenAt: null, recent: [], box: 0, dueAt: null };
 }
 
-/** Every move a level introduces, in curriculum order, each once. */
-export function tacticsOf(content: Pick<Content, "levels">): string[] {
-  return [...new Set(content.levels.flatMap((l) => l.moves))];
+/** Every move a written level introduces, in curriculum order, each once.
+ *  An outline's moves are its plan: nothing counts them, lists them as
+ *  taught, or needs a Lab example of them until the level is written. */
+export function tacticsOf(content: { levels: Pick<Level, "moves" | "status">[] }): string[] {
+  return [...new Set(content.levels.filter((l) => l.status !== "outline").flatMap((l) => l.moves))];
 }
 
 // A word stops at these, so `exact` is not found in `exact?` nor `rw` in
 // `h.rw`. A trailing `'` is the primed form of the same move: the board
 // writes `induction' n with n ih`.
 const WORD_CHAR = "A-Za-z0-9_!?.";
-const matcher = (t: string) => new RegExp(`(^|[^${WORD_CHAR}'])${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}'?($|[^${WORD_CHAR}'])`);
+const escape = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const matcher = (t: string) => new RegExp(`(^|[^${WORD_CHAR}'])${escape(t)}'?($|[^${WORD_CHAR}'])`);
 
 /** The moves of `tactics` a piece of Lean uses, comments and strings aside. */
 export function tacticsIn(lean: string, tactics: string[]): string[] {
-  const { bare } = lex(lean);
-  return tactics.filter((t) => matcher(t).test(bare));
+  let bare = lex(lean).bare;
+  // Longest first, each blanked once found, so `simp only` is not also `simp`.
+  const found = new Set<string>();
+  for (const t of [...tactics].sort((a, b) => b.length - a.length)) {
+    if (!matcher(t).test(bare)) continue;
+    found.add(t);
+    const every = new RegExp(`(^|[^${WORD_CHAR}'])(${escape(t)}'?)(?=$|[^${WORD_CHAR}'])`, "gm");
+    bare = bare.replace(every, (_m, before: string, word: string) => before + " ".repeat(word.length));
+  }
+  return tactics.filter((t) => found.has(t));
 }
 
 /** The last line of a body with code on it, strings and comments blanked:

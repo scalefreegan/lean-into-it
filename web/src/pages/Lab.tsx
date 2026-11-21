@@ -98,7 +98,7 @@ function MoveReference() {
   return (
     <div className="flex flex-col gap-6">
       {content.levels
-        .filter((l) => l.moves.length > 0)
+        .filter((l) => l.status !== "outline" && l.moves.length > 0)
         .map((level) => (
           <section key={level.id} data-lab-level={level.id}>
             <h2 className="flex items-baseline gap-3">

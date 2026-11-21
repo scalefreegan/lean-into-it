@@ -286,8 +286,67 @@ function LevelCard({
             </ul>
           </details>
         )}
+
+        <LevelPlan level={level} />
       </div>
     </section>
+  );
+}
+
+/** A level's plan from curriculum.yaml: the lessons still to write, and the
+ *  concepts it will teach with what each builds on. Listed, not linked. */
+function LevelPlan({ level }: { level: Level }) {
+  const { content } = useApp();
+  const toWrite = level.planned.filter((p) => !content.lessons.some((l) => l.id === p.id));
+  const trackTitle = (id: string) => content.tracks.find((t) => t.id === id)?.title ?? id;
+  const toBuild = new Set(content.levels.flatMap((l) => l.newWidgets.map((w) => w.id)));
+  const declared = new Map(content.levels.flatMap((l) => l.concepts.map((c) => [c.id, c.title] as const)));
+  // A concept only a lesson names has no title of its own: the first lesson teaching it gives one.
+  const named = (id: string) => declared.get(id) ?? content.lessons.find((l) => l.concepts.includes(id))?.title ?? id;
+  if (!toWrite.length && !level.concepts.length) return null;
+  return (
+    <>
+      {toWrite.length > 0 && (
+        <div className="mt-4" data-level-planned>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-fg-3">Lessons to write</h3>
+          <ul className="mt-2 grid gap-2 xl:grid-cols-2">
+            {toWrite.map((p) => (
+              <li key={p.id} data-planned-lesson={p.id} className="flex items-start gap-3 rounded-xl border border-dashed border-line px-4 py-3">
+                <span className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-dashed border-line-strong" />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold text-fg-2">{p.title}</span>
+                  {p.summary && <span className="block text-sm text-fg-3">{p.summary}</span>}
+                  {p.widgets.length > 0 && (
+                    <span className="mt-1 flex flex-wrap gap-1 text-xs text-fg-3">
+                      {p.widgets.map((w) => (
+                        <span key={w} className="rounded-full border border-line px-2 py-0.5 font-mono">
+                          {w}
+                          {toBuild.has(w) && " (to build)"}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 text-right text-xs text-fg-3">{trackTitle(p.track)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {level.concepts.length > 0 && (
+        <details className="mt-4" data-level-concepts>
+          <summary className="cursor-pointer text-sm font-semibold text-fg-3">Concepts, and what each builds on</summary>
+          <ul className="mt-2 flex flex-col gap-1 text-sm text-fg-2">
+            {level.concepts.map((c) => (
+              <li key={c.id}>
+                {c.title}
+                {c.needs.length > 0 && <span className="text-fg-3"> — builds on {c.needs.map(named).join("; ")}</span>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
   );
 }
 

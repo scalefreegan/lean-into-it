@@ -44,6 +44,9 @@ test("a move is found as a word, not inside another word, a comment or a string"
   assert.deepEqual(tacticsIn("exact Nat.rw_foo h", all), ["exact"]);
   assert.deepEqual(tacticsIn("· exact h", all), ["exact"]);
   assert.deepEqual(tacticsIn("exact h.rw", all), ["exact"], "a dot stops a word");
+  assert.deepEqual(tacticsIn("simp only [h]", ["simp", "simp only"]), ["simp only"], "the longer move is the one used");
+  assert.deepEqual(tacticsIn("simp only [h]\nsimp", ["simp", "simp only"]), ["simp", "simp only"]);
+  assert.deepEqual(tacticsIn("simp only [h] simp only", ["simp only", "simp"]), ["simp only"], "every use of it, side by side");
   assert.deepEqual(tacticsIn("induction' n with n ih", ["induction"]), ["induction"], "the primed form is the same move");
 });
 

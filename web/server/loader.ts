@@ -13,10 +13,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
 import { ROOT } from "../../scripts/env.mjs";
-import type { Block, Content, ContentProblem, Exercise, GalleryEntry, Lesson, Level, Track } from "../shared/content.ts";
+import type { Block, Content, ContentProblem, Exercise, GalleryEntry, Lesson, Level, PlannedConcept, Track } from "../shared/content.ts";
 import { sortLessons, type TrueFalse } from "../shared/content.ts";
 import { splitStatement, writeAnswer, type Witness } from "../shared/truefalse.ts";
 import { proofLines, readSteps } from "../shared/paired.ts";
+import { moveDoes, TACTIC_EXAMPLES } from "../shared/lab.ts";
 import { checkParams, EXERCISE_KEYS, EXERCISES, isExerciseKind, isWidget, WIDGET_KEYS, WIDGETS } from "../shared/registry.ts";
 
 /** LEAN_INTO_IT_CONTENT_DIR lets tests point at a fixture; else <repo>/content. */
@@ -72,6 +73,7 @@ export function loadContent(dir = contentDir()): Content {
       topics: strings(l.topics),
       moves: strings(l.moves),
       ladder: isLadder(l.ladder) ? l.ladder : 1,
+      ...readPlan(l, `level ${l.id}`, (message) => problem("curriculum.yaml", message)),
     });
   }
   levels.sort((a, b) => a.id - b.id);
@@ -100,8 +102,122 @@ export function loadContent(dir = contentDir()): Content {
     }
     lessons.push(lesson);
   }
+  checkPlan(levels, tracks, lessons, (message) => problem("curriculum.yaml", message));
   const gallery = parseGallery(dir, levels, (message) => problem("gallery.yaml", message));
   return { tracks, levels, lessons: sortLessons(lessons, tracks), ...(gallery ? { gallery } : {}), problems };
+}
+
+/** A level's plan in curriculum.yaml (docs/CONTENT.md): `concepts`,
+ *  `planned` and `new_widgets`, each entry checked for shape on its own;
+ *  how they refer to each other is checkPlan's, once the lessons are read. */
+function readPlan(l: Raw, where: string, problem: (message: string) => void): Pick<Level, "concepts" | "planned" | "newWidgets"> {
+  const list = (key: string): Raw[] => {
+    if (l[key] === undefined) return [];
+    if (!Array.isArray(l[key])) {
+      problem(`${where}: \`${key}\` must be a list`);
+      return [];
+    }
+    return l[key].filter((x): x is Raw => {
+      if (!isRecord(x)) problem(`${where}: an entry of \`${key}\` must have fields: ${JSON.stringify(x)}`);
+      return isRecord(x);
+    });
+  };
+  const KEYS: Record<string, string[]> = { concepts: ["id", "title", "needs"], planned: ["id", "title", "track", "summary", "concepts", "widgets"], new_widgets: ["id", "does"] };
+  const fields = (key: string, x: Raw): boolean => {
+    const unknown = Object.keys(x).filter((k) => !KEYS[key].includes(k));
+    if (unknown.length) problem(`${where}: \`${unknown[0]}\` is not a field of an entry of \`${key}\` (${KEYS[key].join(", ")}): ${JSON.stringify(x)}`);
+    const notList = KEYS[key].filter((k) => ["needs", "concepts", "widgets"].includes(k) && x[k] !== undefined && !(Array.isArray(x[k]) && x[k].every((v) => typeof v === "string")));
+    if (notList.length) problem(`${where}: \`${notList[0]}\` must be a list of names: ${JSON.stringify(x)}`);
+    return !unknown.length && !notList.length;
+  };
+  const concepts = list("concepts").flatMap((c) => {
+    if (!fields("concepts", c)) return [];
+    if (!ID.test(str(c.id)) || !str(c.title)) {
+      problem(`${where}: a concept needs an id (lowercase, hyphens) and a title: ${JSON.stringify(c)}`);
+      return [];
+    }
+    return [{ id: str(c.id), title: str(c.title), needs: strings(c.needs) }];
+  });
+  const planned = list("planned").flatMap((p) => {
+    if (!fields("planned", p)) return [];
+    if (!ID.test(str(p.id)) || !str(p.title) || !str(p.track)) {
+      problem(`${where}: a planned lesson needs an id (lowercase, hyphens), a title and a track: ${JSON.stringify(p)}`);
+      return [];
+    }
+    return [{ id: str(p.id), title: str(p.title), track: str(p.track), summary: str(p.summary), concepts: strings(p.concepts), widgets: strings(p.widgets) }];
+  });
+  const newWidgets = list("new_widgets").flatMap((w) => {
+    if (!fields("new_widgets", w)) return [];
+    if (!ID.test(str(w.id)) || !str(w.does)) {
+      problem(`${where}: a new widget needs an id (lowercase, hyphens) and what it \`does\`: ${JSON.stringify(w)}`);
+      return [];
+    }
+    return [{ id: str(w.id), does: str(w.does) }];
+  });
+  return { concepts, planned, newWidgets };
+}
+
+/** What the levels' plans name must exist: each concept and planned lesson
+ *  once, every concept a plan names declared or taught, no concept resting
+ *  on itself, every track known, every widget registered or listed as new.
+ *  A planned lesson whose id a lesson has is written, and must be where it
+ *  was planned. */
+function checkPlan(levels: Level[], tracks: Track[], lessons: Lesson[], problem: (message: string) => void): void {
+  const declared = new Map<string, PlannedConcept>();
+  for (const level of levels)
+    for (const c of level.concepts) {
+      if (declared.has(c.id)) problem(`level ${level.id}: the concept ${c.id} is declared twice`);
+      else declared.set(c.id, c);
+    }
+  const known = new Set([...declared.keys(), ...lessons.flatMap((l) => l.concepts)]);
+  const levelOfConcept = new Map<string, number>();
+  for (const level of levels) for (const c of level.concepts) if (!levelOfConcept.has(c.id)) levelOfConcept.set(c.id, level.id);
+  // A concept's mastery is one row whoever teaches it: one declared for a level is taught there and nowhere else.
+  for (const lesson of lessons)
+    for (const c of lesson.concepts) {
+      const at = levelOfConcept.get(c);
+      if (at !== undefined && at !== lesson.level) problem(`level ${at}: the concept ${c} is declared here but taught by ${lesson.id}, a level ${lesson.level} lesson; give one of them a new id`);
+    }
+  const newWidgets = new Set<string>();
+  for (const level of levels)
+    for (const w of level.newWidgets) {
+      if (isWidget(w.id)) problem(`level ${level.id}: ${w.id} is a widget already; name it in a lesson's \`widgets\`, not under \`new_widgets\``);
+      else if (newWidgets.has(w.id)) problem(`level ${level.id}: the new widget ${w.id} is listed twice`);
+      newWidgets.add(w.id);
+    }
+  const plannedIds = new Set<string>();
+  for (const level of levels) {
+    for (const c of level.concepts)
+      for (const n of c.needs) {
+        if (!known.has(n)) problem(`level ${level.id}: the concept ${c.id} needs ${n}, which no level declares and no lesson teaches`);
+        else if ((levelOfConcept.get(n) ?? -Infinity) > level.id) problem(`level ${level.id}: the concept ${c.id} needs ${n}, which comes later, in level ${levelOfConcept.get(n)}`);
+      }
+    // A written level's moves are counted and listed (web/shared/progress.ts tacticsOf), so each needs its sentence and Lab example, which are app code.
+    if (level.status !== "outline")
+      for (const m of level.moves)
+        if (!moveDoes(m) || !Object.hasOwn(TACTIC_EXAMPLES, m))
+          problem(`level ${level.id}: the move ${m} has no sentence or no Lab example in web/shared/lab.ts, which a written level's moves need; until it has, keep the level \`status: outline\``);
+    for (const p of level.planned) {
+      if (plannedIds.has(p.id)) problem(`level ${level.id}: the planned lesson ${p.id} is listed twice`);
+      plannedIds.add(p.id);
+      if (!tracks.some((t) => t.id === p.track)) problem(`level ${level.id}: the planned lesson ${p.id} has track "${p.track}", which is not in curriculum.yaml`);
+      for (const c of p.concepts) if (!known.has(c)) problem(`level ${level.id}: the planned lesson ${p.id} teaches ${c}, which no level declares and no lesson teaches`);
+      for (const w of p.widgets) if (!isWidget(w) && !newWidgets.has(w)) problem(`level ${level.id}: the planned lesson ${p.id} uses the widget ${w}, which is neither registered nor under any level's \`new_widgets\``);
+      const written = lessons.find((l) => l.id === p.id);
+      if (written && (written.level !== level.id || written.track !== p.track))
+        problem(`level ${level.id}: the planned lesson ${p.id} was written as level ${written.level}, track ${written.track} (${written.file}); move the plan or the lesson`);
+    }
+  }
+  // A concept may not rest on itself, however far round.
+  const state = new Map<string, "open" | "done">();
+  const visit = (id: string, path: string[]): void => {
+    if (state.get(id) === "done") return;
+    if (state.get(id) === "open") return problem(`the concepts rest on each other in a circle: ${[...path.slice(path.indexOf(id)), id].join(" → ")}`);
+    state.set(id, "open");
+    for (const n of declared.get(id)?.needs ?? []) visit(n, [...path, id]);
+    state.set(id, "done");
+  };
+  for (const id of declared.keys()) visit(id, []);
 }
 
 const GALLERY_KEYS = ["id", "title", "says", "who", "why", "level", "statement", "solution", "steps", "formal", "mathlib"];

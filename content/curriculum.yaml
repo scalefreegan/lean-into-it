@@ -1,7 +1,10 @@
 # The map of the whole curriculum: tracks and levels. Lessons live in
 # content/lessons/<track>/ and say which track and level they belong to.
 # Format: docs/CONTENT.md. A level marked `status: outline` has no lessons
-# yet; its topics say what it will cover. A level's `ladder` is the rung its
+# yet; its plan says what it will teach: its concepts and what each builds
+# on, the lessons to write (each with the id it will have), and the widgets
+# they need that do not exist yet. docs/PRD.md's Curriculum section says
+# the same in prose. A level's `ladder` is the rung its
 # proofs default to: 1 cards with the proof's own moves, 2 cards with every
 # move learned so far, 3 typing with the moves to hand, 4 typing alone.
 
@@ -45,58 +48,310 @@ levels:
     ladder: 4
     status: outline
     summary: Sets, subsets, unions and intersections, and what it means for a function to be injective or surjective.
-    topics:
-      - Membership, subset, union, intersection, complement
-      - Proving two sets are equal
-      - Functions, images and preimages
-      - Injective, surjective, bijective
-      - Composition and inverses
-      - Cantor's diagonal argument
+    moves: [ext, rintro, refine, funext, simp only]
+    concepts:
+      - { id: sets, title: "Sets, membership and subset", needs: [forall, implication] }
+      - { id: set-operations, title: "Union, intersection and complement", needs: [sets, and, or, negation] }
+      - { id: set-equality, title: "Two sets are equal when they have the same members", needs: [set-operations, iff] }
+      - { id: images-preimages, title: "Images and preimages", needs: [sets, functions, exists] }
+      - { id: injective-surjective, title: "Injective, surjective and bijective", needs: [functions, forall, exists] }
+      - { id: composition-inverses, title: "Composition and inverses", needs: [injective-surjective] }
+      - { id: equivalence-relations, title: "Relations and equivalence classes", needs: [sets, iff] }
+      - { id: cantor-diagonal, title: "Cantor's diagonal argument: no surjection onto the subsets", needs: [sets, injective-surjective, negation] }
+    planned:
+      - id: math-4-sets
+        track: math
+        title: What a set is
+        summary: A set as the things that have a property; membership, subset, and a subset proved by taking a member.
+        concepts: [sets]
+        widgets: [set-diagram, proof-state]
+      - id: lean-4-sets-are-predicates
+        track: lean
+        title: Sets are predicates
+        summary: "In Lean a set is a property: x ∈ {n | n > 2} unfolds to x > 2, and rintro takes a member apart in one line."
+        concepts: [sets]
+        widgets: [proof-state]
+      - id: math-4-set-operations
+        track: math
+        title: Union, intersection, complement
+        summary: Each operation is a logical connective in disguise, and each proof uses the moves of Level 1.
+        concepts: [set-operations]
+        widgets: [set-diagram, truth-table]
+      - id: math-4-set-equality
+        track: math
+        title: Proving two sets equal
+        summary: ext turns one equation into two inclusions, each proved by chasing a member.
+        concepts: [set-equality]
+        widgets: [set-diagram, informal-formal]
+      - id: math-4-images-preimages
+        track: math
+        title: Images and preimages
+        summary: Where a function sends a set, and where a set came from, and why the preimage behaves better.
+        concepts: [images-preimages]
+        widgets: [function-arrows]
+      - id: math-4-injective-surjective
+        track: math
+        title: Injective, surjective, bijective
+        summary: No two inputs share an output; every output is hit; both. Read off arrows, then proved.
+        concepts: [injective-surjective]
+        widgets: [function-arrows, plot]
+      - id: math-4-composition-inverses
+        track: math
+        title: Composition and inverses
+        summary: Composing injections and surjections, and why a bijection has an inverse; funext proves two functions equal.
+        concepts: [composition-inverses]
+        widgets: [function-arrows, informal-formal]
+      - id: math-4-equivalence-relations
+        track: math
+        title: Equivalence relations
+        summary: Reflexive, symmetric, transitive, and the classes such a relation cuts a set into.
+        concepts: [equivalence-relations]
+        widgets: [set-diagram]
+      - id: logic-4-cantor
+        track: logic
+        title: Cantor's diagonal argument
+        summary: No function from a set onto its subsets, by building the one subset it misses.
+        concepts: [cantor-diagonal]
+        widgets: [informal-formal]
+    new_widgets:
+      - { id: set-diagram, does: "Venn regions for two or three sets, shading the one a formula names." }
+      - { id: function-arrows, does: "Two small finite sets with arrows between them, coloured where injectivity or surjectivity fails." }
   - id: 5
     title: Sequences and limits
     ladder: 4
     status: outline
     summary: What it means for a sequence to converge, with epsilon and N you can drag.
-    topics:
-      - Sequences and their graphs
-      - The definition of a limit, epsilon and N
-      - Proving a limit from the definition
-      - Limits of sums and products
-      - Bounded and monotone sequences
-      - The squeeze theorem
+    moves: [specialize, choose, filter_upwards]
+    concepts:
+      - { id: sequences, title: "Sequences as functions of n", needs: [functions, natural-numbers] }
+      - { id: limit-definition, title: "What tends to means: for every ε an N", needs: [sequences, forall, exists, absolute-value, inequalities] }
+      - { id: limit-proofs, title: "Proving a limit from the definition", needs: [limit-definition] }
+      - { id: limit-uniqueness, title: "A sequence has at most one limit", needs: [limit-proofs, negation] }
+      - { id: limit-algebra, title: "Limits of sums and products", needs: [limit-proofs] }
+      - { id: squeeze, title: "The squeeze theorem", needs: [limit-proofs] }
+      - { id: monotone-bounded, title: "Bounded monotone sequences converge", needs: [limit-definition, real-numbers] }
+      - { id: filters, title: "Mathlib's Tendsto: limits as filters", needs: [limit-definition, sets] }
+    planned:
+      - id: math-5-sequences
+        track: math
+        title: Sequences and their graphs
+        summary: A sequence is a function from the natural numbers; drawn as dots, some settle and some do not.
+        concepts: [sequences]
+        widgets: [sequence-limit, plot]
+      - id: math-5-epsilon-n
+        track: math
+        title: Epsilon and N
+        summary: "Tends to L: however small a band round L, the sequence stays inside it from some point on."
+        concepts: [limit-definition]
+        widgets: [sequence-limit, number-line]
+      - id: math-5-limit-proofs
+        track: math
+        title: Proving a limit
+        summary: Choose N from ε on scratch paper, then write the proof forwards; 1/n tends to 0.
+        concepts: [limit-proofs]
+        widgets: [sequence-limit, informal-formal]
+      - id: math-5-uniqueness
+        track: math
+        title: Only one limit
+        summary: Two limits would have to be closer than any ε apart; specialize the definition twice.
+        concepts: [limit-uniqueness]
+        widgets: [number-line, informal-formal]
+      - id: math-5-sums-products
+        track: math
+        title: Sums and products of limits
+        summary: The ε/2 trick for sums, and the bound that products need first; choose names an N for every ε.
+        concepts: [limit-algebra]
+        widgets: [sequence-limit]
+      - id: math-5-squeeze
+        track: math
+        title: The squeeze theorem
+        summary: A sequence caught between two with the same limit has it too.
+        concepts: [squeeze]
+        widgets: [plot]
+      - id: math-5-monotone
+        track: math
+        title: Bounded and monotone
+        summary: Why an increasing sequence with an upper bound converges, and the property of the reals that makes it so.
+        concepts: [monotone-bounded]
+        widgets: [sequence-limit]
+      - id: lean-5-tendsto
+        track: lean
+        title: Limits in Mathlib
+        summary: The ε-N definition beside Mathlib's Tendsto, and filter_upwards for "eventually".
+        concepts: [filters]
+        widgets: [proof-state]
   - id: 6
     title: Continuity, derivatives, integrals
     ladder: 4
     status: outline
     summary: Calculus revisited, this time with every step justified.
-    topics:
-      - Limits of functions, epsilon and delta
-      - Continuity
-      - The derivative as a limit of secant slopes
-      - Rules for derivatives, proved
-      - The mean value theorem
-      - Riemann sums and the integral
-      - The fundamental theorem of calculus
+    moves: [fun_prop, continuity]
+    concepts:
+      - { id: function-limits, title: "Limits of functions: ε and δ", needs: [limit-definition, functions] }
+      - { id: continuity, title: "Continuity", needs: [function-limits, limit-algebra] }
+      - { id: derivative, title: "The derivative as a limit of secant slopes", needs: [function-limits] }
+      - { id: derivative-rules, title: "The rules for derivatives, proved", needs: [derivative, limit-algebra, continuity] }
+      - { id: mean-value, title: "The mean value theorem", needs: [derivative, continuity] }
+      - { id: riemann-integral, title: "Riemann sums and the integral", needs: [sums, limit-definition] }
+      - { id: fundamental-theorem, title: "The fundamental theorem of calculus", needs: [riemann-integral, derivative, mean-value] }
+      - { id: calculus-in-mathlib, title: "Mathlib's calculus: HasDerivAt, deriv and the integral", needs: [derivative-rules, fundamental-theorem, filters] }
+    planned:
+      - id: math-6-epsilon-delta
+        track: math
+        title: Epsilon and delta
+        summary: The limit of a function at a point, the same game as ε and N with δ in place of N.
+        concepts: [function-limits]
+        widgets: [epsilon-delta]
+      - id: math-6-continuity
+        track: math
+        title: Continuity
+        summary: Continuous at a point, and why sums, products and compositions of continuous functions are.
+        concepts: [continuity]
+        widgets: [epsilon-delta, plot]
+      - id: math-6-derivative
+        track: math
+        title: The derivative
+        summary: Secant slopes closing in on the tangent; the derivative of x² from the definition.
+        concepts: [derivative]
+        widgets: [secant-tangent]
+      - id: math-6-rules
+        track: math
+        title: The rules, proved
+        summary: The sum, product and chain rules, each from the definition and the limit laws of Level 5.
+        concepts: [derivative-rules]
+        widgets: [secant-tangent, informal-formal]
+      - id: math-6-mean-value
+        track: math
+        title: The mean value theorem
+        summary: Somewhere the tangent is parallel to the chord; what follows from it about increasing functions.
+        concepts: [mean-value]
+        widgets: [plot, informal-formal]
+      - id: math-6-integral
+        track: math
+        title: Riemann sums and the integral
+        summary: Area as the limit of sums of rectangles, and the functions for which the limit exists.
+        concepts: [riemann-integral]
+        widgets: [riemann-sum]
+      - id: math-6-fundamental-theorem
+        track: math
+        title: The fundamental theorem
+        summary: Integrating undoes differentiating, and why the mean value theorem is the reason.
+        concepts: [fundamental-theorem]
+        widgets: [riemann-sum, secant-tangent]
+      - id: lean-6-calculus-api
+        track: lean
+        title: Calculus in Mathlib
+        summary: HasDerivAt and deriv; Mathlib's integral, which is not built from Riemann sums but agrees with them on continuous functions; fun_prop and continuity for the routine side conditions.
+        concepts: [calculus-in-mathlib]
+        widgets: [proof-state]
   - id: 7
     title: Verified programs
     ladder: 4
     status: outline
     summary: Specifications, invariants, and proofs that sorting and searching code is correct.
-    topics:
-      - What a specification is, and what it leaves out
-      - Insertion sort, proved to sort and to keep every element
-      - Binary search and its invariant
-      - Trees and structural induction
-      - Loops with mutable state and loop invariants
-      - What "verified" does and does not promise about real software
+    moves: [unfold, split, simp_all]
+    concepts:
+      - { id: specification-limits, title: "What a specification says and what it leaves out", needs: [full-specification] }
+      - { id: sorted-permutation, title: "Sorting, specified: sorted, and a permutation of the input", needs: [specification, list-induction] }
+      - { id: insertion-sort, title: "Insertion sort, proved correct", needs: [sorted-permutation, list-recursion] }
+      - { id: termination, title: "Termination, and recursion on something that shrinks", needs: [recursion, strong-induction] }
+      - { id: binary-search, title: "Binary search and its invariant", needs: [specification, sorted-permutation, termination, inequalities] }
+      - { id: structural-induction, title: "Trees and structural induction", needs: [list-induction] }
+      - { id: loop-invariants, title: "Loops with mutable state, proved with invariants", needs: [induction, specification] }
+      - { id: verified-promises, title: "What verified does and does not promise about real software", needs: [test-vs-proof, specification-limits] }
+    planned:
+      - id: programs-7-specifications
+        track: programs
+        title: What a specification leaves out
+        summary: A sort that returns the empty list is sorted; what a specification has to add to rule it out.
+        concepts: [specification-limits]
+        widgets: [informal-formal]
+      - id: programs-7-sorted-permutation
+        track: programs
+        title: Sorted, and the same elements
+        summary: The two halves of sorting's specification, each a definition about lists, each checked on examples first.
+        concepts: [sorted-permutation]
+        widgets: [program-stepper]
+      - id: programs-7-insertion-sort
+        track: programs
+        title: Insertion sort, proved
+        summary: Insert keeps a list sorted and keeps every element; induction finishes the job.
+        concepts: [insertion-sort]
+        widgets: [program-stepper, informal-formal]
+      - id: programs-7-termination
+        track: programs
+        title: Why it stops
+        summary: Lean accepts a recursive definition it can reason about only when something shrinks (a partial def it cannot); what to say when Lean cannot see what shrinks.
+        concepts: [termination]
+        widgets: [program-stepper]
+      - id: programs-7-binary-search
+        track: programs
+        title: Binary search
+        summary: The invariant that the answer, if any, lies between the two ends, and why the ends meet.
+        concepts: [binary-search]
+        widgets: [program-stepper, number-line]
+      - id: programs-7-trees
+        track: programs
+        title: Trees and structural induction
+        summary: A binary tree type, its size and its mirror image, and induction with two hypotheses.
+        concepts: [structural-induction]
+        widgets: [program-stepper]
+      - id: programs-7-loops
+        track: programs
+        title: Loops and invariants
+        summary: A loop with mutable state, written in Lean's do notation, and the invariant that proves what it computes. Lean's tools for this (mvcgen, and vcgen after it) are new and changing; check against the pinned Lean when writing it.
+        concepts: [loop-invariants]
+        widgets: [program-stepper, informal-formal]
+      - id: programs-7-what-verified-means
+        track: programs
+        title: What verified means
+        summary: The proof covers the specification and the model of the machine, and nothing outside them.
+        concepts: [verified-promises]
+        widgets: []
+    new_widgets:
+      - { id: program-stepper, does: "Runs a small Lean function a step at a time, showing its arguments, the call or loop it is in, and the invariant at each step." }
   - id: 8
     title: How large formalisations are built
     ladder: 4
     status: outline
     summary: How a long research proof becomes thousands of small checked steps.
-    topics:
-      - Mathlib, and how a shared library of proved mathematics grows
-      - Blueprints, turning a paper proof into a dependency graph of lemmas
-      - Reading a formal statement, what exactly was proved
-      - Automation and AI provers, and what they change
-      - Trust, the kernel, axioms, and what could still be wrong
+    moves: [apply?, aesop]
+    concepts:
+      - { id: mathlib-organisation, title: "Mathlib, and how a shared library of proved mathematics grows", needs: [finding-lemmas] }
+      - { id: blueprints, title: "Blueprints: a paper proof as a dependency graph of lemmas", needs: [mathlib-organisation] }
+      - { id: reading-statements, title: "Reading a formal statement, and what exactly was proved", needs: [goal-state, proofs-as-terms] }
+      - { id: automation-and-ai, title: "Automation and AI provers, and what they change", needs: [finding-lemmas] }
+      - { id: trust-and-axioms, title: "Trust: the kernel, the axioms, and what could still be wrong", needs: [evidence-and-proof, checking, reading-statements] }
+    planned:
+      - id: lean-8-mathlib
+        track: lean
+        title: How Mathlib is built
+        summary: How the library is organised, how a new lemma gets in, and how to find your way around it.
+        concepts: [mathlib-organisation]
+        widgets: []
+      - id: lean-8-blueprints
+        track: lean
+        title: Blueprints
+        summary: A long proof cut into lemmas with their dependencies drawn, so many people can prove the pieces.
+        concepts: [blueprints]
+        widgets: [blueprint-graph]
+      - id: lean-8-reading-statements
+        track: lean
+        title: Reading a statement you cannot yet prove
+        summary: Every hypothesis and every definition a statement rests on, and the ways a statement can say less than its title.
+        concepts: [reading-statements]
+        widgets: [informal-formal]
+      - id: lean-8-automation
+        track: lean
+        title: Automation and AI provers
+        summary: What apply?, aesop and an AI prover search for, and why Lean still checks what they find.
+        concepts: [automation-and-ai]
+        widgets: [proof-state]
+      - id: logic-8-trust
+        track: logic
+        title: What a formal proof establishes
+        summary: The kernel, the three axioms, and the places a mistake can still hide, in the statement or the definitions.
+        concepts: [trust-and-axioms]
+        widgets: []
+    new_widgets:
+      - { id: blueprint-graph, does: "A dependency graph of lemmas, each coloured stated, proved or open, that grows as pieces are proved." }

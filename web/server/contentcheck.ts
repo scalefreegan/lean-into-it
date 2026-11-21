@@ -384,6 +384,8 @@ export interface Coverage {
   empty: number[];
   /** Topics the curriculum still lists as to be written. */
   topics: { level: number; topic: string }[];
+  /** Lessons a level plans that no lesson file has the id of yet. */
+  planned: { level: number; id: string; title: string }[];
 }
 
 /** What Listen mode cannot say well yet (web/shared/tts/say.ts): the `code`
@@ -428,5 +430,7 @@ export function coverage(content: Content): Coverage {
   }
   const empty = content.levels.filter((l) => !content.lessons.some((x) => x.level === l.id)).map((l) => l.id);
   const topics = content.levels.flatMap((l) => l.topics.map((topic) => ({ level: l.id, topic })));
-  return { untested, unexercised, empty, topics };
+  const written = new Set(content.lessons.map((l) => l.id));
+  const planned = content.levels.flatMap((l) => l.planned.filter((p) => !written.has(p.id)).map((p) => ({ level: l.id, id: p.id, title: p.title })));
+  return { untested, unexercised, empty, topics, planned };
 }

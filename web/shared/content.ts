@@ -16,13 +16,44 @@ export interface Level {
   id: number;
   title: string;
   summary: string;
-  /** `written` levels have lessons; `outline` levels only list their topics. */
+  /** `written` levels have lessons; an `outline` level has a plan (below) and never opens. */
   status: "written" | "outline";
   topics: string[];
   /** The Lean moves this level introduces, for the Path page. */
   moves: string[];
   /** The ladder rung its proofs default to (web/shared/ladder.ts). */
   ladder: Ladder;
+  /** The concepts the level will teach, each with what it builds on. An
+   *  outline's plan; a written level's concepts are its lessons'. */
+  concepts: PlannedConcept[];
+  /** The lessons still to write, in order. One whose id a lesson now has is written. */
+  planned: PlannedLesson[];
+  /** Widgets its planned lessons need that the registry does not have yet. */
+  newWidgets: NewWidget[];
+}
+
+export interface PlannedConcept {
+  id: string;
+  title: string;
+  /** Concept ids it builds on: declared in curriculum.yaml, or taught by a lesson. */
+  needs: string[];
+}
+
+export interface PlannedLesson {
+  /** The id the lesson will have once written. */
+  id: string;
+  title: string;
+  track: string;
+  summary: string;
+  concepts: string[];
+  /** Registered widgets, or ones a level lists under `new_widgets`. */
+  widgets: string[];
+}
+
+export interface NewWidget {
+  id: string;
+  /** What it would show, in a sentence. */
+  does: string;
 }
 
 /** How a proof is entered: clicking moves on the proof board, or typing Lean. */
