@@ -101,7 +101,7 @@ export function httpAsk({ url, origin, token }, fetchFn = fetch) {
     try {
       res = await fetchFn(url, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Origin: origin },
+        headers: { "Content-Type": "application/json", Origin: origin, "X-Lean-Into-It": "1" },
         body: JSON.stringify({ token, lean, ...(goalsAfterLine ? { goalsAfterLine } : {}) }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
         redirect: "error",

@@ -301,6 +301,20 @@ Landed in the first PR, the foundation slice:
   marked and a local one not opened. The link check was also run against
   the real network (a public page, `localhost`, 127.0.0.1, ::1, a public
   name pointing at 127.0.0.1, a name that does not exist).
+- Only the app reaches its API (`lii-2zo.7`): `wrap()` now also asks
+  that a request come from the app's own page (`fromApp`,
+  `web/server/origin.ts`). Where the browser says where a request came
+  from (Sec-Fetch-Site) it must say same-origin, whatever the request
+  carries; where nothing says, it must carry `X-Lean-Into-It: 1`, which
+  the app's `api()` and the Tutor's Lean helper send. So a client that
+  cannot choose its headers (a web fetch the Tutor makes from a page that
+  told it to, an `<img>` or a link on another site) no longer reads the
+  history or progress. The marker is not a secret: a program here that
+  sends it on purpose still gets in. A typed `/api` address is refused
+  too (the browser says `none`); nothing in the app opens one. Tried
+  in the real app: the pages, a Playground check and the settings load;
+  curl with no marker is refused, with it answered, and with it from a
+  page the browser calls another site refused.
 - Levels 4–8 as a plan (`lii-dvy.6`): each outlined level in
   `content/curriculum.yaml` lists its concepts with what each builds on
   (37 in all, resting on Levels 0–3's), its moves (checked as real
@@ -650,7 +664,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 578, including every reference solution checked by the real Lean,
+- Tests: 579, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -681,7 +695,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-3 beads in 3 areas, all P3. "Needs" lists beads that must land first.
+2 beads in 2 areas, both P3. "Needs" lists beads that must land first.
 
 ### Widgets (epic `lii-53v`)
 
@@ -694,9 +708,3 @@ in the repo (`lii-2zf.5`).
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-zjf.5` | Database backup script | 3 | |
-
-### Tutor (epic `lii-2zo`)
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-2zo.7` | wrap(): refuse API requests that did not come from the app's own page | 3 | |
