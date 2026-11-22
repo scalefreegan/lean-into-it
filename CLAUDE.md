@@ -76,8 +76,11 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   client sends a proof body and the server assembles the source.
 - **Lean runs what it is given with this user's permissions** (a `#eval` can
   start a process). Every API route goes through `wrap()` in
-  `web/server/api.ts`: the Host must be this machine and the Origin must
-  match it. No exceptions, and never serve this app on a network.
+  `web/server/api.ts`: the Host must be this machine, the Origin must
+  match it, and the request must come from the app (the browser says
+  same-origin, or it carries `X-Lean-Into-It: 1`, which `client.ts` and
+  `scripts/lean-mcp.mjs` send; `web/server/origin.ts`). No exceptions, and
+  never serve this app on a network.
 - All exercises share one Lean document (`"exercise"`), the Playground has
   its own. Lean the Tutor's model wrote is checked on the Tutor's behalf
   only by `tutorLean()`, a second Lean under the OS sandbox

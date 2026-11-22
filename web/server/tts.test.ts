@@ -72,7 +72,7 @@ const ALIGNMENT = {
 async function call<T = unknown>(method: string, route: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: T; text: string }> {
   const res = await realFetch(`${base}/api/tts${route}`, {
     method,
-    headers: { ...(body === undefined ? {} : { "Content-Type": "application/json" }), ...headers },
+    headers: { "X-Lean-Into-It": "1", ...(body === undefined ? {} : { "Content-Type": "application/json" }), ...headers },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     signal: AbortSignal.timeout(5000),
   });
@@ -189,7 +189,8 @@ test("a passage is sent to ElevenLabs once: the second listen is the cache, and 
   assert.equal(upstream.length, 2);
   await setListenSettings(db, learner, { ttsModelId: "eleven_v4" });
 
-  const audio = await realFetch(`${base}${first.json.audioUrl}`);
+  // As an <audio> element asks: no header of the app's, but the browser says it is this page.
+  const audio = await realFetch(`${base}${first.json.audioUrl}`, { headers: { "Sec-Fetch-Site": "same-origin" } });
   assert.equal(audio.status, 200);
   assert.equal(audio.headers.get("content-type"), "audio/mpeg");
   assert.equal(Buffer.from(await audio.arrayBuffer()).toString(), "fake mp3 bytes");
@@ -207,10 +208,10 @@ test("two asks for a passage at the same moment are one request to ElevenLabs", 
 
 test("the audio can be asked for in byte ranges, which is what lets a browser seek in it", async () => {
   const url = `${base}/api/tts/audio/${cacheKey("hi there", "v1", "eleven_v4")}.mp3`;
-  const whole = await realFetch(url);
+  const whole = await realFetch(url, { headers: { "Sec-Fetch-Site": "same-origin" } });
   assert.equal(whole.headers.get("accept-ranges"), "bytes");
   const ask = async (range: string) => {
-    const res = await realFetch(url, { headers: { Range: range } });
+    const res = await realFetch(url, { headers: { Range: range, "Sec-Fetch-Site": "same-origin" } });
     return [res.status, res.headers.get("content-range"), Buffer.from(await res.arrayBuffer()).toString()];
   };
   // The file is "fake mp3 bytes": 14 bytes.

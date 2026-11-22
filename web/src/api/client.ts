@@ -24,7 +24,11 @@ async function api<T>(path: string, body?: unknown, signal?: AbortSignal, method
   try {
     res = await fetch(path, {
       method: method ?? (body === undefined ? "GET" : "POST"),
-      ...(body === undefined ? {} : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }),
+      // The marker every API route asks for (web/server/origin.ts fromApp). A
+      // current browser also says same-origin, which passes on its own; this is
+      // for one that does not.
+      headers: { "X-Lean-Into-It": "1", ...(body === undefined ? {} : { "Content-Type": "application/json" }) },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       ...(signal ? { signal } : {}),
     });
   } catch (e) {

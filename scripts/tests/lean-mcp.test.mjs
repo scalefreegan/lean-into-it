@@ -68,6 +68,7 @@ test("it posts only to this machine's own route, with the turn's token and a mat
   assert.equal(sent[0].url, URL_OK);
   assert.equal(sent[0].init.method, "POST");
   assert.equal(sent[0].init.headers.Origin, "http://localhost:38800");
+  assert.equal(sent[0].init.headers["X-Lean-Into-It"], "1", "the marker wrap() asks of a request no browser sent");
   assert.equal(sent[0].init.redirect, "error");
   assert.deepEqual(JSON.parse(sent[0].init.body), { token: TOKEN, lean: "x", goalsAfterLine: 3 });
   assert.deepEqual(JSON.parse((await httpAsk(cfg, fake(200, ok))({ lean: "x" }), sent[1].init.body)), { token: TOKEN, lean: "x" });

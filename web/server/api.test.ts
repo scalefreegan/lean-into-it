@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { ViteDevServer } from "vite";
-import { apiPlugins, localHost, sameOrigin, wrap } from "./api.ts";
+import { apiPlugins, fromApp, localHost, sameOrigin, wrap } from "./api.ts";
 import { HttpError } from "./sse.ts";
 
 // /api/check and /api/playground hand text to Lean, which can run code
@@ -31,6 +31,14 @@ test("only this machine's names count as the host (DNS rebinding sends a matchin
   assert.equal(localHost(undefined), false);
 });
 
+test("a request from the app: the browser says same-origin, or the app's marker where the browser says nothing", () => {
+  assert.equal(fromApp({ "sec-fetch-site": "same-origin" }), true, "an <audio> element cannot add a header");
+  assert.equal(fromApp({ "x-lean-into-it": "1" }), true, "the MCP helper, the app's fetch in an older browser");
+  assert.equal(fromApp({}), false);
+  assert.equal(fromApp({ "x-lean-into-it": "yes" }), false);
+  for (const site of ["cross-site", "same-site", "none"]) assert.equal(fromApp({ "sec-fetch-site": site, "x-lean-into-it": "1" }), false, site);
+});
+
 /** A request as connect would hand it over, and a response that records what was sent. */
 function call(handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void>, headers: Record<string, string>, method = "POST") {
   const sent = { status: 0, body: "" };
@@ -49,7 +57,7 @@ function call(handler: (req: IncomingMessage, res: ServerResponse) => void | Pro
   return Promise.resolve(handler(req, res)).then(() => sent);
 }
 
-const OWN = { host: "localhost:38800", origin: "http://localhost:38800" };
+const OWN = { host: "localhost:38800", origin: "http://localhost:38800", "x-lean-into-it": "1" };
 const FOREIGN: [string, Record<string, string>][] = [
   ["another site", { host: "localhost:38800", origin: "http://evil.example" }],
   ["an opaque origin", { host: "localhost:38800", origin: "null" }],
@@ -57,6 +65,9 @@ const FOREIGN: [string, Record<string, string>][] = [
   ["a rebinding host with a matching origin", { host: "evil.example:38800", origin: "http://evil.example:38800" }],
   ["a foreign host and no origin", { host: "evil.example:38800" }],
   ["no host at all", {}],
+  ["this machine without the app's marker (curl, a fetch tool)", { host: "localhost:38800" }],
+  ["the marker from a page the browser says is another site", { host: "localhost:38800", "x-lean-into-it": "1", "sec-fetch-site": "cross-site" }],
+  ["a typed address, without the marker", { host: "localhost:38800", "sec-fetch-site": "none" }],
 ];
 
 test("wrap() refuses a foreign request before the handler runs", async () => {

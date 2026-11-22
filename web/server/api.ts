@@ -5,7 +5,7 @@ import { handleCheck, handleGallery, handleLean, handlePlayground, warmLean } fr
 import { checkDatabase, setDb, type Db } from "./db.ts";
 import { closeLean } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
-import { localHost, sameOrigin } from "./origin.ts";
+import { fromApp, localHost, sameOrigin } from "./origin.ts";
 import { handleProgress } from "./progress.ts";
 import { handleTutor, sweepAuthoring } from "./tutor.ts";
 import { handleResearch } from "./research.ts";
@@ -14,21 +14,21 @@ import { HttpError, INTERNAL_ERROR, methodNotAllowed, sendJson } from "./sse.ts"
 
 // The whole "backend": dev-server-only middleware on the Vite server, bound
 // to localhost. Same shape as Fret Not's, without logins: there is one
-// learner, and the only wall is the same-origin check.
+// learner, and the only wall is wrap(): this machine, this origin, this app.
 
-export { localHost, sameOrigin };
+export { fromApp, localHost, sameOrigin };
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;
 
 /**
- * Every route goes through here: the local-host and same-origin checks
- * first, then a JSON error envelope for anything thrown. No exceptions — a
+ * Every route goes through here: the local-host, same-origin and
+ * from-the-app checks first, then a JSON error envelope for anything thrown. No exceptions — a
  * route that bypasses wrap() is the bug the rule in CLAUDE.md exists to
  * prevent.
  */
 export function wrap(fn: Handler): Handler {
   return (req, res) => {
-    if (!localHost(req.headers.host) || !sameOrigin(req.headers.origin, req.headers.host)) {
+    if (!localHost(req.headers.host) || !sameOrigin(req.headers.origin, req.headers.host) || !fromApp(req.headers)) {
       sendJson(res, 403, { error: "cross-origin request refused" } satisfies ErrorReply);
       return;
     }
