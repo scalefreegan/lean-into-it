@@ -58,7 +58,7 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
 ## Rules that keep it working
 - Port **38800**, `strictPort`, polling watcher (FSEvents is unreliable on
   this machine). Siblings: Fret Not 38600, jev-ants 38500, Lingo Dojo 38400,
-  Atlas 38300, Wine Guide 38200, Basecamp 38100.
+  Atlas 38300, Wine Guide 38200, Trail Train 38100.
 - **Lean decides.** A proof is solved only when Lean accepts the proof of
   the exercise's own statement with no error and no `sorry`, resting only on
   the three standard axioms (`web/shared/proof.ts` `judge`). Nothing else,
@@ -80,7 +80,18 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   match it, and the request must come from the app (the browser says
   same-origin, or it carries `X-Lean-Into-It: 1`, which `client.ts` and
   `scripts/lean-mcp.mjs` send; `web/server/origin.ts`). No exceptions, and
-  never serve this app on a network.
+  never serve this app on a network — **except** this user's own Tailscale
+  tailnet (decided 2026-11-24): `LEAN_PUBLIC_HOST` in the gitignored
+  repo-root `.env.local` names the machine's MagicDNS host, `web/vite.config.ts`
+  puts it in Vite's `allowedHosts` and in `process.env.LEAN_PUBLIC_HOST`, and
+  `localHost()` (`web/server/origin.ts`) accepts it alongside loopback. The
+  Host check still stops DNS rebinding (a page's own name is not on the
+  list), but it does not authenticate: any device that can reach the tailnet
+  address can send `X-Lean-Into-It: 1` and run Lean as this user, so only the
+  tailnet's membership and access rules decide who may. `tailscale serve --bg --https=38800
+  http://localhost:38800` is what puts it there; never `tailscale funnel`,
+  which is public. `sameOrigin` and `fromApp` still gate every route
+  unchanged.
 - All exercises share one Lean document (`"exercise"`), the Playground has
   its own. Lean the Tutor's model wrote is checked on the Tutor's behalf
   only by `tutorLean()`, a second Lean under the OS sandbox

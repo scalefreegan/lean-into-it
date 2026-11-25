@@ -31,6 +31,18 @@ test("only this machine's names count as the host (DNS rebinding sends a matchin
   assert.equal(localHost(undefined), false);
 });
 
+test("a configured tailnet name (LEAN_PUBLIC_HOST) also counts as this machine, nothing else does", () => {
+  const publicHosts = "my-mac.tailnet.ts.net";
+  assert.equal(localHost("my-mac.tailnet.ts.net:38800", publicHosts), true);
+  assert.equal(localHost("MY-MAC.TAILNET.TS.NET:38800", publicHosts), true, "case-insensitive, like the loopback names");
+  assert.equal(localHost("localhost:38800", publicHosts), true, "the loopback names still work alongside a configured one");
+  assert.equal(localHost("other-mac.tailnet.ts.net:38800", publicHosts), false);
+  assert.equal(localHost("evil.example:38800", publicHosts), false);
+  assert.equal(localHost("my-mac.tailnet.ts.net:38800", undefined), false, "unset: only localhost, as before");
+  const twoHosts = "my-mac.tailnet.ts.net, other-name.tailnet.ts.net";
+  assert.equal(localHost("other-name.tailnet.ts.net:38800", twoHosts), true, "comma-separated list, extra spaces tolerated");
+});
+
 test("a request from the app: the browser says same-origin, or the app's marker where the browser says nothing", () => {
   assert.equal(fromApp({ "sec-fetch-site": "same-origin" }), true, "an <audio> element cannot add a header");
   assert.equal(fromApp({ "x-lean-into-it": "1" }), true, "the MCP helper, the app's fetch in an older browser");

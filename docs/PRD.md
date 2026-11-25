@@ -304,9 +304,15 @@ that appear in prose have a pronunciation table.
 - **Code typed in the app runs on this Mac.** Lean elaborates what it is
   given with the user's permissions, and Lean code can read files and start
   processes while it is being checked. So the API is same-origin and
-  localhost only: every route goes through `wrap()`, which refuses a request
-  whose Host is not this machine or whose Origin does not match it, and the
-  dev server does not listen on the network. This is a
+  localhost only, with one opt-in exception: every route goes through
+  `wrap()`, which refuses a request whose Host is not this machine or whose
+  Origin does not match it, and the dev server does not listen on the
+  network. The exception (decided 2026-11-24) is the owner's own Tailscale
+  tailnet: `tailscale serve` forwards to the local port, and
+  `LEAN_PUBLIC_HOST` names the host to accept. Any device that can reach that
+  address can then submit Lean, which runs as the owner (the app's header is
+  not a secret), so the tailnet, or an access rule on the port, decides who
+  may. Never `tailscale funnel`. This is a
   single-user tool on the owner's machine, not a service.
 - **Tutor-authored content is checked before it lands.** Every exercise the
   Tutor writes must compile with a reference solution, in a worktree, before
@@ -316,7 +322,7 @@ that appear in prose have a pronunciation table.
 
 ## Non-goals (v1)
 
-- Phone or tablet layout, touch-first interaction, serving on a tailnet.
+- Phone or tablet layout, touch-first interaction.
 - Logins, several learners, a kids mode.
 - Imperative programs with loop invariants (outlined, Level 7); verifying
   code in other languages or with other tools.

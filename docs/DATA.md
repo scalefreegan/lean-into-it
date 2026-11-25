@@ -117,9 +117,9 @@ between them; nothing in the schema assumes one.
 | Path | Holds |
 |---|---|
 | `data/tts-cache/` | Listen's audio and word timings from ElevenLabs, named by a hash of the text, voice and model; safe to delete (it is fetched again) |
-| `.env.local` | `ELEVENLABS_API_KEY`; optionally `DATABASE_URL` and `LEAN_INTO_IT_READER_ROLE`, the only settings read from it. The key and the role are read per use, so a change to them needs no restart; `DATABASE_URL` is read when the server starts, so a change to it needs a restart (until then the app keeps the old database while the Tutor's history tools, which read it per turn, would see the new one). Never commit it, never print it |
+| `.env.local` | `ELEVENLABS_API_KEY`; optionally `DATABASE_URL`, `LEAN_INTO_IT_READER_ROLE` and `LEAN_PUBLIC_HOST` (read when the server starts), the only settings read from it. The key and the role are read per use, so a change to them needs no restart; `DATABASE_URL` is read when the server starts, so a change to it needs a restart (until then the app keeps the old database while the Tutor's history tools, which read it per turn, would see the new one). Never commit it, never print it |
 
-Settings the server reads, mostly for tests and scratch runs. The first two
+Settings the server reads, mostly for tests and scratch runs. The first three
 come from the shell environment, else `.env.local`; the rest from the shell
 environment only (putting them in `.env.local` does nothing: in particular,
 `LEAN_INTO_IT_AUTHORING=off` there does not stop the Tutor writing lessons).
@@ -128,6 +128,7 @@ environment only (putting them in `.env.local` does nothing: in particular,
 |---|---|---|
 | `DATABASE_URL` | `postgres://localhost/lean_into_it` (none in a worktree) | the database |
 | `LEAN_INTO_IT_READER_ROLE` | `lean_tutor_ro` | the Tutor's read-only role |
+| `LEAN_PUBLIC_HOST` | none (localhost only) | Tailscale host names the app also answers to, comma-separated |
 | `LEAN_INTO_IT_DATA_DIR` | `data/` | where the Listen cache goes |
 | `LEAN_INTO_IT_CONTENT_DIR` | `content/` | the curriculum the server loads |
 | `LEAN_INTO_IT_AUTHORING` | on | `off`: the Tutor never writes lessons |

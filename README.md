@@ -73,7 +73,7 @@ There is also a Lab, where nothing is scored: every move with an example to run 
 
 Localhost, one learner, no login. The curriculum is markdown and YAML in `content/`, tracked by git. Lean 4 and Mathlib live in the Lake project under `lean/`; the dev server keeps one Lean language server running and sends it each proof, so a check returns the same goal states and messages Lean would show in an editor. For an exercise the server supplies the statement and wraps your proof in it, and Lean alone decides whether it passes. Attempts and completion are rows in a local Postgres database.
 
-Lean runs what you type with your own permissions, so the API accepts same-origin requests from localhost only. This is a tool for your own machine, not something to host.
+Lean runs what you type with your own permissions, so the API accepts same-origin requests from localhost only, unless you set `LEAN_PUBLIC_HOST` to your own Tailscale name; any device that can reach that name can then run Lean as you. This is a tool for your own machine, not something to host.
 
 ## Get started
 
