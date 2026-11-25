@@ -338,10 +338,12 @@ Landed in the first PR, the foundation slice:
   between small sets whose arrows the learner re-aims, or the image or
   preimage of a set. Both in the Gallery and in the Lab's "Sets and arrows".
   Tried in the real app, light and dark.
-- Level 4's first lesson, "What a set is" (`lii-dvy.12.1`), six exercises.
+- Level 4's first lesson, "What a set is" (`lii-dvy.12.1`), six exercises, and
+  its second, "Sets are predicates" (`lii-dvy.12.2`), eight: membership by
+  definition, `show`, `change` and `rintro`.
   The level is still an outline, so it does not open yet: the Path lists
-  the lesson without a link, its page says the level is still being written,
-  no "Next" leads to it, its proofs are not counted, and an outline is never
+  the lessons without a link, a lesson's page says the level is still being written,
+  no "Next" leads to one, their proofs are not counted, and an outline is never
   the gate of the level after it (`lii-dvy.12.11`).
 - The owner's own tailnet (`lii-pnz`): with `LEAN_PUBLIC_HOST` set, Vite's
   `allowedHosts` and `localHost()` also accept that Tailscale name; unset,
@@ -731,13 +733,12 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-10 beads in 2 areas. "Needs" lists beads that must land first.
+11 beads in 2 areas. "Needs" lists beads that must land first.
 
 ### Level 4 (epic `lii-dvy.12`)
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-dvy.12.2` | Sets are predicates | 2 | |
 | `lii-dvy.12.3` | Union, intersection, complement | 2 | |
 | `lii-dvy.12.4` | Proving two sets equal | 2 | |
 | `lii-dvy.12.5` | Images and preimages | 2 | |
@@ -745,7 +746,9 @@ in the repo (`lii-2zf.5`).
 | `lii-dvy.12.7` | Composition and inverses | 2 | |
 | `lii-dvy.12.8` | Equivalence relations | 2 | |
 | `lii-dvy.12.9` | Cantor's diagonal argument | 2 | |
-| `lii-dvy.12.10` | Level 4 moves, and the level opened | 2 | the lessons above |
+| `lii-dvy.12.10` | Level 4 moves, and the level opened | 2 | the lessons above, `lii-dvy.12.13` |
+| `lii-dvy.12.12` | Plain words for a failed show or change, and omega stopped by a membership | 3 | |
+| `lii-dvy.12.13` | Level 4 lessons come in an order the plan did not mean | 2 | |
 
 ### Widgets (epic `lii-53v`)
 
