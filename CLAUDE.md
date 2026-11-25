@@ -82,13 +82,16 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   `scripts/lean-mcp.mjs` send; `web/server/origin.ts`). No exceptions, and
   never serve this app on a network — **except** this user's own Tailscale
   tailnet (decided 2026-11-24): `LEAN_PUBLIC_HOST` in the gitignored
-  repo-root `.env.local` names the machine's MagicDNS host, `web/vite.config.ts`
-  puts it in Vite's `allowedHosts` and in `process.env.LEAN_PUBLIC_HOST`, and
-  `localHost()` (`web/server/origin.ts`) accepts it alongside loopback. The
-  Host check still stops DNS rebinding (a page's own name is not on the
-  list), but it does not authenticate: any device that can reach the tailnet
-  address can send `X-Lean-Into-It: 1` and run Lean as this user, so only the
-  tailnet's membership and access rules decide who may. `tailscale serve --bg --https=38800
+  repo-root `.env.local` names the machine's MagicDNS host (`*.ts.net` only; `web/server/publichost.ts`),
+  `web/vite.config.ts` gives it to Vite's `allowedHosts` and to `apiPlugins`,
+  and `localHost()` (`web/server/origin.ts`) accepts it alongside loopback.
+  That name can be DNS-rebound (localhost cannot), so under it any Origin must
+  be https and `Sec-Fetch-Site` must say same-origin (`tailnetRequest`). It
+  does not authenticate: a program on any device that can reach the tailnet
+  address can send those headers and run Lean as this user, so only the
+  tailnet's membership and access rules decide who may. Nothing is written
+  back to `process.env`, and the Tutor's Lean tool always calls back on
+  loopback. `tailscale serve --bg --https=38800
   http://localhost:38800` is what puts it there; never `tailscale funnel`,
   which is public. `sameOrigin` and `fromApp` still gate every route
   unchanged.

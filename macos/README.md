@@ -144,4 +144,5 @@ location.
 
 The bundle id is personal (`com.scalefreegan.leanintoit`) and the signing is
 ad hoc. This is a personal launcher, not an app to distribute. Like the dev
-server itself, it serves on localhost only.
+server itself, it serves on localhost only, unless
+`LEAN_PUBLIC_HOST` names your own tailnet address (docs/DATA.md).

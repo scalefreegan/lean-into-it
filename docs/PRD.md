@@ -309,9 +309,10 @@ that appear in prose have a pronunciation table.
   Origin does not match it, and the dev server does not listen on the
   network. The exception (decided 2026-11-24) is the owner's own Tailscale
   tailnet: `tailscale serve` forwards to the local port, and
-  `LEAN_PUBLIC_HOST` names the host to accept. Any device that can reach that
-  address can then submit Lean, which runs as the owner (the app's header is
-  not a secret), so the tailnet, or an access rule on the port, decides who
+  `LEAN_PUBLIC_HOST` names the host to accept, from https pages the browser
+  calls same-origin only. Any device that can reach that
+  address can then submit Lean, which runs as the owner (headers
+  are not a login), so the tailnet, or an access rule on the port, decides who
   may. Never `tailscale funnel`. This is a
   single-user tool on the owner's machine, not a service.
 - **Tutor-authored content is checked before it lands.** Every exercise the

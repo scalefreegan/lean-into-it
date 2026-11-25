@@ -55,7 +55,7 @@ import { readLine } from "../shared/moves.ts";
 import { sameGoals } from "../shared/goals.ts";
 import { leanBlocks, withoutLabels } from "../shared/partner.ts";
 import type { PartnerRequest, TutorContext, TutorHistoryReply, TutorLadderReply, TutorMessage, TutorReply, TutorRequest } from "../shared/wire.ts";
-import { localHost } from "./origin.ts";
+import { localHost, loopbackHost } from "./origin.ts";
 import { labelReply, tryLean } from "./partner.ts";
 import { checkExercise, leanError } from "./check.ts";
 import { readAnswer } from "../shared/truefalse.ts";
@@ -414,11 +414,14 @@ export interface LeanAccess {
  * The Lean tool for a Playground turn, or null when this request did not
  * come to one of this machine's own names (wrap() has already refused
  * those; a test calls the handler bare). The tool posts back to the server
- * that is answering this request.
+ * that is answering this request, always over loopback: for a request that
+ * came by the tailnet name, to localhost at the port it arrived on.
  */
-export function leanAccessFor(host: string | undefined): LeanAccess | null {
-  if (!host || !localHost(host) || !/^[A-Za-z0-9.[\]:]+$/.test(host)) return null;
-  return { url: `http://${host}/api/tutor/lean`, token: randomBytes(24).toString("base64url") };
+export function leanAccessFor(host: string | undefined, port?: number): LeanAccess | null {
+  if (!host || !localHost(host)) return null;
+  const local = loopbackHost(host) ? host : port ? `localhost:${port}` : null;
+  if (!local || !/^[A-Za-z0-9.[\]:]+$/.test(local)) return null;
+  return { url: `http://${local}/api/tutor/lean`, token: randomBytes(24).toString("base64url") };
 }
 
 /** The run's MCP entry for the Lean tool: told where to post and the token, nothing else. */
@@ -555,7 +558,7 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
   if (tutor.running) throw new HttpError(409, "the Tutor is still answering; wait for it to finish");
   tutor.running = true;
   // The Playground: this turn may ask Lean. The token lives as long as the turn.
-  let lean = ctx.page === "playground" ? leanAccessFor(req.headers.host) : null;
+  let lean = ctx.page === "playground" ? leanAccessFor(req.headers.host, req.socket?.localPort) : null;
   tutor.leanToken = lean?.token ?? null;
   let ws: Workspace | null = null;
   // The commit, once it is on the branch: from then on the turn has changed content/, whatever fails after.
@@ -584,7 +587,7 @@ async function handlePost(req: IncomingMessage, res: ServerResponse): Promise<vo
     }
     // A writing turn may ask Lean too, to try what it is about to write.
     if (ws && !lean) {
-      lean = leanAccessFor(req.headers.host);
+      lean = leanAccessFor(req.headers.host, req.socket?.localPort);
       tutor.leanToken = lean?.token ?? null;
     }
     // What the turn starts from: its copy's content/ (the last commit) when it may write.

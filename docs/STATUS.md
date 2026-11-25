@@ -326,8 +326,12 @@ Landed in the first PR, the foundation slice:
   page the browser calls another site refused.
 - The owner's own tailnet (`lii-pnz`): with `LEAN_PUBLIC_HOST` set, Vite's
   `allowedHosts` and `localHost()` also accept that Tailscale name; unset,
-  only localhost, as before. It does not authenticate: any device that can
-  reach the address can run Lean as the owner (PRD, security).
+  only localhost, as before. Under that name a request must come from an
+  https page the browser calls same-origin (DNS rebinding), Vite's
+  open-in-editor route is refused, the Tutor's Lean tool calls back on
+  loopback, and Field notes may not fetch it. It does not authenticate: a
+  program on any device that can reach the address can run Lean as the owner
+  (PRD, security).
 - Levels 4–8 as a plan (`lii-dvy.6`): each outlined level in
   `content/curriculum.yaml` lists its concepts with what each builds on
   (37 in all, resting on Levels 0–3's), its moves (checked as real
@@ -677,7 +681,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 592, including every reference solution checked by the real Lean,
+- Tests: 596, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

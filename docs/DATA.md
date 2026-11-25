@@ -128,7 +128,7 @@ environment only (putting them in `.env.local` does nothing: in particular,
 |---|---|---|
 | `DATABASE_URL` | `postgres://localhost/lean_into_it` (none in a worktree) | the database |
 | `LEAN_INTO_IT_READER_ROLE` | `lean_tutor_ro` | the Tutor's read-only role |
-| `LEAN_PUBLIC_HOST` | none (localhost only) | Tailscale host names the app also answers to, comma-separated |
+| `LEAN_PUBLIC_HOST` | none (localhost only) | Tailscale names (`*.ts.net`) the app also answers to, comma-separated; set but empty in the shell means none |
 | `LEAN_INTO_IT_DATA_DIR` | `data/` | where the Listen cache goes |
 | `LEAN_INTO_IT_CONTENT_DIR` | `content/` | the curriculum the server loads |
 | `LEAN_INTO_IT_AUTHORING` | on | `off`: the Tutor never writes lessons |

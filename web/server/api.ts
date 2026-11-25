@@ -5,7 +5,7 @@ import { handleCheck, handleGallery, handleLean, handlePlayground, warmLean } fr
 import { checkDatabase, setDb, type Db } from "./db.ts";
 import { closeLean } from "./lean/lsp.ts";
 import { loadContent } from "./loader.ts";
-import { fromApp, localHost, sameOrigin } from "./origin.ts";
+import { fromApp, localHost, loopbackHost, mayCall, sameOrigin, setPublicHosts } from "./origin.ts";
 import { handleProgress } from "./progress.ts";
 import { handleTutor, sweepAuthoring } from "./tutor.ts";
 import { handleResearch } from "./research.ts";
@@ -14,9 +14,10 @@ import { HttpError, INTERNAL_ERROR, methodNotAllowed, sendJson } from "./sse.ts"
 
 // The whole "backend": dev-server-only middleware on the Vite server, bound
 // to localhost. Same shape as Fret Not's, without logins: there is one
-// learner, and the only wall is wrap(): this machine, this origin, this app.
+// learner, and the only wall is wrap(): this machine (or the owner's own
+// tailnet name for it), this origin, this app.
 
-export { fromApp, localHost, sameOrigin };
+export { fromApp, localHost, sameOrigin, setPublicHosts };
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => void | Promise<void>;
 
@@ -28,7 +29,7 @@ type Handler = (req: IncomingMessage, res: ServerResponse) => void | Promise<voi
  */
 export function wrap(fn: Handler): Handler {
   return (req, res) => {
-    if (!localHost(req.headers.host) || !sameOrigin(req.headers.origin, req.headers.host) || !fromApp(req.headers)) {
+    if (!mayCall(req.headers)) {
       sendJson(res, 403, { error: "cross-origin request refused" } satisfies ErrorReply);
       return;
     }
@@ -51,14 +52,21 @@ export function wrap(fn: Handler): Handler {
   };
 }
 
+/** Passes a request on only when it came to a loopback name. */
+export function localOnly(req: IncomingMessage, res: ServerResponse, next: () => void): void {
+  if (loopbackHost(req.headers.host)) return next();
+  sendJson(res, 403, { error: "only on this machine" } satisfies ErrorReply);
+}
+
 function handleContent(req: IncomingMessage, res: ServerResponse): void {
   if (req.method !== "GET") return methodNotAllowed(res, "GET");
   sendJson(res, 200, loadContent());
 }
 
-export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: boolean } = {}): Plugin {
+export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: boolean; publicHosts?: readonly string[] } = {}): Plugin {
   // The tests hand in an in-process PGlite: the real routes, no server.
   if (opts.db) setDb(opts.db);
+  setPublicHosts(opts.publicHosts ?? []);
   return {
     name: "lean-into-it-api",
     apply: "serve",
@@ -68,6 +76,9 @@ export function apiPlugins(opts: { checkDatabase?: boolean; db?: Db; warm?: bool
       closeLean();
     },
     configureServer(server) {
+      // Vite's own route that opens a file in this machine's editor: not for
+      // another device. Plugin middleware runs before Vite's.
+      server.middlewares.use("/__open-in-editor", localOnly);
       // The curriculum, re-read from content/ on every request, so an edit
       // is live at once.
       server.middlewares.use("/api/content", wrap(handleContent));

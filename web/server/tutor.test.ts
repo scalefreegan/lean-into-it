@@ -9,6 +9,7 @@ import { freshDb } from "../../scripts/tests/testdb.mjs";
 import type { TutorHistoryReply, TutorReply } from "../shared/wire.ts";
 import { setDb } from "./db.ts";
 import { loadContent } from "./loader.ts";
+import { setPublicHosts } from "./origin.ts";
 import { PARTNER_PROMPT, leanAccessFor, leanTool, type LeanAccess } from "./tutor.ts";
 import { contextNote, handleTutor, historyAccess, historyWindow, locate, sanitizeContext, setAgent, splitLine, systemPrompt, turnPrompt, type Agent } from "./tutor.ts";
 
@@ -204,6 +205,12 @@ test("only a Playground turn is given the Lean tool, with a token that dies with
   assert.notEqual(leanAccessFor("localhost:1")!.token, leanAccessFor("localhost:1")!.token);
   assert.equal(leanAccessFor(undefined), null);
   assert.equal(leanAccessFor("localhost:1/x@evil"), null);
+  // A request by the tailnet name (a hyphen in it or not): the tool still posts to loopback, at the port it arrived on.
+  setPublicHosts(["my-mac.t.ts.net", "mac.t.ts.net"]);
+  t.after(() => setPublicHosts([]));
+  for (const name of ["my-mac.t.ts.net:38800", "mac.t.ts.net"]) assert.equal(leanAccessFor(name, 38800)!.url, "http://localhost:38800/api/tutor/lean");
+  assert.equal(leanAccessFor("my-mac.t.ts.net:38800"), null, "no port known: no tool");
+  assert.equal(leanAccessFor("evil.example", 38800), null);
 });
 
 test("the Lean tool is told where to post and its token, nothing else; the partner prompt is for the Playground only", () => {
