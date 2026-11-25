@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { MOVES, lineShape } from "./moves.ts";
 import { loadContent } from "../server/loader.ts";
-import { isDue, reviewSession, REVIEW_INTERVAL_DAYS, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, blankMastery, lessonCredited, PLACEMENT_BOX, levelOpen, levelStatuses, UNLOCK_FRACTION, type AttemptLike, type MasteryMap } from "./progress.ts";
+import { isOutline, isDue, reviewSession, REVIEW_INTERVAL_DAYS, REVIEW_SIZE, startOfDay, solvedOf, lessonMastered, lessonMastery, masteryFor, masteryFrom, masteryOf, MIN_ATTEMPTS, RECENT_WINDOW, tacticsIn, tacticsOf, blankMastery, lessonCredited, PLACEMENT_BOX, levelOpen, levelStatuses, UNLOCK_FRACTION, type AttemptLike, type MasteryMap } from "./progress.ts";
 
 const content = {
   levels: [
@@ -354,6 +354,22 @@ test("review never offers an exercise in a locked level", () => {
 test("an outline level never opens, whatever is mastered or recorded", () => {
   const map = knowing(...tens, "d0", "d1", "d2", "e0");
   assert.equal(states(map, [{ level: 4, how: "anyway" }])[4], "locked");
+});
+
+test("a lesson written ahead in an outline opens nothing and asks nothing of the level after it", () => {
+  const ahead = {
+    levels: [lvl(0), lvl(1, "outline"), lvl(2)],
+    lessons: [
+      { id: "zero", level: 0, exercises: [{ id: "a", concept: "a" }] },
+      { id: "ahead", level: 1, exercises: [{ id: "b", concept: "b" }] },
+      { id: "two", level: 2, exercises: [{ id: "c", concept: "c" }] },
+    ],
+  } as unknown as Parameters<typeof levelStatuses>[0];
+  const all = levelStatuses(ahead, knowing("a"), [], [], {});
+  assert.deepEqual(all.map((s) => s.state), ["open", "locked", "open"]);
+  assert.equal(all[2].gate, 0, "gated past the outline, on level 0");
+  assert.deepEqual(levelStatuses({ ...ahead, levels: [lvl(0), lvl(1), lvl(2, "outline")] } as unknown as typeof ahead, knowing(), [], [{ lessonId: "two" }], {}).map((s) => s.state), ["open", "locked", "locked"], "a check there opens nothing below");
+  assert.deepEqual([0, 1, 2, 9].map((l) => isOutline(ahead.levels, l)), [false, true, false, false]);
 });
 
 test("a level once opened stays open, and opens every written level before it", () => {

@@ -54,7 +54,8 @@ async function openLevel(req: IncomingMessage): Promise<ProgressReply> {
   const content = loadContent();
   const known = content.levels.find((l) => l.id === level);
   if (typeof level !== "number" || !known) throw new HttpError(400, "no such level");
-  if (known.status === "outline" || !content.lessons.some((l) => l.level === level)) throw new HttpError(400, "that level has no lessons yet");
+  if (known.status === "outline") throw new HttpError(400, "that level is still being written");
+  if (!content.lessons.some((l) => l.level === level)) throw new HttpError(400, "that level has no lessons yet");
   await recordLevelOpen(rawDb(), await learnerId(), level, "anyway");
   return progressReply();
 }

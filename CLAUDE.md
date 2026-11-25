@@ -29,6 +29,7 @@ web/shared/progress.ts   mastery per concept and per move, from the attempt rows
 web/shared/clock.ts      the working time an attempt records: the time the exercise was on screen with the tab showing (pure)
 web/shared/wire.ts       request and reply types shared by server and client
 web/server/lean/lsp.ts   the warm Lean: one `lake serve`, JSON-RPC over stdio
+web/server/lean/memory.ts  the footprint of the worker running a check, watched (Lean's own -M counts resident memory only)
 web/server/check.ts      /api/check, /api/playground, /api/lean (status), /api/lean/restart
 web/server/loader.ts     content/ -> Content, with readable refusals
 web/server/contentcheck.ts  what `npm run check:content` asks Lean (scripts/check-content.ts is the command)
@@ -110,7 +111,9 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   in a test `authoringRoot()` refuses this one.
 - A check has 20 seconds (`web/server/lean/lsp.ts`); past it the document is
   closed, which ends its Lean worker, and the reply says Lean took too long.
-  A worker may use 8 GB (Lean's `-M`; Mathlib alone takes over 4): do not
+  A worker may use 8 GB (Lean's `-M`, which counts resident memory, Mathlib's
+  over 4 included, and a watch on its footprint, which macOS cannot shrink by
+  compressing; past that its document is closed): do not
   lower it without checking every solution. Only the child process this
   server spawned is ever signalled.
 - Personal rows are read and written only through `scripts/db/progress.ts`,

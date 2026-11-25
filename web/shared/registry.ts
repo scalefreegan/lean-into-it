@@ -9,6 +9,8 @@ import { lettersOf, MAX_LETTERS, parseFormula } from "./truthtable.ts";
 import { optionProblem } from "./recognize.ts";
 import { readSteps } from "./paired.ts";
 import { parseTerm, unboundedNear } from "./limits.ts";
+import { readArrows } from "./arrows.ts";
+import { readSetDiagram } from "./setdiagram.ts";
 import { evaluate as evalExpr, parseExpr } from "./expr.ts";
 
 // The catalogue of widgets a lesson may embed and exercise kinds it may
@@ -101,7 +103,7 @@ export const WIDGET_KEYS = ["type"] as const;
  *  not reuse these names. */
 export const EXERCISE_KEYS = ["id", "kind", "title", "concept"] as const;
 
-export type WidgetType = "proof-state" | "move-list" | "plot" | "number-line" | "square-of-sum" | "truth-table" | "induction-dominoes" | "informal-formal" | "epsilon-delta" | "secant-tangent" | "riemann-sum" | "sequence-limit";
+export type WidgetType = "proof-state" | "move-list" | "plot" | "number-line" | "square-of-sum" | "truth-table" | "induction-dominoes" | "informal-formal" | "epsilon-delta" | "secant-tangent" | "riemann-sum" | "sequence-limit" | "set-diagram" | "function-arrows";
 
 /** At most this many curves on one plot: each has its own line style. */
 export const MAX_CURVES = 4;
@@ -223,6 +225,54 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       if (f.op === "var" || f.op === "const") return ["`formula` needs at least one connective: a single letter's table is just the letter"];
       const letters = lettersOf(f);
       return letters.length > MAX_LETTERS ? [`\`formula\` has ${letters.length} letters; at most ${MAX_LETTERS} (${2 ** MAX_LETTERS} rows) fit`] : [];
+    },
+  },
+  "set-diagram": {
+    doc: "A Venn diagram of two or three sets, with the regions a formula names shaded. With `against`, a second diagram beside it, and whether the two shade the same regions. With `fill`, the learner shades the regions and checks them. A picture shows every way a point can sit in two or three sets; a proof takes one point and argues.",
+    params: {
+      formula: { type: "string", required: true, doc: "The set to shade: single capital letters with `∪ ∩ \\ ᶜ ∅ univ` and brackets, as in `(A ∪ B)ᶜ`. A \\ beside another \\ or ∩ needs brackets." },
+      against: { type: "string", doc: "A second formula, drawn beside the first and compared with it." },
+      sets: { type: "string[]", doc: "The circles to draw, two or three, when the formulas do not name them all: `[\"A\", \"B\"]`." },
+      empty: { type: "string", doc: "A set declared to have no members, its regions crossed out: `A \\ B` draws A ⊆ B." },
+      fill: { type: "boolean", doc: "The learner shades the formula's regions, then checks them. Default false. Not with `against`." },
+      caption: { type: "string", doc: "One line shown under the diagram." },
+    },
+    examples: [
+      { formula: "A ∩ B", caption: "x ∈ A ∩ B means x ∈ A and x ∈ B." },
+      { formula: "(A ∪ B)ᶜ", against: "Aᶜ ∩ Bᶜ" },
+      { formula: "A ∩ (B ∪ C)", fill: true },
+      { formula: "A", empty: "A \\ B", caption: "A ⊆ B: nothing is in A and outside B." },
+    ],
+    check: (p) => {
+      if (typeof p.formula !== "string") return [];
+      const read = readSetDiagram(p);
+      if (typeof read === "string") return [read];
+      return p.fill === true && p.against !== undefined ? ["`fill` asks for one formula's regions, so it does not go with `against`"] : [];
+    },
+  },
+  "function-arrows": {
+    doc: "A function between two small finite sets, drawn as arrows. Two arrows that meet (not injective) and an element no arrow reaches (not surjective) are coloured and named. The learner can re-aim an arrow: select an element on the left, then where it should go. With `image` or `preimage` it shows where a set goes, or what lands in one, instead, and the learner can change the set.",
+    params: {
+      from: { type: "string[]", required: true, doc: "The elements on the left, names of at most 4 characters in quotes: `[\"1\", \"2\"]`. At most 7." },
+      to: { type: "string[]", required: true, doc: "The elements on the right." },
+      arrows: { type: "string[]", required: true, doc: "One arrow for each element on the left: `[\"1 -> a\", \"2 -> a\"]`." },
+      show: { type: "enum:both|injective|surjective", doc: "Which property is judged. Default both." },
+      edit: { type: "boolean", doc: "The learner can re-aim the arrows. Default true. With `image` or `preimage` they change the set instead." },
+      image: { type: "string[]", doc: "A set on the left: the diagram shows its image. The list may be empty." },
+      preimage: { type: "string[]", doc: "A set on the right: the diagram shows its preimage. Not with `image`." },
+      caption: { type: "string", doc: "One line shown under the diagram." },
+    },
+    examples: [
+      { from: ["1", "2", "3"], to: ["a", "b", "c"], arrows: ["1 -> a", "2 -> a", "3 -> b"], caption: "Neither injective nor surjective. Re-aim one arrow to make it both." },
+      { from: ["1", "2", "3"], to: ["a", "b"], arrows: ["1 -> a", "2 -> b", "3 -> b"], show: "surjective" },
+      { from: ["1", "2", "3"], to: ["a", "b", "c"], arrows: ["1 -> a", "2 -> a", "3 -> b"], image: ["1", "3"] },
+      { from: ["1", "2", "3"], to: ["a", "b", "c"], arrows: ["1 -> a", "2 -> a", "3 -> b"], preimage: ["a", "c"] },
+    ],
+    check: (p) => {
+      if (![p.from, p.to, p.arrows].every(Array.isArray)) return [];
+      const read = readArrows(p);
+      if (typeof read === "string") return [read];
+      return Array.isArray(p.image) && Array.isArray(p.preimage) ? ["`image` and `preimage` are two different pictures: give one"] : [];
     },
   },
   "informal-formal": {

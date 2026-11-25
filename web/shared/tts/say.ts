@@ -105,6 +105,11 @@ export const SYMBOLS: Record<string, string> = {
   "↔": "if and only if",
   "∣": "divides",
   "∈": "in",
+  "∉": "not in",
+  "⊆": "is a subset of",
+  "∪": "union",
+  "∩": "intersection",
+  "∅": "the empty set",
   "::": "followed by",
   "++": "appended to",
   "[]": "the empty list",
@@ -149,7 +154,7 @@ const ONE_OF: Record<string, string> = { "ℕ": "a natural number", "ℤ": "an i
 const TACTIC_SET = new Set(TACTICS);
 const FACT_LISTS = new Set(["rw", "nth_rw", "simp", "simp_all", "dsimp", "norm_num", "field_simp", "linarith", "nlinarith", "ring_nf", "unfold"]);
 /** What makes a bracket matter: with one of these inside, taking the bracket away can change the meaning. */
-const OPERATORS = new Set(["=", "+", "-", "−", "*", "×", "·", "/", "^", "<", ">", "≤", "≥", "≠", "∧", "∨", "¬", "→", "↔", "∣", "∈", "::", "++", "↑"]);
+const OPERATORS = new Set(["=", "+", "-", "−", "*", "×", "·", "/", "^", "<", ">", "≤", "≥", "≠", "∧", "∨", "¬", "→", "↔", "∣", "∈", "∉", "⊆", "∪", "∩", "::", "++", "↑"]);
 
 /** One name as it is said: `Nat.add_comm` is "nat add comm", `h1` "h 1", `hPQ` "h P Q", `x'` "x prime". */
 export function sayName(name: string): string {

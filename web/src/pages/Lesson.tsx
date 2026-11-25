@@ -6,7 +6,7 @@ import { exerciseSpeech, useLessonReading } from "../listen/useLessonReading.ts"
 import { EXERCISES } from "../../shared/registry.ts";
 import { EXERCISE_COMPONENTS } from "../exercises/registry.ts";
 import { href } from "../router.ts";
-import { solvedOf } from "../../shared/progress.ts";
+import { isOutline, solvedOf } from "../../shared/progress.ts";
 import { LevelLock } from "./LevelLock.tsx";
 import { lessonProgress, useApp } from "../state.tsx";
 import { CraftBadge, Notice, Tick } from "../ui.tsx";
@@ -25,7 +25,9 @@ export function Lesson({ id }: { id: string }) {
   // A lesson in a locked level shows what opens it instead of its exercises, and is not read.
   const status = lesson ? levels.find((s) => s.level === lesson.level) : undefined;
   const lockedBy = status?.state === "locked" ? status : null;
-  const reading = useLessonReading(lesson, !lockedBy);
+  // Nor does one written ahead in a level that is still an outline: nothing can open it yet.
+  const ahead = lesson !== undefined && isOutline(content.levels, lesson.level);
+  const reading = useLessonReading(lesson, !lockedBy && !ahead);
   if (!lesson) {
     return (
       <div className="mx-auto max-w-[2400px]">
@@ -35,7 +37,7 @@ export function Lesson({ id }: { id: string }) {
       </div>
     );
   }
-  const next = content.lessons[index + 1];
+  const next = content.lessons.slice(index + 1).find((l) => !isOutline(content.levels, l.level));
   const progress = lessonProgress(lesson, solved);
   const level = content.levels.find((l) => l.id === lesson.level);
   const track = content.tracks.find((t) => t.id === lesson.track);
@@ -62,7 +64,12 @@ export function Lesson({ id }: { id: string }) {
         <p className="mt-2 text-lg text-fg-2">{lesson.summary}</p>
       </header>
 
-      {lockedBy ? (
+      {ahead ? (
+        <section data-lesson-ahead className="rounded-2xl border border-line bg-panel p-5">
+          <p className="font-semibold text-fg">Level {lesson.level} is still being written.</p>
+          <p className="mt-1 text-sm text-fg-2">This lesson opens when the level does.</p>
+        </section>
+      ) : lockedBy ? (
         <section data-lesson-locked className="rounded-2xl border border-line bg-panel p-5">
           <p className="font-semibold text-fg">Level {lesson.level} is not open yet.</p>
           <LevelLock status={lockedBy} />
