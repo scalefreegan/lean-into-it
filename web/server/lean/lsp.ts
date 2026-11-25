@@ -11,7 +11,9 @@
 // that dies is started again once, and after a second time in a row stays
 // stopped until restart(). Only the child process spawned here is ever
 // signalled. A check whose asker stopped waiting before its turn is skipped
-// (wantedWhile), and every worker has a memory limit (MEMORY_MB).
+// (wantedWhile), and every worker has a memory limit (MEMORY_MB): Lean's own,
+// and a watch on the worker's footprint (memory.ts), since Lean's counts
+// resident memory only.
 //
 // Lean elaborates whatever text it is given with this user's permissions
 // (a `#eval` can run a process). The only callers are the same-origin API
@@ -27,6 +29,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { watchMemory } from "./memory.ts";
 import { SANDBOX_EXEC, sandboxEnv, sandboxSetup, type SandboxSetup } from "./sandbox.ts";
 import { fromReply, refsIn, type IdGoal } from "../../shared/interactive.ts";
 import { ROOT } from "../../../scripts/env.mjs";
@@ -201,8 +204,8 @@ interface Doc {
   /** The header (headerOf) Lean has finished loading for this document;
    *  null until it has loaded one. */
   header: string | null;
-  /** The source of a check that ran out of time on this document. */
-  timedOut?: string;
+  /** The source of a check that ran out of time or memory on this document, and what its asker was told. */
+  gaveUp?: { source: string; why: LeanUnavailable };
   /** The diagnostics last published for each version. */
   published: Map<number, LeanDiagnostic[]>;
   /** Checks of one document run one at a time. */
@@ -238,12 +241,17 @@ export interface LeanServerOptions {
    *  with Lean's "out of memory", not left to run into the time limit or
    *  the machine's swap. */
   memoryMb?: number;
+  /** The footprint, in MB, past which a worker's check is given up on and its
+   *  document closed (memory.ts). Default `memoryMb`. */
+  footprintMb?: number;
 }
 
 /** A worker's memory limit by default, in MB (Lean's `-M`, as Lean counts
  *  it). Loading Mathlib alone takes over 4096 (there even a proof of
  *  2 + 2 = 4 dies); 6144 checks proofs; 8192 leaves room for a heavy
- *  proof and stops a runaway allocation short of the machine's memory. */
+ *  proof and stops a runaway allocation short of the machine's memory. Lean
+ *  counts resident memory, Mathlib's mapped files included; the watch on the
+ *  footprint (memory.ts), which leaves those out, uses the same number. */
 export const MEMORY_MB = 8192;
 
 export class LeanServer {
@@ -254,6 +262,7 @@ export class LeanServer {
   private bootTimeoutMs: number;
   private sandboxed: boolean;
   private memoryMb: number;
+  private footprintMb: number;
   /** When a worker last died over its memory limit (Date.now()); 0 never. */
   private outOfMemoryAt = 0;
   private sandbox: SandboxSetup | null = null;
@@ -283,6 +292,7 @@ export class LeanServer {
     this.bootTimeoutMs = opts.bootTimeoutMs ?? 60_000;
     this.sandboxed = opts.sandboxed ?? false;
     this.memoryMb = opts.memoryMb ?? MEMORY_MB;
+    this.footprintMb = opts.footprintMb ?? this.memoryMb;
   }
 
   /** The folder documents are named under: the Lake project, or the sandbox's empty one. */
@@ -354,12 +364,11 @@ export class LeanServer {
         // crash is this one's, and it is told once.
         const memory = crashed && started.at > 0 && Date.now() - this.outOfMemoryAt < 2000;
         if (memory) this.outOfMemoryAt = 0;
+        if (memory) throw this.tooMuch(this.memoryMb);
         throw new LeanUnavailable(
-          memory
-            ? `Lean ran out of memory on this: one check may use ${Math.round(this.memoryMb / 1024)} GB. A step that builds something enormous, such as a huge list or a search over a vast range, does this. Change the proof and check again.`
-            : crashed
-              ? "Lean crashed while checking this. The usual cause is a definition that calls itself without end. Lean is running again: change the proof, or check it once more."
-              : `Lean could not check this: ${e.message.replace(/file:\/\/\S+/g, "this file")}`,
+          crashed
+            ? "Lean crashed while checking this. The usual cause is a definition that calls itself without end. Lean is running again: change the proof, or check it once more."
+            : `Lean could not check this: ${e.message.replace(/file:\/\/\S+/g, "this file")}`,
         );
       }
       throw e;
@@ -564,9 +573,9 @@ export class LeanServer {
   private async checkDoc(doc: Doc, source: string, positions: Position[], structured: boolean, printedUntil: number, signal?: AbortSignal): Promise<LeanCheck> {
     const proc = this.proc;
     if (doc.generation !== this.generation || !proc) {
-      // The same text as the check that just ran out of time here, asked
-      // for while that one was running: it would only run out of time again.
-      if (doc.timedOut === source) throw this.tooLong();
+      // The same text as the check that just ran out of time or memory here,
+      // asked for while that one was running: it would only do so again.
+      if (doc.gaveUp?.source === source) throw doc.gaveUp.why;
       // Otherwise the server was stopped, or the document closed, while
       // this check waited its turn: it starts again on what replaced them.
       throw new Lost("Lean was restarted while this proof was waiting to be checked. Try again.");
@@ -600,6 +609,10 @@ export class LeanServer {
     );
   }
 
+  private tooMuch(mb: number): LeanUnavailable {
+    return new LeanUnavailable(`Lean ran out of memory on this: one check may use ${Math.round(mb / 1024)} GB. A step that builds something enormous, such as a huge list or a search over a vast range, does this. Change the proof and check again.`);
+  }
+
   /** Send one version of a document and wait for Lean's answer, for at most
    *  the time its kind allows. `loading`: the text is a header alone. */
   private async timed(doc: Doc, proc: ChildProcessWithoutNullStreams, source: string, positions: Position[], loading: boolean, structured: boolean, printedUntil: number): Promise<LeanCheck> {
@@ -611,16 +624,26 @@ export class LeanServer {
       this.notify("textDocument/didChange", { textDocument: { uri: doc.uri, version }, contentChanges: [{ text: source }] });
     }
     let timer: NodeJS.Timeout | undefined;
+    let unwatch = () => {};
     const timeout = new Promise<never>((_, reject) => {
+      // A proof that never finishes, or takes all the memory there is, would
+      // hold every later check of its document. Closing the document ends the
+      // worker running it and leaves the rest of Lean warm.
+      const giveUp = (why: LeanUnavailable) => {
+        doc.gaveUp = { source, why };
+        this.replace(doc, source);
+        reject(why);
+      };
+      if (!loading && proc.pid !== undefined) {
+        const over = () => {
+          if (doc.generation === this.generation && this.proc === proc) giveUp(this.tooMuch(this.footprintMb));
+        };
+        unwatch = watchMemory({ server: proc.pid, uri: doc.uri, limitMb: this.footprintMb, over });
+      }
       timer = setTimeout(
         () => {
           if (!loading) {
-            // A proof that never finishes would hold every later check of
-            // its document. Closing the document ends the worker running
-            // it and leaves the rest of Lean warm.
-            doc.timedOut = source;
-            this.replace(doc, source);
-            return reject(this.tooLong());
+            return giveUp(this.tooLong());
           }
           // Lean could not even load its library in time: the server itself
           // is wedged, and is replaced. Only the process this check ran on,
@@ -649,6 +672,7 @@ export class LeanServer {
       return result;
     } finally {
       clearTimeout(timer);
+      unwatch();
     }
   }
 

@@ -324,6 +324,13 @@ Landed in the first PR, the foundation slice:
   in the real app: the pages, a Playground check and the settings load;
   curl with no marker is refused, with it answered, and with it from a
   page the browser calls another site refused.
+- The memory limit holds when the Mac is short of memory (`lii-au3`): Lean's
+  `-M` compares resident size, which macOS shrinks by compressing pages (a
+  check was seen at a footprint of 9.9 GB, 6.7 GB resident at most, and not
+  stopped). `web/server/lean/memory.ts` also looks at the footprint of the
+  worker running a check, from its first second on, and closes its document
+  past the limit. macOS only; it samples, so a burst shorter than about a
+  second can pass it.
 - Two widgets for Level 4: `set-diagram` (`lii-53v.6`), the regions of two
   or three sets that a formula names, compared with a second formula or
   shaded by the learner; and `function-arrows` (`lii-53v.7`), a function
@@ -689,7 +696,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 606, including every reference solution checked by the real Lean,
+- Tests: 608, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -720,7 +727,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-12 beads in 3 areas. "Needs" lists beads that must land first.
+11 beads in 2 areas. "Needs" lists beads that must land first.
 
 ### Level 4 (epic `lii-dvy.12`)
 
@@ -736,12 +743,6 @@ in the repo (`lii-2zf.5`).
 | `lii-dvy.12.9` | Cantor's diagonal argument | 2 | |
 | `lii-dvy.12.10` | Level 4 moves, and the level opened | 2 | the lessons above |
 | `lii-dvy.12.11` | A lesson in an outline level offers an Open anyway that the server refuses | 3 | |
-
-### Lean engine
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-au3` | The 8 GB Lean memory limit does not hold when macOS is short of memory | 2 | |
 
 ### Widgets (epic `lii-53v`)
 

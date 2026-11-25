@@ -3,9 +3,11 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { assemble, endOfBody, toSource } from "../shared/proof.ts";
-import { headerOf, LeanAbandoned, LeanServer, LeanTimeout, LeanUnavailable, leanProblem, leanToolchain, MEMORY_MB, wantedWhile } from "./lean/lsp.ts";
+import { FOOTPRINT, footprintMb, workerIn } from "./lean/memory.ts";
+import { headerOf, LEAN_DIR, LeanAbandoned, LeanServer, LeanTimeout, LeanUnavailable, leanProblem, leanToolchain, MEMORY_MB, wantedWhile } from "./lean/lsp.ts";
 
 // How the Lean client behaves when its server stops, is slow or is absent.
 // All but the last test start a real `lake serve`; where Lean is not
@@ -207,6 +209,45 @@ test(`a check that wants more memory than a worker may have (${MEMORY_MB} MB) is
   await assert.rejects(lean.check("lsp-memory", huge), (e: Error) => e instanceof LeanUnavailable && /ran out of memory on this: one check may use 8 GB/.test(e.message));
   assert.equal(lean.health().state, "ready");
   assert.deepEqual((await lean.check("lsp-memory", fine(2))).diagnostics, []);
+});
+
+test("the limit counts memory macOS has taken out of the resident set: the footprint is watched, whatever Lean's own limit sees", { skip: skip || (fs.existsSync(FOOTPRINT) ? false : "no footprint tool here") }, async (t) => {
+  // Lean's own limit is far above what this needs (some 3 GB), so only the watch can refuse it.
+  const lean = new LeanServer({ footprintMb: 1500, memoryMb: 16384 });
+  t.after(() => lean.stop());
+  await lean.check("lsp-footprint", fine(1));
+  const big = "import Mathlib\n#eval (List.replicate 120000000 (7 : Nat)).length\n";
+  const worker = () => workerIn(execFileSync("/bin/ps", ["-axwwo", "pid=,ppid=,command="], { encoding: "utf8" }), process.pid, pathToFileURL(path.join(LEAN_DIR, "Scratch", "lsp-footprint.lean")).toString());
+  const before = worker();
+  assert.notEqual(before, null, "the worker is found under this process");
+  // Asked twice at once: the second is told the same, and not run again.
+  const [one, two] = await Promise.allSettled([lean.check("lsp-footprint", big), lean.check("lsp-footprint", big)]);
+  for (const r of [one, two]) assert.match(r.status === "rejected" ? String(r.reason.message) : "accepted", /ran out of memory on this/);
+  assert.equal(lean.health().state, "ready");
+  assert.deepEqual((await lean.check("lsp-footprint", fine(2))).diagnostics, []);
+  assert.throws(() => process.kill(before!, 0), "the worker that was over is gone");
+});
+
+test("the watch reads ps and footprint: only a worker of this server, for this document", () => {
+  const uri = "file:///x/Scratch/a.lean";
+  const ps = [
+    "    1     0 /sbin/launchd",
+    "  100     1 lake serve -- -M 8192",
+    "  101   100 /t/bin/lean --server -M 8192",
+    `  102   101 /t/bin/lean --worker -M8192 ${uri}`,
+    "  103   101 /t/bin/lean --worker -M8192 file:///x/Scratch/aa.lean",
+    "  200     1 /t/bin/lean --server -M 8192",
+    `  201   200 /t/bin/lean --worker -M8192 ${uri}`,
+    `  300     1 grep --worker -M8192 ${uri}`,
+  ].join("\n");
+  assert.equal(workerIn(ps, 100, uri), 102);
+  assert.equal(workerIn(ps, 101, uri), 102);
+  assert.equal(workerIn(ps, 200, uri), 201, "another server's worker for the same document is not this one's");
+  assert.equal(workerIn(ps, 999, uri), null);
+  assert.equal(workerIn(ps, 100, "file:///x/Scratch/b.lean"), null);
+  assert.equal(workerIn("", 100, uri), null);
+  assert.equal(footprintMb("lean [102]: 64-bit    Footprint: 751548424 B (16384 bytes per page)")! | 0, 716);
+  assert.equal(footprintMb("footprint: no process"), null);
 });
 
 test("the header of a file is its imports with the comments around them", () => {
