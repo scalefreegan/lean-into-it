@@ -368,6 +368,7 @@ test("a lesson written ahead in an outline opens nothing and asks nothing of the
   const all = levelStatuses(ahead, knowing("a"), [], [], {});
   assert.deepEqual(all.map((s) => s.state), ["open", "locked", "open"]);
   assert.equal(all[2].gate, 0, "gated past the outline, on level 0");
+  assert.deepEqual(levelStatuses({ ...ahead, levels: [lvl(0), lvl(1), lvl(2, "outline")] } as unknown as typeof ahead, knowing(), [], [{ lessonId: "two" }], {}).map((s) => s.state), ["open", "locked", "locked"], "a check there opens nothing below");
   assert.deepEqual([0, 1, 2, 9].map((l) => isOutline(ahead.levels, l)), [false, true, false, false]);
 });
 

@@ -330,7 +330,8 @@ Landed in the first PR, the foundation slice:
   stopped). `web/server/lean/memory.ts` also looks at the footprint of the
   worker running a check, from its first second on, and closes its document
   past the limit. macOS only; it samples, so a burst shorter than about a
-  second can pass it.
+  second can pass it, and a look that takes over ten seconds is missed (the
+  20-second limit still ends the check).
 - Two widgets for Level 4: `set-diagram` (`lii-53v.6`), the regions of two
   or three sets that a formula names, compared with a second formula or
   shaded by the learner; and `function-arrows` (`lii-53v.7`), a function

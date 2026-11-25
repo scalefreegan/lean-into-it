@@ -23,7 +23,7 @@ exercises:
     mode: typed
     says: If A is a subset of B and x is in A, then x is in B.
     statement: "(A B : Set ℕ) (x : ℕ) (hAB : A ⊆ B) (hx : x ∈ A) : x ∈ B"
-    forbid: [grind, aesop, simp_all, tauto, exact?, apply?, hint, solve_by_elim, order, tauto_set, bound, grw, rw?]
+    forbid: [grind, aesop, simp_all, tauto, exact?, apply?, hint, solve_by_elim, order, tauto_set, bound, grw, rw?, aesop_cat, cat_disch, grewrite, gcongr, observe]
     solution: |
       exact hAB hx
   - id: take-a-member
@@ -42,7 +42,7 @@ exercises:
     mode: typed
     says: If A is a subset of B and B is a subset of C, then A is a subset of C.
     statement: "(A B C : Set ℕ) (hAB : A ⊆ B) (hBC : B ⊆ C) : A ⊆ C"
-    forbid: [grind, aesop, simp_all, tauto, exact?, apply?, hint, solve_by_elim, order, trans, calc, subset_trans, Subset.trans, Set.Subset.trans, HasSubset.Subset.trans, hAB.trans, le_trans, tauto_set, bound, grw, rw?, transitivity, trans', le_trans', ge_trans, ge_trans']
+    forbid: [grind, aesop, simp_all, tauto, exact?, apply?, hint, solve_by_elim, order, trans, calc, subset_trans, Subset.trans, Set.Subset.trans, HasSubset.Subset.trans, hAB.trans, le_trans, tauto_set, bound, grw, rw?, transitivity, trans', le_trans', ge_trans, ge_trans', aesop_cat, cat_disch, grewrite, gcongr, observe, trans_of, le_imp_le_of_le_of_le]
     solution: |
       intro x hx
       apply hBC
@@ -52,7 +52,7 @@ exercises:
     mode: typed
     says: Every multiple of 4 is a multiple of 2.
     statement: ": {n : ℕ | ∃ k, n = 4 * k} ⊆ {n : ℕ | ∃ k, n = 2 * k}"
-    forbid: [grind, aesop, simp_all, tauto, omega, exact?, apply?, hint, tauto_set, rw?]
+    forbid: [grind, aesop, simp_all, tauto, exact?, apply?, hint, tauto_set, rw?]
     solution: |
       intro n hn
       obtain ⟨k, hk⟩ := hn

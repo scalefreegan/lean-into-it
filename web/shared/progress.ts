@@ -364,8 +364,8 @@ export interface LevelStatus {
   /** This level's own tested concepts: how many are mastered, of how many. */
   mastered: number;
   total: number;
-  /** The level whose mastery opens this one: the nearest earlier level whose
-   *  lessons test a concept. Null when nothing gates it. */
+  /** The level whose mastery opens this one: the nearest earlier written
+   *  level whose lessons test a concept. Null when nothing gates it. */
   gate: number | null;
   gateMastered: number;
   gateTotal: number;
@@ -387,13 +387,12 @@ const needOf = (mastered: number, total: number): number => Math.max(0, Math.cei
  * with lessons, not an outline) is open when any of these holds:
  *   - it is the first written level;
  *   - it, or a later level, is on record as opened (`opened`), or has checks
- *     on record (`rows`): levels open in order, so opening one opens every
+ *     on record (`rows`; those in an outline's lessons count for nothing): levels open in order, so opening one opens every
  *     written level before it, and a level once open never locks again;
  *   - the written level before it is open and its gate is passed: of the
  *     concepts the gate level's exercises test, UNLOCK_FRACTION are mastered.
- * The gate is the nearest earlier level whose lessons test a concept; a
- * level that tests none (an outline, or lessons without exercises) asks
- * nothing, so the next level looks back past it. An open level is done when
+ * The gate is the nearest earlier written level whose lessons test a concept;
+ * an outline, or a level whose lessons have no exercises, asks nothing, so the next level looks back past it. An open level is done when
  * every exercise in it is solved (`solved`). Mastery is sticky once a
  * concept enters review (masteryFrom), so an earned level stays earned
  * unless the curriculum gains concepts; the server records a level when it
@@ -411,7 +410,7 @@ export function levelStatuses(
   for (const o of opened) if (!recorded.has(o.level)) recorded.set(o.level, o.how);
   for (const r of rows) {
     const level = levelOfLesson.get(r.lessonId);
-    if (level !== undefined && !recorded.has(level)) recorded.set(level, "worked");
+    if (level !== undefined && !isOutline(content.levels, level) && !recorded.has(level)) recorded.set(level, "worked");
   }
   // The reason a level below a recorded one is open: the nearest recorded level at or above it.
   const reasonAt = (id: number): LevelOpenReason | null => {

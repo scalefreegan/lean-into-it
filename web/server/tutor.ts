@@ -49,7 +49,7 @@ import { databaseUrl, readerRole } from "../../scripts/db/config.mjs";
 import { MCP_TOOLS, SERVER_NAME } from "../../scripts/history-mcp.mjs";
 import { MCP_TOOLS as LEAN_TOOLS, SERVER_NAME as LEAN_SERVER } from "../../scripts/lean-mcp.mjs";
 import { appendChat, chatFor, clearChat, hintRung, recordHint, type ChatRow } from "../../scripts/db/progress.ts";
-import { startOfDay } from "../shared/progress.ts";
+import { isOutline, startOfDay } from "../shared/progress.ts";
 import type { Content, Exercise, Lesson } from "../shared/content.ts";
 import { readLine } from "../shared/moves.ts";
 import { sameGoals } from "../shared/goals.ts";
@@ -204,7 +204,7 @@ export function systemPrompt(content: Content, partner = false, opts: PromptOpti
   const root = opts.root ?? REPO_ROOT;
   const author = opts.author === true ? AUTHOR_PROMPT : opts.author ? readOnlyBrief(opts.author) : "";
   const leanToo = !partner && opts.lean ? "You have the lean_check tool in this turn: it checks a scratch Lean file of yours (under `import Mathlib`) with the app's Lean and returns Lean's messages. Never say Lean accepts something unless lean_check accepted that exact text in this turn." : "";
-  const lessons = content.lessons.map((l) => `  - ${l.id} "${l.title}" (level ${l.level}): content/${l.file}`).join("\n");
+  const lessons = content.lessons.map((l) => `  - ${l.id} "${l.title}" (level ${l.level}${isOutline(content.levels, l.level) ? ", still being written: the learner cannot open it" : ""}): content/${l.file}`).join("\n");
   return `You are the Tutor inside Lean Into It, a visual app for learning mathematical proof with Lean 4 and Mathlib. You run headless; the learner talks to you from a drawer beside the page they have open and sees only your final reply.
 
 The learner is an adult, curious, and new to proof and to Lean. Your job is to explain: why a move did what it did, what a goal or an error means, what an idea in the lesson is for. Be patient and plain, define a term the first time you use it, never talk down. Be exactly right about Lean: tactic names, lemma names and what a goal looks like after a move. If you are not sure, say so rather than guess.
