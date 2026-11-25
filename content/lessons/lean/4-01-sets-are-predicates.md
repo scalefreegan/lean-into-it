@@ -5,13 +5,14 @@ track: lean
 level: 4
 order: 2
 concepts: [sets]
-summary: "In Lean a set is a property: x ∈ {n | n > 2} unfolds to x > 2, and rintro takes a member apart in one line."
+summary: "In Lean a set is made from a property: x ∈ {n | n > 2} unfolds to x > 2, and rintro takes a member apart in one line."
 exercises:
   - id: in-means-has
     title: Membership is the property
     mode: typed
     says: For any property p of natural numbers, x is in the set of all n with p n exactly when p x holds.
     statement: "(p : ℕ → Prop) (x : ℕ) : x ∈ {n | p n} ↔ p x"
+    forbid: &auto [norm_num, simp, simp_all, simpa, simp_arith, dsimp, decide, trivial, aesop, aesop_cat, cat_disch, grind, bound, tauto, tauto_set, solve_by_elim, observe, norm_cast, gcongr, positivity, exact?, apply?, rw?, hint]
     solution: |
       rfl
   - id: five-is-in
@@ -19,9 +20,10 @@ exercises:
     mode: typed
     says: 5 is in the set of natural numbers greater than 2.
     statement: ": 5 ∈ {n : ℕ | n > 2}"
+    forbid: *auto
     solution: |
       show 5 > 2
-      norm_num
+      omega
   - id: change-a-fact
     kind: predict
     title: Change a fact
@@ -38,6 +40,7 @@ exercises:
     mode: typed
     says: If a is in the set of numbers greater than 2, then a + 1 is in the set of numbers greater than 3.
     statement: "(a : ℕ) (ha : a ∈ {n : ℕ | n > 2}) : a + 1 ∈ {n : ℕ | n > 3}"
+    forbid: *auto
     solution: |
       change a > 2 at ha
       show a + 1 > 3
@@ -75,7 +78,7 @@ exercises:
   - id: either-way
     kind: fill
     title: A member that is one of two things
-    says: If n is 2 or 4, then n is even.
+    says: The set of numbers that are 2 or 4 is a subset of the set of even numbers.
     statement: ": {n : ℕ | n = 2 ∨ n = 4} ⊆ {n : ℕ | Even n}"
     proof: |
       rintro n <gap>
@@ -84,32 +87,32 @@ exercises:
       · rw [h]
         use 2
     options:
-      - "⟨h, h⟩"
+      - h | h
       - (h | h)
     solution: (h | h)
 ---
 
-The last lesson spoke of a set as settled by one question: is it in, or not? Lean takes that at its word. A set of natural numbers *is* a property of natural numbers, a thing that takes a number and gives a proposition. Such a property is called a **predicate**, and you have met them since Level 1 as `p : ℕ → Prop`{say: p, from the natural numbers to propositions}.
+*What a set is* spoke of a set as settled by one question: is it in, or not? Lean takes that at its word. A property of natural numbers takes a number and gives a proposition. It is called a **predicate**, and you have met them since Level 1, written `P : ℕ → Prop`{say: P, from the natural numbers to propositions}. In Lean a set of natural numbers is made from a predicate and holds nothing else.
 
 ## Membership is the property
 
-Writing `{n | p n}`{say: the set of all n such that p of n} makes a set out of the property p. To say that x is in it is to say that p holds of x, and nothing more. The two are not merely equivalent: they are the same proposition written in two ways, so `rfl` proves it.
+Writing `{n | p n}`{say: the set of all n such that p of n} makes a set out of the property p. The set is not itself the property: of a set A you write x ∈ A, never A x. But to say that x is in it is to say that p holds of x, and nothing more. The two statements are not merely equivalent: they are the same proposition written in two ways, so `rfl` proves it.
 
 ```exercise
 id: in-means-has
 ```
 
-This is why `exact` and `intro` worked so easily in the last lesson. They look past how a thing is written to what it means.
+This is why `obtain` and `use` worked on memberships in *What a set is*. They look past how a thing is written to what it means, and so do `exact` and `intro`.
 
 ## Writing it the other way
 
-You can ask Lean to write the goal out. **`show`** followed by a proposition replaces the goal with that proposition, provided the two mean the same by definition. Here the goal is a membership, and you can show it as an inequality.
+You can ask Lean to write the goal out. **`show`** followed by a proposition replaces the goal with that proposition, provided the two mean the same by definition. Here the goal is a membership, and you can show it as an inequality, which `omega` will then settle.
 
 ```exercise
 id: five-is-in
 ```
 
-For a fact the move is **`change`**: `change a > 2 at ha` writes the fact `ha` as `a > 2`. Both refuse if the new form does not mean the same.
+For a fact the move is **`change`**: `change a > 2 at ha` writes the fact `ha` as `a > 2`. Both refuse a new form that does not mean the same by definition, even one that could be proved equivalent.
 
 ```exercise
 id: change-a-fact
@@ -117,17 +120,17 @@ id: change-a-fact
 
 ## When it matters
 
-Some tactics do not look past the writing. `omega` knows about inequalities of whole numbers, but a membership is not written as one, so it does not see the inequality inside. Write both the fact and the goal as inequalities, and it does.
+Some tactics do not look past the writing. `omega` knows about inequalities of whole numbers, but a membership is not written as one, so it does not see the inequality inside. That was so for 5, and it is so for a fact as much as for the goal. Write both the fact and the goal as inequalities, and it does.
 
 ```exercise
 id: one-more
 ```
 
-When a tactic that ought to work says it found nothing to use, look for a membership in the way.
+When a tactic that ought to work says it has nothing to go on, or cannot reach the goal, look for a membership in the way.
 
 ## Taking a member apart
 
-To prove a subset you take a member with `intro n hn`, and when membership means "there is a k", you take that apart with `obtain ⟨k, hk⟩ := hn`. The two go together so often that Lean has one move for both. **`rintro`** is `intro` with the pattern of an `obtain` written where the name would go: `rintro n ⟨k, hk⟩`.
+To prove a subset you take a member with `intro n hn`, and when membership means "there is a k", you take that apart with `obtain ⟨k, hk⟩ := hn`. The two go together so often that Lean has one move for both. **`rintro`** is `intro` with the pattern of an `obtain` written where the name would go: `rintro n ⟨k, hk⟩`{say: R intro n, and in angle brackets k, h k}.
 
 ```exercise
 id: take-apart
@@ -154,7 +157,7 @@ An "and" comes apart with the same angle brackets, one name for each half.
 id: one-of-two
 ```
 
-An "or" does not give you both halves, so it has a pattern of its own: round brackets, with a bar between the two cases. It leaves two goals, one for each.
+An "or" does not give you both halves: it leaves two goals, one for each case. The pattern is the bar you know from `obtain h | h`, but here other names may come before and after it, so `rintro` needs round brackets round it.
 
 ```exercise
 id: either-way
@@ -162,6 +165,6 @@ id: either-way
 
 ## What you used
 
-- A set in Lean is a predicate: x ∈ `{n | p n}`{say: the set of all n such that p of n} means p x, by definition.
-- `show` writes the goal, and `change … at` a fact, in another form with the same meaning.
-- `rintro n ⟨k, hk⟩` takes a member and takes it apart. Use `⟨ , ⟩` for "there exists" and "and", and `( | )`{say: round brackets with a bar} for "or".
+- A set in Lean is made from a predicate: x ∈ `{n | p n}`{say: the set of all n such that p of n} means p x, by definition.
+- `show` writes the goal, and `change … at`{say: change, at} a fact, in another form that means the same by definition.
+- `rintro n ⟨k, hk⟩`{say: R intro n, and in angle brackets k, h k} takes a member and takes it apart. Use `⟨ , ⟩`{say: angle brackets} for "there exists" and "and", and `( | )`{say: round brackets with a bar} for "or".

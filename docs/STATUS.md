@@ -733,7 +733,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-9 beads in 2 areas. "Needs" lists beads that must land first.
+11 beads in 2 areas. "Needs" lists beads that must land first.
 
 ### Level 4 (epic `lii-dvy.12`)
 
@@ -746,7 +746,9 @@ in the repo (`lii-2zf.5`).
 | `lii-dvy.12.7` | Composition and inverses | 2 | |
 | `lii-dvy.12.8` | Equivalence relations | 2 | |
 | `lii-dvy.12.9` | Cantor's diagonal argument | 2 | |
-| `lii-dvy.12.10` | Level 4 moves, and the level opened | 2 | the lessons above |
+| `lii-dvy.12.10` | Level 4 moves, and the level opened | 2 | the lessons above, `lii-dvy.12.13` |
+| `lii-dvy.12.12` | Plain words for a failed show or change, and omega stopped by a membership | 3 | |
+| `lii-dvy.12.13` | Level 4 lessons come in an order the plan did not mean | 2 | |
 
 ### Widgets (epic `lii-53v`)
 
