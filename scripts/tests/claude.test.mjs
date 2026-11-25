@@ -33,6 +33,7 @@ test("a research turn may search and fetch the web and nothing else: no file too
   for (const t of WEB_TOOLS) assert.ok(!denied.includes(t), t);
   for (const t of ["Bash", "Edit", "Write", "Agent", "Task", ...READ_TOOLS, ...LOCAL_FETCH]) assert.ok(denied.includes(t), t);
   assert.ok(LOCAL_FETCH.includes("WebFetch(domain:localhost)") && LOCAL_FETCH.includes("WebFetch(domain:127.0.0.1)"));
+  assert.ok(buildArgs({ systemPrompt: "s", repoRoot: "/run", web: true, localNames: ["my-mac.t.ts.net"] }).includes("WebFetch(domain:my-mac.t.ts.net)"), "nor by its tailnet name");
   assert.throws(() => buildArgs({ web: true, write: { contentDir: "/r/content" }, repoRoot: "/r" }), /search the web or write lessons, not both/);
 });
 

@@ -38,6 +38,7 @@ import { MAP_FORMAT, pathConcepts, readMap, settleLinks, type ResearchMap, type 
 import type { ResearchJob, ResearchListReply, ResearchRequest } from "../shared/wire.ts";
 import { learnerId, rawDb } from "./db.ts";
 import { loadContent } from "./loader.ts";
+import { publicHosts } from "./origin.ts";
 import { HttpError, methodNotAllowed, readJsonBody, sendJson } from "./sse.ts";
 import { claimTutor, releaseTutor, tutorBusy } from "./tutor.ts";
 
@@ -72,7 +73,7 @@ export function researchPrompt(question: string, content: Parameters<typeof path
 
 export type ResearchAgent = (a: { prompt: string; systemPrompt: string; signal: AbortSignal }) => Promise<string>;
 const claudeResearch: ResearchAgent = async ({ prompt, systemPrompt, signal }) =>
-  (await startClaude({ prompt, systemPrompt, model: DEFAULT_MODEL, cwd: REPO_ROOT, signal, web: true, maxTurns: RESEARCH_TURNS, timeoutSec: RESEARCH_SECONDS }).result).text;
+  (await startClaude({ prompt, systemPrompt, model: DEFAULT_MODEL, cwd: REPO_ROOT, signal, web: true, localNames: publicHosts(), maxTurns: RESEARCH_TURNS, timeoutSec: RESEARCH_SECONDS }).result).text;
 let agent: ResearchAgent = claudeResearch;
 /** Tests only: null puts the real run back. */
 export function setResearchAgent(a: ResearchAgent | null): void {

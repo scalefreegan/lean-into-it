@@ -58,7 +58,7 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
 ## Rules that keep it working
 - Port **38800**, `strictPort`, polling watcher (FSEvents is unreliable on
   this machine). Siblings: Fret Not 38600, jev-ants 38500, Lingo Dojo 38400,
-  Atlas 38300, Wine Guide 38200, Basecamp 38100.
+  Atlas 38300, Wine Guide 38200, Trail Train 38100.
 - **Lean decides.** A proof is solved only when Lean accepts the proof of
   the exercise's own statement with no error and no `sorry`, resting only on
   the three standard axioms (`web/shared/proof.ts` `judge`). Nothing else,
@@ -80,7 +80,21 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
   match it, and the request must come from the app (the browser says
   same-origin, or it carries `X-Lean-Into-It: 1`, which `client.ts` and
   `scripts/lean-mcp.mjs` send; `web/server/origin.ts`). No exceptions, and
-  never serve this app on a network.
+  never serve this app on a network — **except** this user's own Tailscale
+  tailnet (decided 2026-11-24): `LEAN_PUBLIC_HOST` in the gitignored
+  repo-root `.env.local` names the machine's MagicDNS host (`*.ts.net` only; `web/server/publichost.ts`),
+  `web/vite.config.ts` gives it to Vite's `allowedHosts` and to `apiPlugins`,
+  and `localHost()` (`web/server/origin.ts`) accepts it alongside loopback.
+  That name can be DNS-rebound (localhost cannot), so under it any Origin must
+  be https and `Sec-Fetch-Site` must say same-origin (`tailnetRequest`). It
+  does not authenticate: a program on any device that can reach the tailnet
+  address can send those headers and run Lean as this user, so only the
+  tailnet's membership and access rules decide who may. Nothing is written
+  back to `process.env`, and the Tutor's Lean tool always calls back on
+  loopback. `tailscale serve --bg --https=38800
+  http://localhost:38800` is what puts it there; never `tailscale funnel`,
+  which is public. `sameOrigin` and `fromApp` still gate every route
+  unchanged.
 - All exercises share one Lean document (`"exercise"`), the Playground has
   its own. Lean the Tutor's model wrote is checked on the Tutor's behalf
   only by `tutorLean()`, a second Lean under the OS sandbox

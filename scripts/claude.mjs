@@ -111,7 +111,7 @@ const MCP_TOOL_RE = /^mcp__[a-z][a-z0-9_-]*__[a-z][a-z0-9_]*$/;
  *                              its tools are allowed one by one (`mcpTools`)
  *   --no-session-persistence   the server keeps the history; nothing to resume
  */
-export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, mcpConfigPath, repoRoot = REPO_ROOT, mcpTools = [], write = null, web = false }) {
+export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, mcpConfigPath, repoRoot = REPO_ROOT, mcpTools = [], write = null, web = false, localNames = [] }) {
   if (web && write) throw new Error("a turn may search the web or write lessons, not both");
   for (const t of mcpTools) if (!MCP_TOOL_RE.test(t)) throw new Error(`not an MCP tool name: ${t}`);
   // A writing turn (`write: { contentDir }`, lesson authoring): Edit and
@@ -119,13 +119,14 @@ export function buildArgs({ systemPrompt, model = DEFAULT_MODEL, maxTurns = 12, 
   // A research turn (`web: true`, Field notes) reads pages anyone can
   // write, so it gets WebSearch and WebFetch INSTEAD of the file tools:
   // nothing it reads could tell it to read a file and send it out. It runs
-  // in an empty folder (startClaude) and may not fetch from this machine.
+  // in an empty folder (startClaude) and may not fetch from this machine,
+  // by its loopback names or the tailnet's (`localNames`).
   const tools = write ? [...READ_TOOLS, "Edit", "Write"] : web ? WEB_TOOLS : READ_TOOLS;
   const allowed = web ? WEB_TOOLS : [...READ_TOOLS, ...(write ? contentGrants(write.contentDir, repoRoot) : [])];
   const denied = write
     ? [...DENIED.filter((t) => t !== "Edit" && t !== "Write"), ...contentDenials(write.contentDir, repoRoot)]
     : web
-      ? [...DENIED.filter((t) => !WEB_TOOLS.includes(t)), ...READ_TOOLS, ...LOCAL_FETCH]
+      ? [...DENIED.filter((t) => !WEB_TOOLS.includes(t)), ...READ_TOOLS, ...LOCAL_FETCH, ...localNames.map((d) => `WebFetch(domain:${d})`)]
       : DENIED;
   const args = [
     "-p",
@@ -251,7 +252,7 @@ export function sweepRunDirs({ maxAgeMs = 45 * 60_000, now = Date.now(), tmp = o
  * --mcp-config file's `mcpServers` (none by default) and `mcpTools` their
  * tools the run may call, by full name.
  */
-export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd = REPO_ROOT, signal, maxTurns = 12, timeoutSec = 180, mcpServers = {}, mcpTools = [], write = null, web = false }) {
+export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd = REPO_ROOT, signal, maxTurns = 12, timeoutSec = 180, mcpServers = {}, mcpTools = [], write = null, web = false, localNames = [] }) {
   let dir = fs.mkdtempSync(path.join(os.tmpdir(), RUN_DIR_PREFIX));
   const cleanup = () => {
     if (!dir) return;
@@ -269,7 +270,7 @@ export function startClaude({ prompt, systemPrompt, model = DEFAULT_MODEL, cwd =
     fd = fs.openSync(promptPath, "r");
     // A research turn runs in its own empty run folder, never the repository.
     const runCwd = web ? dir : cwd;
-    proc = spawn("claude", buildArgs({ systemPrompt, model, maxTurns, mcpConfigPath, repoRoot: runCwd, mcpTools, write, web }), { cwd: runCwd, env: childEnv(), stdio: [fd, "pipe", "pipe"], detached: true });
+    proc = spawn("claude", buildArgs({ systemPrompt, model, maxTurns, mcpConfigPath, repoRoot: runCwd, mcpTools, write, web, localNames }), { cwd: runCwd, env: childEnv(), stdio: [fd, "pipe", "pipe"], detached: true });
   } catch (e) {
     cleanup();
     throw e;
