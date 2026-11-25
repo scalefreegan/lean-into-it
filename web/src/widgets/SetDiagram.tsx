@@ -58,7 +58,7 @@ function Diagram({ sets, shaded, empty, wrong, onPress, label }: DiagramProps) {
         const paint = wrong?.has(k) ? "fill-bad" : shaded.has(k) && !gone ? "fill-accent" : "";
         const rect = (
           <g data-region={k} data-shaded={shaded.has(k) && !gone ? "" : undefined}>
-            <rect x="2" y="2" width={W - 4} height={H - 4} rx="9" fillOpacity={paint ? 0.4 : 0} className={cx(paint, onPress && !gone && "cursor-pointer")} onClick={onPress && !gone ? () => onPress(k) : undefined} />
+            <rect x="2" y="2" width={W - 4} height={H - 4} rx="9" fillOpacity={!paint ? 0 : shaded.has(k) ? 0.45 : 0.15} className={cx(paint, onPress && !gone && "cursor-pointer")} onClick={onPress && !gone ? () => onPress(k) : undefined} />
             {gone && <rect x="2" y="2" width={W - 4} height={H - 4} fill={`url(#${id}x)`} pointerEvents="none" />}
           </g>
         );
@@ -124,7 +124,7 @@ export function SetDiagram({ params }: WidgetProps) {
           <p className="mt-3 text-sm text-fg-3">Press the regions of the diagram, or their names here, then check.</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {[...Array(regionCount(sets)).keys()].filter((k) => !empty.has(k)).map((k) => (
-              <button key={k} type="button" data-pick={k} aria-pressed={picked.has(k)} onClick={() => toggle(k)} className={cx("rounded-lg border px-2.5 py-1 text-sm", wrong.includes(k) ? "border-bad text-bad" : picked.has(k) ? "border-accent bg-accent-soft text-fg" : "border-line-strong text-fg-2 hover:bg-raised")}>
+              <button key={k} type="button" data-pick={k} aria-pressed={picked.has(k)} onClick={() => toggle(k)} className={cx("rounded-lg border px-2.5 py-1 text-sm", wrong.includes(k) ? cx("border-bad text-bad", picked.has(k) && "bg-accent-soft") : picked.has(k) ? "border-accent bg-accent-soft text-fg" : "border-line-strong text-fg-2 hover:bg-raised")}>
                 {regionName(sets, k)}
               </button>
             ))}
@@ -134,14 +134,14 @@ export function SetDiagram({ params }: WidgetProps) {
               Check the shading
             </Button>
             <span aria-live="polite" className="text-sm">
-              {checked && (wrong.length ? <span className="text-bad">{wrong.length === 1 ? "One region is wrong" : `${wrong.length} regions are wrong`}: marked in red.</span> : <span className="text-good">Every region is right.</span>)}
+              {checked && (wrong.length ? <span className="text-bad">{wrong.length === 1 ? "One region is wrong" : `${wrong.length} regions are wrong`}: {sayRegions(sets, wrong)}.</span> : <span className="text-good">Every region is right.</span>)}
             </span>
           </div>
         </>
       )}
       {against && (
         <p data-verdict className={cx("mt-3 text-sm font-semibold", differ.length ? "text-bad" : "text-good")}>
-          {differ.length ? `They differ: ${sayRegions(sets, differ)}.` : `The same regions${empty.size ? ", among those that can hold anything" : ""}, so the two sets are equal.`}
+          {differ.length ? `Not always equal. They differ in what is ${sayRegions(sets, differ)}.` : `The same regions${empty.size ? ", among those that can hold anything" : ""}, so the two sets are equal.`}
         </p>
       )}
       {(caption || empty.size > 0) && (

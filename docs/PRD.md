@@ -176,8 +176,8 @@ moves below the same as the file's.
   union, intersection and complement; two sets equal when they have the
   same members; images and preimages; injective, surjective and bijective;
   composition and inverses; relations and equivalence classes. `lean`: a
-  set is a predicate. `logic`: Cantor's diagonal argument. New widgets: a
-  set diagram, function arrows.
+  set is a predicate. `logic`: Cantor's diagonal argument. Widgets: a
+  set diagram, function arrows (both built).
   Moves: `ext`, `rintro`, `refine`, `funext`, `simp only`.
 - **Level 5 — Sequences and limits.** `math`: sequences as functions of
   n; what "tends to" means, for every ε an N; epsilon-N proofs by hand;

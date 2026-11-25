@@ -36,7 +36,7 @@ levels:
   - id: 1                     # a whole number; levels are shown in order
     title: Logic you can see
     summary: One sentence.
-    status: outline           # optional; omit once the level has lessons
+    status: outline           # optional; omit once the level is written
     moves: [intro, apply]     # optional; the tactics the level introduces
     ladder: 1                 # optional, 1-4; how its proofs are entered (below)
     topics:                   # optional; what is still to be written
@@ -49,9 +49,9 @@ levels:
         title: What a set is
         summary: One sentence, shown on the Path.
         concepts: [sets]
-        widgets: [set-diagram, proof-state]
+        widgets: [partition, proof-state]
     new_widgets:              # optional; widgets a plan needs that do not exist yet
-      - { id: set-diagram, does: "Venn regions for two or three sets." }
+      - { id: partition, does: "A set cut into the classes of a relation." }
 ```
 
 A track needs an `id` and a `title`; a level needs a whole-number `id`, used
@@ -398,6 +398,8 @@ caption: Where the proof starts.
 | `riemann-sum` | Rectangles under a curve, left, right or midpoint, with a slider for how many, beside the area. | `function`, `from`, `to` (required), `n`, `rule`, `caption`. |
 | `sequence-limit` | A sequence's terms with an ε band around its limit, and the first N from which every term drawn is inside. | `term` (an expression in n) and `limit` (required), `epsilon`, `start`, `count`, `caption`. |
 | `induction-dominoes` | A row of dominoes to push; taking away the base case or the step stops the chain. | `count`, `start` (the first domino's number), `claim` (what P(n) says), `gap` (the step fails from this n to the next), `caption`. |
+| `set-diagram` | The regions of two or three sets that a formula names; beside a second formula, whether the two name the same regions; or for the learner to shade and check. | `formula` (required): set names with `∪ ∩ \ ᶜ ∅`, a mix of them bracketed. `against`, `sets`, `empty` (a formula whose regions hold nothing: `'A \ B'` draws A ⊆ B), `fill`, `caption`. |
+| `function-arrows` | A function between two small sets as arrows the learner can re-aim, judged injective or surjective; or where a set goes, or what lands in one. | `from`, `to`, `arrows` (required), like `["1 -> a"]`. `show`: both, injective or surjective. `edit`, `image`, `preimage` (a set, not both), `caption`. |
 
 The Gallery (`#/gallery`) has the full list of parameters, drawn examples
 and the block that produces each.

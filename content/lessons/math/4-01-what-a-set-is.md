@@ -23,7 +23,7 @@ exercises:
     mode: typed
     says: If A is a subset of B and x is in A, then x is in B.
     statement: "(A B : Set ℕ) (x : ℕ) (hAB : A ⊆ B) (hx : x ∈ A) : x ∈ B"
-    forbid: [grind, aesop, simp_all, tauto, exact?, apply?, hint, solve_by_elim, order]
+    forbid: [grind, aesop, simp_all, tauto, exact?, apply?, hint, solve_by_elim, order, tauto_set, bound, grw, rw?]
     solution: |
       exact hAB hx
   - id: take-a-member
@@ -42,7 +42,7 @@ exercises:
     mode: typed
     says: If A is a subset of B and B is a subset of C, then A is a subset of C.
     statement: "(A B C : Set ℕ) (hAB : A ⊆ B) (hBC : B ⊆ C) : A ⊆ C"
-    forbid: [grind, aesop, simp_all, tauto, exact?, apply?, hint, solve_by_elim, order, trans, calc, subset_trans, Subset.trans, Set.Subset.trans, HasSubset.Subset.trans, hAB.trans, le_trans]
+    forbid: [grind, aesop, simp_all, tauto, exact?, apply?, hint, solve_by_elim, order, trans, calc, subset_trans, Subset.trans, Set.Subset.trans, HasSubset.Subset.trans, hAB.trans, le_trans, tauto_set, bound, grw, rw?, transitivity, trans', le_trans', ge_trans, ge_trans']
     solution: |
       intro x hx
       apply hBC
@@ -52,7 +52,7 @@ exercises:
     mode: typed
     says: Every multiple of 4 is a multiple of 2.
     statement: ": {n : ℕ | ∃ k, n = 4 * k} ⊆ {n : ℕ | ∃ k, n = 2 * k}"
-    forbid: [grind, aesop, simp_all, tauto, omega, exact?, apply?, hint]
+    forbid: [grind, aesop, simp_all, tauto, omega, exact?, apply?, hint, tauto_set, rw?]
     solution: |
       intro n hn
       obtain ⟨k, hk⟩ := hn
@@ -69,7 +69,7 @@ exercises:
     counterexample: "2"
 ---
 
-Until now every claim has been about numbers or about propositions. This level adds a new kind of object, one that lets you speak of many things at once: the **set**.
+Until now the things you have proved claims about came one at a time: a number, a proposition, a list. This level adds a new kind of object, one that lets you speak of many things at once: the **set**.
 
 A set is settled by one question, asked of each thing in turn: is it in, or not? The set of even numbers is settled because, for each number, you can say what it would mean for it to be in: it is even. A set has no order, and nothing is in it twice. Its members are all there is to it.
 

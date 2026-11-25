@@ -272,7 +272,7 @@ A function between two small finite sets, drawn as arrows. Two arrows that meet 
 
 | Parameter | Value | |
 |---|---|---|
-| `from` (required) | a list of text: `[a, b]` | The elements on the left, short names in quotes: `["1", "2"]`. At most 7. |
+| `from` (required) | a list of text: `[a, b]` | The elements on the left, names of at most 4 characters in quotes: `["1", "2"]`. At most 7. |
 | `to` (required) | a list of text: `[a, b]` | The elements on the right. |
 | `arrows` (required) | a list of text: `[a, b]` | One arrow for each element on the left: `["1 -> a", "2 -> a"]`. |
 | `show` | one of `both`, `injective`, `surjective` | Which property is judged. Default both. |

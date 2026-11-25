@@ -447,9 +447,16 @@ export function levelStatuses(
       first = false;
       prevOpen = why !== null;
     }
-    if (concepts.length > 0) gate = { level: level.id, mastered, total: concepts.length };
+    // An outline asks nothing, whatever lessons are written ahead in it: no one can open them.
+    if (written && concepts.length > 0) gate = { level: level.id, mastered, total: concepts.length };
   }
   return content.levels.map((l) => byLevel.get(l.id)!);
+}
+
+/** Is a level still an outline? Lessons may be written ahead in one; they
+ *  are listed on the Path, cannot be opened, and nothing leads to them. */
+export function isOutline(levels: Pick<Level, "id" | "status">[], level: number): boolean {
+  return levels.some((l) => l.id === level && l.status === "outline");
 }
 
 /** Is the level a lesson belongs to open? A level the statuses do not list

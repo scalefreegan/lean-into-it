@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Lesson, Level } from "../../shared/content.ts";
-import { levelOpen, lessonCredited, lessonMastered, lessonMastery, type LevelStatus } from "../../shared/progress.ts";
+import { isOutline, levelOpen, lessonCredited, lessonMastered, lessonMastery, type LevelStatus } from "../../shared/progress.ts";
 import { href } from "../router.ts";
 import { lessonProgress, useApp } from "../state.tsx";
 import { CraftBadge, cx, MasteryBar, Notice, Tick } from "../ui.tsx";
@@ -59,8 +59,10 @@ export function Home({ focus }: { focus?: number } = {}) {
   // The first lesson not done in an open level, passing over any the
   // placement check credited and that has not been tried since.
   const next = content.lessons.find((l) => levelOpen(levels, l.level) && !lessonProgress(l, solved).complete && !lessonCredited(l, mastery)) ?? null;
-  const total = content.lessons.reduce((n, l) => n + l.exercises.length, 0);
-  const done = content.lessons.reduce((n, l) => n + lessonProgress(l, solved).done, 0);
+  // Lessons written ahead in an outline level cannot be opened: they are not counted.
+  const counted = content.lessons.filter((l) => !isOutline(content.levels, l.level));
+  const total = counted.reduce((n, l) => n + l.exercises.length, 0);
+  const done = counted.reduce((n, l) => n + lessonProgress(l, solved).done, 0);
   const unfolded = (level: Level) => folds[level.id] ?? (next !== null && next.level === level.id);
   // Again once the levels are there: the page can be drawn before the content has come.
   const drawn = content.levels.length;
@@ -181,7 +183,7 @@ function LevelCard({
 }) {
   const { content, solved, mastery } = useApp();
   const trackTitle = (id: string) => content.tracks.find((t) => t.id === id)?.title ?? id;
-  const written = lessons.length > 0;
+  const written = level.status !== "outline" && lessons.length > 0;
   const locked = written && status?.state === "locked";
   const lit = written && !locked;
   const lessonsDone = lessons.filter((l) => lessonProgress(l, solved).complete).length;
@@ -233,21 +235,22 @@ function LevelCard({
 
         {locked && status && <LevelLock status={status} />}
 
-        {written && (
+        {!written && lessons.length > 0 && <p className="mt-4 text-sm text-fg-3">This level is still being written. Written so far, to open when the level does:</p>}
+        {lessons.length > 0 && (
           <ul className="mt-4 grid gap-2 xl:grid-cols-2">
             {lessons.map((lesson) => {
               const p = lessonProgress(lesson, solved);
               const known = lessonMastery(lesson, mastery);
               return (
                 <li key={lesson.id}>
-                  {/* A locked level's lessons are listed, not linked: the card says how to open it. */}
+                  {/* The lessons of a level that is locked, or not written yet, are listed, not linked: the card says why. */}
                   <LessonRow
-                    locked={locked}
+                    locked={!lit}
                     href={href("lesson", lesson.id)}
                     data-lesson={lesson.id}
                     className={cx(
                       "flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors",
-                      locked ? "border-line opacity-70" : lesson.id === nextId ? "border-accent bg-accent-soft hover:bg-raised" : "border-line hover:bg-raised",
+                      !lit ? "border-line opacity-70" : lesson.id === nextId ? "border-accent bg-accent-soft hover:bg-raised" : "border-line hover:bg-raised",
                     )}
                   >
                     {p.complete ? <Tick className="shrink-0 text-good" /> : <span className="h-5 w-5 shrink-0 rounded-full border-2 border-line-strong" />}

@@ -253,7 +253,7 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
   "function-arrows": {
     doc: "A function between two small finite sets, drawn as arrows. Two arrows that meet (not injective) and an element no arrow reaches (not surjective) are coloured and named. The learner can re-aim an arrow: select an element on the left, then where it should go. With `image` or `preimage` it shows where a set goes, or what lands in one, instead, and the learner can change the set.",
     params: {
-      from: { type: "string[]", required: true, doc: "The elements on the left, short names in quotes: `[\"1\", \"2\"]`. At most 7." },
+      from: { type: "string[]", required: true, doc: "The elements on the left, names of at most 4 characters in quotes: `[\"1\", \"2\"]`. At most 7." },
       to: { type: "string[]", required: true, doc: "The elements on the right." },
       arrows: { type: "string[]", required: true, doc: "One arrow for each element on the left: `[\"1 -> a\", \"2 -> a\"]`." },
       show: { type: "enum:both|injective|surjective", doc: "Which property is judged. Default both." },
@@ -272,7 +272,7 @@ export const WIDGETS: Record<WidgetType, WidgetSpec> = {
       if (![p.from, p.to, p.arrows].every(Array.isArray)) return [];
       const read = readArrows(p);
       if (typeof read === "string") return [read];
-      return p.image !== undefined && p.preimage !== undefined ? ["`image` and `preimage` are two different pictures: give one"] : [];
+      return Array.isArray(p.image) && Array.isArray(p.preimage) ? ["`image` and `preimage` are two different pictures: give one"] : [];
     },
   },
   "informal-formal": {

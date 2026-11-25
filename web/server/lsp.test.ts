@@ -6,7 +6,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { test } from "node:test";
 import { assemble, endOfBody, toSource } from "../shared/proof.ts";
-import { FOOTPRINT, footprintMb, workerIn } from "./lean/memory.ts";
+import { FOOTPRINT, footprintMb, run, workerIn } from "./lean/memory.ts";
 import { headerOf, LEAN_DIR, LeanAbandoned, LeanServer, LeanTimeout, LeanUnavailable, leanProblem, leanToolchain, MEMORY_MB, wantedWhile } from "./lean/lsp.ts";
 
 // How the Lean client behaves when its server stops, is slow or is absent.
@@ -226,6 +226,13 @@ test("the limit counts memory macOS has taken out of the resident set: the footp
   assert.equal(lean.health().state, "ready");
   assert.deepEqual((await lean.check("lsp-footprint", fine(2))).diagnostics, []);
   assert.throws(() => process.kill(before!, 0), "the worker that was over is gone");
+});
+
+test("a program the watch cannot start is a look missed, never an error", async () => {
+  assert.equal(await run("/no/such/program", []), "");
+  // Too many bytes of arguments: the spawn itself throws.
+  assert.equal(await run("/bin/echo", ["x".repeat(8_000_000)]), "");
+  assert.equal(await run("/bin/echo", ["hello"]), "hello\n");
 });
 
 test("the watch reads ps and footprint: only a worker of this server, for this document", () => {

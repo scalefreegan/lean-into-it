@@ -1,7 +1,7 @@
 # The map of the whole curriculum: tracks and levels. Lessons live in
 # content/lessons/<track>/ and say which track and level they belong to.
-# Format: docs/CONTENT.md. A level marked `status: outline` has no lessons
-# yet; its plan says what it will teach: its concepts and what each builds
+# Format: docs/CONTENT.md. A level marked `status: outline` never opens
+# (lessons may be written ahead in it); its plan says what it will teach: its concepts and what each builds
 # on, the lessons to write (each with the id it will have), and the widgets
 # they need that do not exist yet. docs/PRD.md's Curriculum section says
 # the same in prose. A level's `ladder` is the rung its

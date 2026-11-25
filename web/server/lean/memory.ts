@@ -18,6 +18,8 @@ export const FOOTPRINT = "/usr/bin/footprint";
 /** Most checks are over in a fraction of this: they are never looked at. */
 const FIRST_MS = 1000;
 const EVERY_MS = 400;
+/** `footprint` reads a worker past the limit page by page: this long at most. */
+const LOOK_MS = 10_000;
 
 /** The worker for `uri` under the server process `server` (itself or any
  *  process below it), from `ps -axo pid=,ppid=,command=`; null when there is none. Pure. */
@@ -44,8 +46,17 @@ export function footprintMb(report: string): number | null {
   return m ? Number(m[1]) / (1024 * 1024) : null;
 }
 
-const run = (file: string, args: string[]) =>
-  new Promise<string>((resolve) => execFile(file, args, { timeout: 5000, maxBuffer: 16 * 1024 * 1024 }, (_e, stdout) => resolve(stdout ?? "")));
+/** What a program prints; "" when it cannot be run. Never rejects: starting
+ *  one can throw (no memory for it, say), and a watch that fails is a look
+ *  missed, not a reason for the dev server to die. */
+export const run = (file: string, args: string[]) =>
+  new Promise<string>((resolve) => {
+    try {
+      execFile(file, args, { timeout: LOOK_MS, maxBuffer: 16 * 1024 * 1024 }, (_e, stdout) => resolve(stdout ?? ""));
+    } catch {
+      resolve("");
+    }
+  });
 
 /** Look at the worker's footprint until it is over `limitMb` (then `over` is
  *  called, once) or the function returned here is called. */
@@ -56,7 +67,10 @@ export function watchMemory(o: { server: number; uri: string; limitMb: number; o
   const look = async () => {
     const pid = workerIn(await run("/bin/ps", ["-axwwo", "pid=,ppid=,command="]), o.server, o.uri);
     if (done) return;
-    const used = pid === null ? null : footprintMb(await run(FOOTPRINT, ["-f", "bytes", "--noCategories", "-p", String(pid)]));
+    // With --minFootprint a worker under the limit is passed over at once
+    // (some 20 ms), and reported, which takes half a second and more of
+    // reading its pages, only when it is over.
+    const used = pid === null ? null : footprintMb(await run(FOOTPRINT, ["-f", "bytes", "--noCategories", "--minFootprint", String(Math.floor(o.limitMb)), "-p", String(pid)]));
     if (done) return;
     if (used !== null && used > o.limitMb) {
       done = true;

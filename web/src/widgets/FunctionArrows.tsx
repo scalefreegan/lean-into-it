@@ -18,12 +18,12 @@ const DOT = 17;
 export function FunctionArrows({ params }: WidgetProps) {
   const id = useId();
   const start = useMemo(() => readArrows(params), [params]);
-  const mode = params.image !== undefined ? "image" : params.preimage !== undefined ? "preimage" : "judge";
+  const mode = Array.isArray(params.image) ? "image" : Array.isArray(params.preimage) ? "preimage" : "judge";
   const show = str(params, "show", "both");
   const edit = bool(params, "edit", true);
   const caption = str(params, "caption", "");
   const ok = typeof start !== "string";
-  const firstSet = () => new Set(ok && mode !== "judge" ? list(params, mode, []).map((x) => (mode === "image" ? start.from : start.to).indexOf(String(x))) : []);
+  const firstSet = () => new Set(ok && mode !== "judge" ? list(params, mode, []).map((x) => (mode === "image" ? start.from : start.to).indexOf(String(x).trim())) : []);
   const [map, setMap] = useState<number[]>(() => (ok ? start.map : []));
   const [aim, setAim] = useState<number | null>(null);
   const [set, setSet] = useState<ReadonlySet<number>>(firstSet);
@@ -60,7 +60,9 @@ export function FunctionArrows({ params }: WidgetProps) {
     const left = side === "from";
     const xs = left ? f.from : f.to;
     const press = left ? pressLeft : pressRight;
-    const active = !!press && (left || !judging || aim !== null);
+    // On the right there is nothing to do until a left element is selected; the node keeps its place in the tab order, so a press there does not lose the keyboard focus.
+    const waiting = !left && judging && aim === null;
+    const active = !!press;
     const lit = (left ? litLeft : litRight).has(i);
     const bad = !left && (meet.includes(i) || none.includes(i));
     const x = left ? LEFT : RIGHT;
@@ -74,20 +76,21 @@ export function FunctionArrows({ params }: WidgetProps) {
           ? {
               role: "button",
               tabIndex: 0,
+              "aria-disabled": waiting || undefined,
               "aria-pressed": pressed,
-              "aria-label": judging ? (left ? `${xs[i]}, goes to ${f.to[map[i]]}. Select to re-aim its arrow.` : `Send ${f.from[aim ?? 0]} to ${xs[i]}`) : `${xs[i]}, ${lit ? "in" : "not in"} the set`,
+              "aria-label": judging ? (left ? `${xs[i]}, goes to ${f.to[map[i]]}. Select to re-aim its arrow.` : waiting ? `${xs[i]}. Select an element on the left first.` : `Send ${f.from[aim ?? 0]} to ${xs[i]}`) : `${xs[i]}, ${lit ? "in" : "not in"} the set`,
               onClick: () => press(i),
               onKeyDown: (e: KeyboardEvent) => {
                 if (e.key !== "Enter" && e.key !== " ") return;
                 e.preventDefault();
                 press(i);
               },
-              className: "cursor-pointer",
+              className: waiting ? undefined : "cursor-pointer",
             }
           : {})}
       >
         <circle cx={x} cy={y} r={DOT} strokeWidth={lit || bad || (left && aim === i) ? 2.5 : 1.5} strokeDasharray={!left && none.includes(i) ? "4 3" : undefined} className={cx(bad ? "fill-bad-soft stroke-bad" : lit || (left && aim === i) ? "fill-accent-soft stroke-accent" : "fill-panel stroke-line-strong")} />
-        <text x={x} y={y + 5} textAnchor="middle" className="lean fill-fg text-[14px]" pointerEvents="none">
+        <text x={x} y={y + 5} textAnchor="middle" className={cx("lean fill-fg", xs[i].length > 3 ? "text-[11px]" : "text-[14px]")} pointerEvents="none">
           {xs[i]}
         </text>
       </g>

@@ -3,6 +3,8 @@
 
 /** At most this many elements on each side. */
 export const MAX_ELEMENTS = 7;
+/** A name of at most this many characters fits in its circle. */
+export const MAX_NAME = 4;
 
 /** A function: for each element of the domain, the index of where it goes. */
 export interface Arrows {
@@ -18,8 +20,8 @@ export function readArrows(p: Record<string, unknown>): Arrows | string {
   for (const [key, xs] of [["from", from], ["to", to]] as const) {
     if (!xs.length) return `\`${key}\` needs at least one element`;
     if (xs.length > MAX_ELEMENTS) return `\`${key}\` has ${xs.length} elements; at most ${MAX_ELEMENTS} fit`;
-    const bad = xs.find((x) => !x || x.length > 8 || /->|→/.test(x));
-    if (bad !== undefined) return `\`${key}\`: “${bad}” is not a short name (at most 8 characters, no arrow in it)`;
+    const bad = xs.find((x) => !x || x.length > MAX_NAME || /->|→/.test(x));
+    if (bad !== undefined) return `\`${key}\`: “${bad}” is not a short name (at most ${MAX_NAME} characters, no arrow in it)`;
     if (new Set(xs).size !== xs.length) return `\`${key}\` lists an element twice`;
   }
   const map: number[] = from.map(() => -1);
