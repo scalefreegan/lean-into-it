@@ -220,6 +220,107 @@ fill: true
 ```
 ````
 
+### `set-diagram`
+
+A Venn diagram of two or three sets, with the regions a formula names shaded. With `against`, a second diagram beside it, and whether the two shade the same regions. With `fill`, the learner shades the regions and checks them. A picture shows every way a point can sit in two or three sets; a proof takes one point and argues.
+
+| Parameter | Value | |
+|---|---|---|
+| `formula` (required) | one line of text | The set to shade: single capital letters with `∪ ∩ \ ᶜ ∅ univ` and brackets, as in `(A ∪ B)ᶜ`. A \ beside another \ or ∩ needs brackets. |
+| `against` | one line of text | A second formula, drawn beside the first and compared with it. |
+| `sets` | a list of text: `[a, b]` | The circles to draw, two or three, when the formulas do not name them all: `["A", "B"]`. |
+| `empty` | one line of text | A set declared to have no members, its regions crossed out: `A \ B` draws A ⊆ B. |
+| `fill` | `true` or `false` | The learner shades the formula's regions, then checks them. Default false. Not with `against`. |
+| `caption` | one line of text | One line shown under the diagram. |
+
+````
+```widget
+type: set-diagram
+formula: "A ∩ B"
+caption: "x ∈ A ∩ B means x ∈ A and x ∈ B."
+```
+````
+
+````
+```widget
+type: set-diagram
+formula: "(A ∪ B)ᶜ"
+against: "Aᶜ ∩ Bᶜ"
+```
+````
+
+````
+```widget
+type: set-diagram
+formula: "A ∩ (B ∪ C)"
+fill: true
+```
+````
+
+````
+```widget
+type: set-diagram
+formula: A
+empty: "A \\ B"
+caption: "A ⊆ B: nothing is in A and outside B."
+```
+````
+
+### `function-arrows`
+
+A function between two small finite sets, drawn as arrows. Two arrows that meet (not injective) and an element no arrow reaches (not surjective) are coloured and named. The learner can re-aim an arrow: select an element on the left, then where it should go. With `image` or `preimage` it shows where a set goes, or what lands in one, instead, and the learner can change the set.
+
+| Parameter | Value | |
+|---|---|---|
+| `from` (required) | a list of text: `[a, b]` | The elements on the left, short names in quotes: `["1", "2"]`. At most 7. |
+| `to` (required) | a list of text: `[a, b]` | The elements on the right. |
+| `arrows` (required) | a list of text: `[a, b]` | One arrow for each element on the left: `["1 -> a", "2 -> a"]`. |
+| `show` | one of `both`, `injective`, `surjective` | Which property is judged. Default both. |
+| `edit` | `true` or `false` | The learner can re-aim the arrows. Default true. With `image` or `preimage` they change the set instead. |
+| `image` | a list of text: `[a, b]` | A set on the left: the diagram shows its image. The list may be empty. |
+| `preimage` | a list of text: `[a, b]` | A set on the right: the diagram shows its preimage. Not with `image`. |
+| `caption` | one line of text | One line shown under the diagram. |
+
+````
+```widget
+type: function-arrows
+from: ["1", "2", "3"]
+to: [a, b, c]
+arrows: ["1 -> a", "2 -> a", "3 -> b"]
+caption: Neither injective nor surjective. Re-aim one arrow to make it both.
+```
+````
+
+````
+```widget
+type: function-arrows
+from: ["1", "2", "3"]
+to: [a, b]
+arrows: ["1 -> a", "2 -> b", "3 -> b"]
+show: surjective
+```
+````
+
+````
+```widget
+type: function-arrows
+from: ["1", "2", "3"]
+to: [a, b, c]
+arrows: ["1 -> a", "2 -> a", "3 -> b"]
+image: ["1", "3"]
+```
+````
+
+````
+```widget
+type: function-arrows
+from: ["1", "2", "3"]
+to: [a, b, c]
+arrows: ["1 -> a", "2 -> a", "3 -> b"]
+preimage: [a, c]
+```
+````
+
 ### `informal-formal`
 
 A proof as a mathematician writes it, sentence by sentence, beside the Lean proof of one of the lesson's exercises (its reference solution, which Lean accepts). Selecting a sentence lights the lines that say it in Lean, and selecting a line lights its sentences and shows the proof state after it. A line no sentence covers is marked: Lean needed a step the prose left unsaid.

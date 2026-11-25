@@ -113,9 +113,6 @@ levels:
         summary: No function from a set onto its subsets, by building the one subset it misses.
         concepts: [cantor-diagonal]
         widgets: [informal-formal]
-    new_widgets:
-      - { id: set-diagram, does: "Venn regions for two or three sets, shading the one a formula names." }
-      - { id: function-arrows, does: "Two small finite sets with arrows between them, coloured where injectivity or surjectivity fails." }
   - id: 5
     title: Sequences and limits
     ladder: 4

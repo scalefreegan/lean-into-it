@@ -209,4 +209,17 @@ export const EXPLORERS: Explorer[] = [
       { type: "induction-dominoes", params: { count: 6, start: 1, gap: 3 }, note: "A step that fails once: the chain stops there, whatever comes after." },
     ],
   },
+  {
+    id: "sets",
+    title: "Sets and arrows",
+    blurb: "Regions that formulas name, and functions drawn as arrows.",
+    widgets: [
+      { type: "set-diagram", params: { formula: "(A ∪ B)ᶜ", against: "Aᶜ ∩ Bᶜ" }, note: "Outside the union, and outside both: the same region. This is De Morgan's law for sets." },
+      { type: "set-diagram", params: { formula: "A ∩ (B ∪ C)", fill: true }, note: "Shade the regions the formula names, then check." },
+      { type: "set-diagram", params: { formula: "A ∪ (B ∩ C)", against: "(A ∪ B) ∩ C" }, note: "Moving the brackets changes the set. Which regions differ?" },
+      { type: "function-arrows", params: { from: ["1", "2", "3"], to: ["a", "b", "c"], arrows: ["1 -> a", "2 -> a", "3 -> b"] }, note: "Re-aim one arrow to make it injective. What else becomes true?" },
+      { type: "function-arrows", params: { from: ["1", "2", "3", "4"], to: ["a", "b", "c"], arrows: ["1 -> a", "2 -> a", "3 -> b", "4 -> c"] }, note: "Four into three: can you make it injective?" },
+      { type: "function-arrows", params: { from: ["1", "2", "3"], to: ["a", "b", "c"], arrows: ["1 -> a", "2 -> a", "3 -> b"], preimage: ["a", "c"] }, note: "What lands in the set on the right? Nothing has to land on c." },
+    ],
+  },
 ];

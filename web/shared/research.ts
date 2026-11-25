@@ -87,8 +87,10 @@ export interface PathConcept {
 export function pathConcepts(content: Pick<Content, "lessons" | "levels">): PathConcept[] {
   const out = new Map<string, PathConcept>();
   const declared = new Map(content.levels.flatMap((l) => l.concepts.map((c) => [c.id, { title: c.title, level: l.id }] as const)));
+  // A lesson written ahead of its level cannot be opened yet: its concepts are still the outline's.
+  const outlined = new Set(content.levels.filter((l) => l.status === "outline").map((l) => l.id));
   for (const lesson of content.lessons)
-    for (const c of lesson.concepts)
+    for (const c of outlined.has(lesson.level) ? [] : lesson.concepts)
       if (!out.has(c)) out.set(c, { id: c, title: declared.get(c)?.title ?? lesson.title, where: { kind: "lesson", lessonId: lesson.id, title: lesson.title } });
   for (const [id, d] of declared) if (!out.has(id)) out.set(id, { id, title: d.title, where: { kind: "outline", level: d.level } });
   return [...out.values()];

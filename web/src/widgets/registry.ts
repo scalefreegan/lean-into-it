@@ -1,4 +1,5 @@
 import type { WidgetType } from "../../shared/registry.ts";
+import { FunctionArrows } from "./FunctionArrows.tsx";
 import { MoveList } from "./MoveList.tsx";
 import { NumberLine } from "./NumberLine.tsx";
 import { Plot } from "./Plot.tsx";
@@ -6,6 +7,7 @@ import { ProofState } from "./ProofState.tsx";
 import { InductionDominoes } from "./InductionDominoes.tsx";
 import { InformalFormal } from "./InformalFormal.tsx";
 import { EpsilonDelta, RiemannSum, SecantTangent, SequenceLimit } from "./Limits.tsx";
+import { SetDiagram } from "./SetDiagram.tsx";
 import { SquareOfSum } from "./SquareOfSum.tsx";
 import { TruthTable } from "./TruthTable.tsx";
 import type { Widget } from "./types.ts";
@@ -26,4 +28,6 @@ export const WIDGET_COMPONENTS: Record<WidgetType, Widget> = {
   "secant-tangent": SecantTangent,
   "riemann-sum": RiemannSum,
   "sequence-limit": SequenceLimit,
+  "set-diagram": SetDiagram,
+  "function-arrows": FunctionArrows,
 };

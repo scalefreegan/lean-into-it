@@ -64,6 +64,11 @@ test("what is typed for a symbol is said as typed", () => {
   assert.equal(said("\\R"), "backslash R");
 });
 
+test("sets: the symbols Level 4 writes", () => {
+  assert.deepEqual(sayCode("hAB : A ⊆ B"), { text: "h A B, which says A is a subset of B", sure: true });
+  assert.deepEqual(sayCode("x ∈ A ∪ B"), { text: "x in A union B", sure: true });
+});
+
 test("running text: symbols become words, hyphens and slashes stay", () => {
   assert.equal(sayText("a²").text, "a squared");
   assert.equal(sayText("(a−b)²,").text, "(a minus b) squared,");

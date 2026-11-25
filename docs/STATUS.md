@@ -324,6 +324,14 @@ Landed in the first PR, the foundation slice:
   in the real app: the pages, a Playground check and the settings load;
   curl with no marker is refused, with it answered, and with it from a
   page the browser calls another site refused.
+- Two widgets for Level 4: `set-diagram` (`lii-53v.6`), the regions of two
+  or three sets that a formula names, compared with a second formula or
+  shaded by the learner; and `function-arrows` (`lii-53v.7`), a function
+  between small sets whose arrows the learner re-aims, or the image or
+  preimage of a set. Both in the Gallery and in the Lab's "Sets and arrows".
+  Tried in the real app, light and dark.
+- Level 4's first lesson, "What a set is" (`lii-dvy.12.1`), six exercises.
+  The level is still an outline, so it does not open yet.
 - The owner's own tailnet (`lii-pnz`): with `LEAN_PUBLIC_HOST` set, Vite's
   `allowedHosts` and `localHost()` also accept that Tailscale name; unset,
   only localhost, as before. Under that name a request must come from an
@@ -681,7 +689,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 596, including every reference solution checked by the real Lean,
+- Tests: 606, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -712,7 +720,28 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-1 bead in 1 area, P3. "Needs" lists beads that must land first.
+12 beads in 3 areas. "Needs" lists beads that must land first.
+
+### Level 4 (epic `lii-dvy.12`)
+
+| Bead | Title | P | Needs |
+|---|---|---|---|
+| `lii-dvy.12.2` | Sets are predicates | 2 | |
+| `lii-dvy.12.3` | Union, intersection, complement | 2 | |
+| `lii-dvy.12.4` | Proving two sets equal | 2 | |
+| `lii-dvy.12.5` | Images and preimages | 2 | |
+| `lii-dvy.12.6` | Injective, surjective, bijective | 2 | |
+| `lii-dvy.12.7` | Composition and inverses | 2 | |
+| `lii-dvy.12.8` | Equivalence relations | 2 | |
+| `lii-dvy.12.9` | Cantor's diagonal argument | 2 | |
+| `lii-dvy.12.10` | Level 4 moves, and the level opened | 2 | the lessons above |
+| `lii-dvy.12.11` | A lesson in an outline level offers an Open anyway that the server refuses | 3 | |
+
+### Lean engine
+
+| Bead | Title | P | Needs |
+|---|---|---|---|
+| `lii-au3` | The 8 GB Lean memory limit does not hold when macOS is short of memory | 2 | |
 
 ### Widgets (epic `lii-53v`)
 
