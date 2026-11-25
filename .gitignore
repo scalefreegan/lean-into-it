@@ -22,3 +22,6 @@ lean/.lake/
 *.db
 .beads-credential-key
 .beads/proxieddb/
+
+# npm run db:backup
+backups/

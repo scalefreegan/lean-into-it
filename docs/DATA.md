@@ -12,7 +12,8 @@ accounts: here there is no login and one learner.
 | The curriculum, the Famous Proofs | `content/` | yes |
 | Attempts, solves, hints, the Tutor chat, opened levels, placement credits, Listen settings, the Field notes' research maps | Postgres `lean_into_it` | no |
 | Listen's audio cache | `data/tts-cache/` | no (`data/` is ignored) |
-| The ElevenLabs key, local overrides | `.env.local` | no |
+| The ElevenLabs key, local overrides | `backups/` | `npm run db:backup`'s dumps of the database, the newest 14, readable only by you (they hold every attempt and the Tutor chat); gitignored |
+| `.env.local` | no |
 | The Playground's Lean file, Listen's speed, which levels are unfolded, a dismissed placement offer | the browser's localStorage (`lean-into-it:…`) | no, and not in the database |
 | A Tutor writing turn's scratch checkout | a git worktree under the system temp folder (`lean-into-it-author/`) | its commit lands only after the checks (`web/server/turn.ts`) |
 | A Tutor run's working folder | the system temp folder (`lean-into-it-tutor-*`), cleared after 45 minutes (`scripts/claude.mjs`) | no |
@@ -133,23 +134,59 @@ environment only (putting them in `.env.local` does nothing: in particular,
 | `LEAN_INTO_IT_TUTOR_DIR` | system temp `lean-into-it-author/` | where writing turns make their worktrees |
 | `LEAN_INTO_IT_REPO_ROOT` | this checkout | the repository writing turns commit to (tests point it at a throwaway one) |
 | `LEAN_INTO_IT_ENV_FILE` | `.env.local` | the env file itself |
+| `LEAN_INTO_IT_BACKUPS_DIR` | `backups/` | where `npm run db:backup` writes |
 
 ## Backup and restore
 
 What cannot be fetched again is the database, `.env.local`'s key (which
 ElevenLabs can reissue), and what the browser keeps: the Playground's Lean
 file is there and nowhere else, so copy out anything in it worth keeping.
-A copy of the database is the backup:
+A copy of the database is the backup. `npm run db:backup`
+(`scripts/db/backup-cli.mjs`; the logic is in `scripts/db/backup.mjs`,
+ported from Lingo Dojo) runs `pg_dump -Fc` on the database `DATABASE_URL`
+names (resolved like the other db scripts, so a linked worktree without
+one refuses) into `backups/` at the checkout's root (gitignored;
+`LEAN_INTO_IT_BACKUPS_DIR` puts them elsewhere). Files are
+`<database>-<UTC stamp>.dump`, mode 0600 (they hold every attempt and the
+Tutor chat); a `backups/` it creates is 0700.
+
+- The dump goes to a private `.partial` file and gets its real name only
+  when `pg_dump` exits 0, so a failed dump never looks like a good one;
+  partials over a day old (crashed runs) are removed.
+- The newest 14 are kept. Pruning touches only that database's own
+  `<database>-<stamp>.dump` files, never the one just written; a backup
+  stamped in the future (a clock ahead) is warned about.
+- A password in the URL travels in `PGPASSWORD`, never in `pg_dump`'s
+  arguments, and the printed URL is redacted.
+- `pg_dump` is looked for on `PATH`, then in the Homebrew PostgreSQL
+  directories (a launchd job's `PATH` is minimal); it uses one whose major
+  version matches the server's, else the lowest newer one, never an older.
+
+There is no restore script on purpose: a restore that picks its own target
+is how a real database gets overwritten.
+
+First, on a Postgres server that has never run this app (a new machine, a
+reinstall), make the Tutor's read-only role, which is server-wide and in
+no dump. As a superuser (Homebrew's default user is one):
 
 ```sh
-pg_dump -Fc lean_into_it > ~/lean_into_it-$(date +%F).dump
+psql -d postgres -c "create role lean_tutor_ro nologin noinherit"
 ```
 
-To restore, into a database you name, then look before using it:
+(If you restore as a role that is not a superuser, also `grant
+lean_tutor_ro to <that role> with inherit false, set true`.) Without the
+role, `pg_restore` stops at the first grant to it, the last thing it
+restores: the tables, rows and migration record are in by then, so the
+database looks current and `db:migrate` will never add the missing
+grants, and the Tutor's history tools cannot read. Do not patch such a
+database: drop it, make the role, and restore again. On the server you
+backed up from the role is already there.
+
+Then restore into a database you name, and look before using it:
 
 ```sh
 createdb lean_into_it_restored
-pg_restore --no-owner -d lean_into_it_restored ~/lean_into_it-<date>.dump
+pg_restore --no-owner --exit-on-error -d lean_into_it_restored backups/<file>.dump
 psql -d lean_into_it_restored -c "select count(*) from attempts"
 ```
 
@@ -160,11 +197,26 @@ it again. Its boot check says whether every migration this checkout knows
 is applied; if a dump from an older checkout lacks some, `npm run
 db:migrate` (with that `DATABASE_URL`) adds them. The dump carries the
 migration record, so the restored database is exactly as current as the
-one it came from; and it carries the read-only role's grants, which take
-effect where that role exists (it is server-wide: on another machine run
-`npm run db:setup` first, which creates it).
+one it came from, and the read-only role's grants. Two catches: with
+`--no-owner` the tables belong to whoever ran `pg_restore`, so restore as
+the role the app connects as; and a scratch database's dump carries
+grants to its own scratch role (`lean_tutor_ro_…`), not to
+`lean_tutor_ro`.
 
-A script that does this on a schedule is `lii-zjf.5`.
+### Daily backup (optional, not installed by default)
+
+`macos/com.leanintoit.db-backup.plist.template` runs the backup at 03:30
+daily (a run missed while the Mac slept happens on wake), logging to
+`~/Library/Logs/LeanIntoItBackup.log`. `npm run db:backup:plist -- <path>`
+fills in node, this checkout and your home, and writes the result to the
+path you give (replacing what is there), nothing else; loading it is your
+step:
+
+```sh
+npm run db:backup:plist -- ~/Library/LaunchAgents/com.leanintoit.db-backup.plist
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.leanintoit.db-backup.plist
+# to stop it: launchctl bootout "gui/$(id -u)/com.leanintoit.db-backup"
+```
 
 ## Testing
 

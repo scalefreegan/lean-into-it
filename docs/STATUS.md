@@ -301,6 +301,15 @@ Landed in the first PR, the foundation slice:
   marked and a local one not opened. The link check was also run against
   the real network (a public page, `localhost`, 127.0.0.1, ::1, a public
   name pointing at 127.0.0.1, a name that does not exist).
+- Database backups (`lii-zjf.5`): `npm run db:backup` writes a
+  `pg_dump -Fc` of the database into `backups/` (gitignored, 0600 files),
+  named by UTC time, keeping the newest 14; a failed dump leaves no file
+  that looks good. `npm run db:backup:plist -- <path>` writes a daily
+  launchd job for you to load. Ported from Lingo Dojo; restore steps in
+  `docs/DATA.md`. Tried on a scratch database: two backups written, a
+  restore into a new database had its row and all 9 migrations, 19
+  backups pruned to 14 with a foreign file left alone, the plist passed
+  `plutil -lint`.
 - Only the app reaches its API (`lii-2zo.7`): `wrap()` now also asks
   that a request come from the app's own page (`fromApp`,
   `web/server/origin.ts`). Where the browser says where a request came
@@ -664,7 +673,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 579, including every reference solution checked by the real Lean,
+- Tests: 591, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -695,16 +704,10 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-2 beads in 2 areas, both P3. "Needs" lists beads that must land first.
+1 bead in 1 area, P3. "Needs" lists beads that must land first.
 
 ### Widgets (epic `lii-53v`)
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-53v.4` | Program stepper | 3 | |
-
-### Progress (epic `lii-zjf`)
-
-| Bead | Title | P | Needs |
-|---|---|---|---|
-| `lii-zjf.5` | Database backup script | 3 | |

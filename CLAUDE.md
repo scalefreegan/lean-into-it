@@ -130,6 +130,7 @@ web/src/pages/           Home (the Path), Lesson, Review (#/review), Moves (#/mo
 npm install && npm --prefix web install
 npm run lean:setup          # once: Lean toolchain + Mathlib cache (about 10 GB in all)
 npm run db:setup            # once per machine (Postgres 17 running); idempotent
+npm run db:backup           # pg_dump into backups/, newest 14 kept (docs/DATA.md: restore, daily job)
 npm run dev                 # http://localhost:38800
 npm test                    # node --test: shared logic, loader, database, real Lean
 npm run check:content       # content/ only: structure, every solution and Lean snippet against the real Lean
