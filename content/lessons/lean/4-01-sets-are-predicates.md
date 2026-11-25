@@ -12,7 +12,7 @@ exercises:
     mode: typed
     says: For any property p of natural numbers, x is in the set of all n with p n exactly when p x holds.
     statement: "(p : ℕ → Prop) (x : ℕ) : x ∈ {n | p n} ↔ p x"
-    forbid: &auto [norm_num, simp, simp_all, simpa, simp_arith, dsimp, decide, trivial, aesop, aesop_cat, cat_disch, grind, bound, tauto, tauto_set, solve_by_elim, observe, norm_cast, gcongr, positivity, exact?, apply?, rw?, hint]
+    forbid: &auto [norm_num, simp, simp_all, simpa, simp_arith, dsimp, decide, decide_cbv, cbv, norm_num1, trivial, aesop, aesop_cat, cat_disch, grind, bound, tauto, tauto_set, solve_by_elim, observe, norm_cast, gcongr, positivity, exact?, apply?, rw?, hint]
     solution: |
       rfl
   - id: five-is-in
@@ -92,7 +92,7 @@ exercises:
     solution: (h | h)
 ---
 
-*What a set is* spoke of a set as settled by one question: is it in, or not? Lean takes that at its word. A property of natural numbers takes a number and gives a proposition. It is called a **predicate**, and you have met them since Level 1, written `P : ℕ → Prop`{say: P, from the natural numbers to propositions}. In Lean a set of natural numbers is made from a predicate and holds nothing else.
+*What a set is* spoke of a set as settled by one question: is it in, or not? Lean takes that at its word. A property of natural numbers takes a number and gives a proposition. It is called a **predicate**, and you have met them since Level 1, written `P : ℕ → Prop`{say: P, from the natural numbers to propositions}. In Lean a set of natural numbers is made from a predicate and nothing more. People say loosely that the set is the predicate, as this lesson's title does.
 
 ## Membership is the property
 
