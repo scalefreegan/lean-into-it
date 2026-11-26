@@ -23,7 +23,7 @@ exercises:
     mode: typed
     says: The intersection of A and B is a subset of A.
     statement: "(A B : Set ℕ) : A ∩ B ⊆ A"
-    forbid: &ops [norm_num, simp, simp_all, simpa, dsimp, decide, trivial, aesop, aesop_cat, cat_disch, grind, bound, tauto, tauto_set, solve_by_elim, observe, exact?, apply?, rw?, hint, inter_subset_left, inter_subset_right, subset_union_left, subset_union_right, inter_comm, union_comm, inter_subset_inter, union_subset_union, diff_subset, compl_union, compl_inter, inter_compl_self, compl_inter_self, subset_compl_compl, compl_compl, inf_le_left, inf_le_right, le_sup_left, le_sup_right, inf_comm, sup_comm, and_comm, or_comm, And.comm, Or.comm, And.symm, Or.symm, And.swap, Or.swap, not_or, compl_sup, disjoint_compl_right, inter_union_distrib_left, subset_inter, union_subset, symm, le_inf, sup_le, le_of_eq, inf_compl_eq_bot, inf_compl_self, compl_inf, inf_compl_le_bot, mem_union_left, mem_union_right, mem_of_mem_inter_left, mem_of_mem_inter_right, push_neg, push]
+    forbid: &ops [norm_num, simp, simp_all, simpa, dsimp, decide, trivial, aesop, aesop_cat, cat_disch, grind, bound, tauto, tauto_set, solve_by_elim, observe, exact?, apply?, rw?, hint, inter_subset_left, inter_subset_right, subset_union_left, subset_union_right, inter_comm, union_comm, inter_subset_inter, union_subset_union, diff_subset, compl_union, compl_inter, inter_compl_self, compl_inter_self, subset_compl_compl, compl_compl, inf_le_left, inf_le_right, le_sup_left, le_sup_right, inf_comm, sup_comm, and_comm, or_comm, And.comm, Or.comm, And.symm, Or.symm, And.swap, Or.swap, not_or, compl_sup, disjoint_compl_right, inter_union_distrib_left, subset_inter, union_subset, symm, le_inf, sup_le, le_of_eq, inf_compl_eq_bot, inf_compl_self, compl_inf, inf_compl_le_bot, mem_union_left, mem_union_right, mem_of_mem_inter_left, mem_of_mem_inter_right, push_neg, push, order, inf_le_of_left_le, le_sup_of_le_left, subset_union_of_subset_left, isCompl_compl, disjoint_compl_left, disjoint_iff, compl_sup_distrib, compl_subset_compl, compl_le_compl, subset_inter_iff, union_subset_iff]
     solution: |
       intro x hx
       exact hx.1
@@ -132,7 +132,7 @@ steps: false
 caption: "Read p as x ∈ A and q as x ∈ B: one row in four, one region in four."
 ```
 
-To use a fact `hx : x ∈ A ∩ B`, use it as an "and": `hx.1` is the proof that x ∈ A, `hx.2` that x ∈ B, and `obtain ⟨ha, hb⟩ := hx` takes both. Lean sees the "and" inside the membership without being told.
+To use a fact `hx : x ∈ A ∩ B`, use it as an "and": `hx.1` is the proof that x ∈ A, `hx.2` that x ∈ B, and `obtain ⟨ha, hb⟩ := hx` takes both. These see the "and" inside the membership without being told. To prove x ∈ A ∩ B, build an "and": `constructor` leaves two goals, x ∈ A and x ∈ B.
 
 ```exercise
 id: inter-left
@@ -181,7 +181,7 @@ sets: [A, B]
 caption: "Aᶜ: everything outside A, B or not."
 ```
 
-A "not" is an "if… then False", so a fact `hna : x ∈ Aᶜ` is used as you would use one: give it a proof that x ∈ A, and it gives False. And the empty set, ∅, has no members at all: x ∈ ∅ is False itself. So to prove that a set is a subset of ∅, take a member and reach a contradiction.
+A "not" is an "if… then False", so a fact `hna : x ∈ Aᶜ` is used as you would use one: give it a proof that x ∈ A, and it gives False. To prove a goal x ∈ Aᶜ, prove an "if… then False": `intro ha` takes x ∈ A as a fact and leaves the goal False. And the empty set, ∅, has no members at all: x ∈ ∅ is, by definition, False. So to prove that a set is a subset of ∅, take a member and reach a contradiction.
 
 ```exercise
 id: nothing-in-both
@@ -205,7 +205,7 @@ formula: (A ∪ B)ᶜ
 fill: true
 ```
 
-It is the part outside both circles, which is outside A and outside B. Proving one half of that, (A ∪ B)ᶜ ⊆ Aᶜ ∩ Bᶜ, needs every move of this lesson: an "and" to build, two "not"s to prove, and an "or" to give to the fact that is a "not".
+It is the part outside both circles, which is outside A and outside B. Proving one half of that, `(A ∪ B)ᶜ ⊆ Aᶜ ∩ Bᶜ`, puts the lesson's moves together: an "and" to build, two "not"s to prove, and an "or" to give to the fact that is a "not".
 
 ```exercise
 id: outside-union
@@ -223,6 +223,6 @@ id: union-in-inter
 
 - x ∈ A ∩ B means x ∈ A and x ∈ B: take it apart with `obtain ⟨ha, hb⟩`, build it with `constructor`.
 - x ∈ A ∪ B means x ∈ A or x ∈ B: take it apart in two cases, build it with `left` or `right`.
-- x ∈ Aᶜ means x ∉ A, an "if… then False"; x ∈ ∅ is False.
+- x ∈ Aᶜ means x ∉ A, an "if… then False"; x ∈ ∅ is, by definition, False.
 - A \ B is A ∩ Bᶜ: in A and not in B.
 - To prove one set is a subset of another, take a member and chase it, as before.
