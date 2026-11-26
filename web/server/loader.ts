@@ -104,7 +104,7 @@ export function loadContent(dir = contentDir()): Content {
   }
   checkPlan(levels, tracks, lessons, (message) => problem("curriculum.yaml", message));
   const gallery = parseGallery(dir, levels, (message) => problem("gallery.yaml", message));
-  return { tracks, levels, lessons: sortLessons(lessons, tracks), ...(gallery ? { gallery } : {}), problems };
+  return { tracks, levels, lessons: sortLessons(lessons, tracks, levels), ...(gallery ? { gallery } : {}), problems };
 }
 
 /** A level's plan in curriculum.yaml (docs/CONTENT.md): `concepts`,
@@ -211,6 +211,13 @@ function checkPlan(levels: Level[], tracks: Track[], lessons: Lesson[], problem:
       if (written && (written.level !== level.id || written.track !== p.track))
         problem(`level ${level.id}: the planned lesson ${p.id} was written as level ${written.level}, track ${written.track} (${written.file}); move the plan or the lesson`);
     }
+    // A lesson the plan does not list is placed by its track's orders (sortLessons), so a track's planned lessons keep them rising in plan order.
+    const inPlan = level.planned.map((p) => lessons.find((l) => l.id === p.id && l.level === level.id)).filter((l) => l !== undefined);
+    inPlan.forEach((b, i) => {
+      const a = inPlan.slice(0, i).findLast((x) => x.track === b.track);
+      if (a && b.order <= a.order)
+        problem(`level ${level.id}: the planned lesson ${b.id} comes after ${a.id} in the plan, in the same track, so its \`order\` (${b.order}) must be above ${a.id}'s (${a.order}): change the \`order\` in ${b.file} or ${a.file}, or the plan; a lesson the plan does not list is placed by these orders`);
+    });
   }
   // A concept may not rest on itself, however far round.
   const state = new Map<string, "open" | "done">();
@@ -363,7 +370,7 @@ export function parseLesson(
     title,
     track,
     level: typeof level === "number" ? level : 0,
-    order: typeof front.order === "number" ? front.order : 0,
+    order: Number.isFinite(front.order) ? (front.order as number) : 0,
     concepts,
     summary: str(front.summary),
     craft: front.craft === true,

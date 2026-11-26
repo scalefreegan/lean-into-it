@@ -340,6 +340,60 @@ for (const [what, mutate, reason] of PLAN_REFUSALS) {
   });
 }
 
+// Level 1 with two tracks, logic declared first, and a plan naming lessons in the order given.
+const twoTracks = (...plan: [string, string][]) =>
+  CURRICULUM.replace("  - { id: logic, title: Logic, summary: s }", "  - { id: logic, title: Logic, summary: s }\n  - { id: math, title: Math, summary: s }").replace(
+    "  - { id: 1, title: One, summary: s }",
+    `  - id: 1\n    title: One\n    summary: s\n    planned:\n${plan.map(([id, track]) => `      - { id: ${id}, track: ${track}, title: T, summary: s }\n`).join("")}`,
+  );
+const lessonAs = (id: string, track: string, order: number) => LESSON.replace("id: logic-1-a", `id: ${id}`).replace("track: logic", `track: ${track}`).replace("order: 1", `order: ${order}`);
+
+test("the loader orders a level's lessons by its plan, across tracks, and places one the plan does not list by its track's orders", () => {
+  const content = loadContent(
+    fixture({
+      "curriculum.yaml": twoTracks(["math-1-first", "math"], ["logic-1-then", "logic"], ["math-1-last", "math"]),
+      "lessons/logic/then.md": lessonAs("logic-1-then", "logic", 1),
+      "lessons/math/first.md": lessonAs("math-1-first", "math", 1),
+      "lessons/math/last.md": lessonAs("math-1-last", "math", 2),
+      "lessons/math/craft.md": lessonAs("math-1-craft", "math", 1.5),
+    }),
+  );
+  assert.deepEqual(content.problems, []);
+  // Without the plan this would be logic first: logic-1-then, math-1-first, math-1-craft, math-1-last.
+  assert.deepEqual(content.lessons.map((l) => l.id), ["math-1-first", "math-1-craft", "logic-1-then", "math-1-last"]);
+});
+
+test("a track's planned lessons whose orders do not rise in plan order are a problem", () => {
+  const content = loadContent(
+    fixture({
+      "curriculum.yaml": twoTracks(["math-1-first", "math"], ["logic-1-then", "logic"], ["math-1-last", "math"]),
+      "lessons/logic/then.md": lessonAs("logic-1-then", "logic", 1),
+      "lessons/math/first.md": lessonAs("math-1-first", "math", 1),
+      "lessons/math/last.md": lessonAs("math-1-last", "math", 1),
+    }),
+  );
+  assert.deepEqual(
+    content.problems.map((p) => [p.file, p.message]),
+    [["curriculum.yaml", "level 1: the planned lesson math-1-last comes after math-1-first in the plan, in the same track, so its `order` (1) must be above math-1-first's (1): change the `order` in lessons/math/last.md or lessons/math/first.md, or the plan; a lesson the plan does not list is placed by these orders"]],
+  );
+});
+
+test("the order check passes over a planned lesson not yet written, or written in another level, and a non-finite order counts as 0", () => {
+  const curriculum = twoTracks(["math-1-first", "math"], ["math-1-unwritten", "math"], ["math-1-elsewhere", "math"], ["math-1-last", "math"]);
+  const content = loadContent(
+    fixture({
+      "curriculum.yaml": curriculum,
+      "lessons/math/first.md": lessonAs("math-1-first", "math", 1),
+      "lessons/math/elsewhere.md": lessonAs("math-1-elsewhere", "math", 0).replace("level: 1", "level: 2"),
+      "lessons/math/last.md": lessonAs("math-1-last", "math", 2),
+      "lessons/math/nan.md": lessonAs("math-1-nan", "math", 1).replace("order: 1", "order: .nan"),
+    }),
+  );
+  assert.deepEqual(content.problems.map((p) => p.message).filter((m) => /order/.test(m)), []);
+  assert.ok(content.problems.some((p) => /math-1-elsewhere was written as level 2/.test(p.message)), JSON.stringify(content.problems));
+  assert.equal(content.lessons.find((l) => l.id === "math-1-nan")!.order, 0);
+});
+
 test("docs/PRD.md's Curriculum section and curriculum.yaml agree on each outlined level: its title, and the moves it introduces", () => {
   const content = loadContent(path.resolve(import.meta.dirname, "../../content"));
   const prd = fs.readFileSync(path.resolve(import.meta.dirname, "../../docs/PRD.md"), "utf8");

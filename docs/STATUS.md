@@ -338,6 +338,12 @@ Landed in the first PR, the foundation slice:
   between small sets whose arrows the learner re-aims, or the image or
   preimage of a set. Both in the Gallery and in the Lab's "Sets and arrows".
   Tried in the real app, light and dark.
+- A level's plan in `curriculum.yaml` orders its lessons across tracks
+  (`lii-dvy.12.13`), so "Sets are predicates" (track `lean`) stays second
+  once "Union, intersection, complement" is written, and Cantor's argument
+  comes last. A lesson the plan does not list is placed by its track's
+  `order`s, and the loader refuses a plan whose lessons' `order`s do not
+  rise with it. Levels 0–3 have no plan and keep their order.
 - Level 4's first lesson, "What a set is" (`lii-dvy.12.1`), six exercises, and
   its second, "Sets are predicates" (`lii-dvy.12.2`), eight: membership by
   definition, `show`, `change` and `rintro`.
@@ -702,7 +708,7 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 610, including every reference solution checked by the real Lean,
+- Tests: 619, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -733,7 +739,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-11 beads in 2 areas. "Needs" lists beads that must land first.
+10 beads in 2 areas. "Needs" lists beads that must land first.
 
 ### Level 4 (epic `lii-dvy.12`)
 
@@ -746,9 +752,8 @@ in the repo (`lii-2zf.5`).
 | `lii-dvy.12.7` | Composition and inverses | 2 | |
 | `lii-dvy.12.8` | Equivalence relations | 2 | |
 | `lii-dvy.12.9` | Cantor's diagonal argument | 2 | |
-| `lii-dvy.12.10` | Level 4 moves, and the level opened | 2 | the lessons above, `lii-dvy.12.13` |
+| `lii-dvy.12.10` | Level 4 moves, and the level opened | 2 | the lessons above |
 | `lii-dvy.12.12` | Plain words for a failed show or change, and omega stopped by a membership | 3 | |
-| `lii-dvy.12.13` | Level 4 lessons come in an order the plan did not mean | 2 | |
 
 ### Widgets (epic `lii-53v`)
 

@@ -3,7 +3,7 @@ id: lean-4-sets-are-predicates
 title: Sets are predicates
 track: lean
 level: 4
-order: 2
+order: 1
 concepts: [sets]
 summary: "In Lean a set is made from a property: x ∈ {n | n > 2} unfolds to x > 2, and rintro takes a member apart in one line."
 exercises:
