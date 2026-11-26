@@ -104,7 +104,7 @@ export function loadContent(dir = contentDir()): Content {
   }
   checkPlan(levels, tracks, lessons, (message) => problem("curriculum.yaml", message));
   const gallery = parseGallery(dir, levels, (message) => problem("gallery.yaml", message));
-  return { tracks, levels, lessons: sortLessons(lessons, tracks), ...(gallery ? { gallery } : {}), problems };
+  return { tracks, levels, lessons: sortLessons(lessons, tracks, levels), ...(gallery ? { gallery } : {}), problems };
 }
 
 /** A level's plan in curriculum.yaml (docs/CONTENT.md): `concepts`,

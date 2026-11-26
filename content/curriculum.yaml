@@ -1,9 +1,10 @@
 # The map of the whole curriculum: tracks and levels. Lessons live in
 # content/lessons/<track>/ and say which track and level they belong to.
 # Format: docs/CONTENT.md. A level marked `status: outline` never opens
-# (lessons may be written ahead in it); its plan says what it will teach: its concepts and what each builds
-# on, the lessons to write (each with the id it will have), and the widgets
-# they need that do not exist yet. docs/PRD.md's Curriculum section says
+# (lessons may be written ahead in it); its plan says what it will teach:
+# its concepts and what each builds on, its lessons in the Path's order (each
+# with its id; the entry stays once the lesson is written, and places it),
+# and the widgets they need that do not exist yet. docs/PRD.md's Curriculum section says
 # the same in prose. A level's `ladder` is the rung its
 # proofs default to: 1 cards with the proof's own moves, 2 cards with every
 # move learned so far, 3 typing with the moves to hand, 4 typing alone.

@@ -26,7 +26,7 @@ export interface Level {
   /** The concepts the level will teach, each with what it builds on. An
    *  outline's plan; a written level's concepts are its lessons'. */
   concepts: PlannedConcept[];
-  /** The lessons still to write, in order. One whose id a lesson now has is written. */
+  /** The level's lessons, in order (sortLessons). One whose id a lesson now has is written. */
   planned: PlannedLesson[];
   /** Widgets its planned lessons need that the registry does not have yet. */
   newWidgets: NewWidget[];
@@ -200,10 +200,26 @@ export interface Content {
   problems: ContentProblem[];
 }
 
-/** Lessons in path order: level, then the order tracks are declared in, then `order`. */
-export function sortLessons(lessons: Lesson[], tracks: Track[]): Lesson[] {
+/** Lessons in path order: level, then the level's plan (`planned`) where it
+ *  has one, whatever the tracks; without a plan, the order tracks are
+ *  declared in, then `order`. A lesson its level's plan does not list (a
+ *  proof-craft one, say) goes after the last lesson of its track with an
+ *  `order` no greater than its own, else before the first of its track, else last. */
+export function sortLessons(lessons: Lesson[], tracks: Track[], levels: Pick<Level, "id" | "planned">[] = []): Lesson[] {
   const trackIndex = new Map(tracks.map((t, i) => [t.id, i]));
-  return [...lessons].sort(
+  const byTrack = [...lessons].sort(
     (a, b) => a.level - b.level || (trackIndex.get(a.track) ?? 99) - (trackIndex.get(b.track) ?? 99) || a.order - b.order || a.id.localeCompare(b.id),
   );
+  return [...new Set(byTrack.map((l) => l.level))].flatMap((id) => {
+    const inLevel = byTrack.filter((l) => l.level === id);
+    const plan = (levels.find((l) => l.id === id)?.planned ?? []).map((p) => p.id);
+    if (!plan.length) return inLevel;
+    const out = inLevel.filter((l) => plan.includes(l.id)).sort((a, b) => plan.indexOf(a.id) - plan.indexOf(b.id));
+    for (const l of inLevel.filter((x) => !plan.includes(x.id))) {
+      const after = out.findLastIndex((x) => x.track === l.track && x.order <= l.order);
+      const first = out.findIndex((x) => x.track === l.track);
+      out.splice(after >= 0 ? after + 1 : first >= 0 ? first : out.length, 0, l);
+    }
+    return out;
+  });
 }
