@@ -31,6 +31,18 @@ test("a lesson the plan does not list goes by its track and order, or last", () 
   assert.deepEqual(extra("math", 9), ["zero", "sets", "preds", "ops", "extra", "cantor"]);
   assert.deepEqual(extra("math", 0.5), ["zero", "extra", "sets", "preds", "ops", "cantor"]);
   assert.deepEqual(extra("programs", 1), ["zero", "sets", "preds", "ops", "cantor", "extra"]);
+  // Before the first of its track, which need not be first in the level.
+  assert.deepEqual(extra("logic", 0.5), ["zero", "sets", "preds", "ops", "extra", "cantor"]);
+});
+
+test("several lessons the plan does not list, in one track, keep their own order", () => {
+  const more = [...FOUR, lesson("b", 4, "math", 1.7), lesson("a", 4, "math", 1.3), lesson("c", 4, "math", 5)];
+  assert.deepEqual(sorted(more, { 4: PLAN }), ["zero", "sets", "a", "b", "preds", "ops", "c", "cantor"]);
+});
+
+test("a lesson the plan does not list, in a track none of whose planned lessons is written, goes last in its level", () => {
+  const noLogic = FOUR.filter((l) => l.id !== "cantor");
+  assert.deepEqual(sorted([...noLogic, lesson("warm", 4, "logic", 1)], { 4: PLAN }), ["zero", "sets", "preds", "ops", "warm"]);
 });
 
 test("the Path as it is: each planned level's written lessons stand in the plan's order, and levels without a plan by track", () => {

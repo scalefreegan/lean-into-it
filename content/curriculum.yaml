@@ -3,7 +3,8 @@
 # Format: docs/CONTENT.md. A level marked `status: outline` never opens
 # (lessons may be written ahead in it); its plan says what it will teach:
 # its concepts and what each builds on, its lessons in the Path's order (each
-# with its id; the entry stays once the lesson is written, and places it),
+# with its id; the entry stays once the lesson is written, and places it;
+# within a track its lessons' `order`s rise in this order),
 # and the widgets they need that do not exist yet. docs/PRD.md's Curriculum section says
 # the same in prose. A level's `ladder` is the rung its
 # proofs default to: 1 cards with the proof's own moves, 2 cards with every

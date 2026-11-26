@@ -74,9 +74,13 @@ Each entry takes only the fields shown, and `needs`, `concepts` and
 `concepts` are declared or taught; each of its `widgets` is a registered
 one or is listed under some level's `new_widgets` (whose ids must not be
 registered already). A level's lessons are shown in the order of its
-plan, across tracks, so an entry stays once its lesson is written (a lesson
-the plan does not list goes by its track and `order`, after the planned ones
-of its track that come before it). The Path lists a planned lesson as one to write until a lesson file
+plan, across tracks, so an entry stays once its lesson is written. A
+lesson the plan does not list (a proof-craft one, say) is placed by its
+track's `order`s: after the last lesson of its track with an `order` no
+greater than its own; failing that, just before the first lesson of its
+track; failing that (none of its track is in the level yet), last in the
+level. So within a track, planned lessons' `order`s must rise in plan order;
+the loader refuses a plan where they do not. The Path lists a planned lesson as one to write until a lesson file
 has its id; that lesson must then be in the level and track it was planned
 for. A titled entry containing a comma or a colon needs quotes in the
 `{ … }` form, as above. An outline level's `moves` are its plan as well:
@@ -119,7 +123,7 @@ id: logic-1-if-then           # never change once live: progress is keyed on it
 title: If… then
 track: logic
 level: 1
-order: 1                      # position within the track and level (a level's plan comes first)
+order: 1                      # position within the track and level; a level's plan orders the lessons it lists, but must agree
 concepts: [implication]
 summary: One or two sentences, shown on the Path.
 exercises:
@@ -143,7 +147,7 @@ exercises:
 | `id` | Required. Lowercase letters, digits and hyphens; no other lesson may have it. Quote one that is all digits (`id: "2024"`): YAML reads a bare one as a number, which is refused. |
 | `title` | Required. |
 | `track`, `level` | Required. A track id and a level id from `curriculum.yaml`. |
-| `order` | A number (`4.5` is one): the position within the track and level, where the level's plan in `curriculum.yaml` does not list the lesson. Default 0, and anything that is not a number (a quoted `"8"`) counts as 0. |
+| `order` | A number (`4.5` is one): the position within the track and level. Where the level's plan in `curriculum.yaml` lists the lesson, the plan sets its place, and its `order` must still rise with the plan's among its track's planned lessons: a lesson the plan does not list is placed by them. Default 0, and anything that is not a number (a quoted `"8"`) counts as 0. |
 | `concepts` | A list of concept names. The first is the default `concept` of the lesson's exercises. |
 | `summary` | Shown on the Path. |
 | `craft` | Optional, `true` or `false`. A proof-craft lesson: how mathematicians work (try small cases, work backwards, look for a counterexample…), built round one worked problem and ending in exercises that use the habit. Marked "Proof craft" on the Path and on its page. Give it a fractional `order` (`4.5`) to place it after the lesson it needs. |

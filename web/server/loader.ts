@@ -211,6 +211,13 @@ function checkPlan(levels: Level[], tracks: Track[], lessons: Lesson[], problem:
       if (written && (written.level !== level.id || written.track !== p.track))
         problem(`level ${level.id}: the planned lesson ${p.id} was written as level ${written.level}, track ${written.track} (${written.file}); move the plan or the lesson`);
     }
+    // A lesson the plan does not list is placed by its track's orders (sortLessons), so a track's planned lessons keep them rising in plan order.
+    const inPlan = level.planned.map((p) => lessons.find((l) => l.id === p.id && l.level === level.id)).filter((l) => l !== undefined);
+    inPlan.forEach((b, i) => {
+      const a = inPlan.slice(0, i).findLast((x) => x.track === b.track);
+      if (a && b.order <= a.order)
+        problem(`level ${level.id}: the planned lesson ${b.id} comes after ${a.id} in the plan, in the same track, so its \`order\` (${b.order}) must be above ${a.id}'s (${a.order}); a lesson the plan does not list is placed by these orders`);
+    });
   }
   // A concept may not rest on itself, however far round.
   const state = new Map<string, "open" | "done">();

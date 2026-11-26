@@ -339,9 +339,11 @@ Landed in the first PR, the foundation slice:
   preimage of a set. Both in the Gallery and in the Lab's "Sets and arrows".
   Tried in the real app, light and dark.
 - A level's plan in `curriculum.yaml` orders its lessons across tracks
-  (`lii-dvy.12.13`), so "Sets are predicates" (track `lean`) is Level 4's
-  second lesson and Cantor's argument its last. Levels 0–3 have no plan and
-  keep their order.
+  (`lii-dvy.12.13`), so "Sets are predicates" (track `lean`) stays second
+  once "Union, intersection, complement" is written, and Cantor's argument
+  comes last. A lesson the plan does not list is placed by its track's
+  `order`s, and the loader refuses a plan whose lessons' `order`s do not
+  rise with it. Levels 0–3 have no plan and keep their order.
 - Level 4's first lesson, "What a set is" (`lii-dvy.12.1`), six exercises, and
   its second, "Sets are predicates" (`lii-dvy.12.2`), eight: membership by
   definition, `show`, `change` and `rintro`.
