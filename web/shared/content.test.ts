@@ -52,6 +52,13 @@ test("the Path as it is: each planned level's written lessons stand in the plan'
     const ids = content.lessons.filter((l) => l.level === level.id).map((l) => l.id);
     const plan = level.planned.map((p) => p.id);
     assert.deepEqual(ids.filter((id) => plan.includes(id)), plan.filter((id) => ids.includes(id)));
-    if (!plan.length) assert.deepEqual(ids, sortLessons(content.lessons.filter((l) => l.level === level.id), content.tracks).map((l) => l.id));
+    if (!plan.length) {
+      const rank = (id: string) => content.lessons.find((l) => l.id === id)!;
+      const tracks = content.tracks.map((t) => t.id);
+      for (let i = 1; i < ids.length; i++) {
+        const [a, b] = [rank(ids[i - 1]), rank(ids[i])];
+        assert.ok(tracks.indexOf(a.track) < tracks.indexOf(b.track) || (a.track === b.track && a.order <= b.order), `${a.id} before ${b.id}`);
+      }
+    }
   }
 });
