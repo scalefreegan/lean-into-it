@@ -135,7 +135,11 @@ test("running text: absolute-value bars, lists and Lean names written out", () =
   assert.deepEqual(sayCode("\\\\"), { text: "backslash backslash", sure: true });
   assert.equal(said("\\to"), "backslash to");
   assert.equal(said("\\cap"), "backslash cap");
-  assert.deepEqual(sayCode("type \\to here"), { text: "type to here", sure: false });
-  assert.equal(sayCode("A\\B").sure, false);
+  assert.deepEqual(sayCode("type \\to here"), { text: "type backslash to here", sure: false });
+  assert.deepEqual(sayCode("x \\in A"), { text: "x backslash in A", sure: false });
+  // Each backslash is judged by its own two sides: a space on one side only is not a difference.
+  for (const [code, text] of [["A\\B", "A backslash B"], ["A\\ B", "A backslash B"], ["A \\B", "A backslash B"], ["\\ B", "backslash B"], ["A \\", "A backslash"]]) assert.deepEqual(sayCode(code), { text, sure: false });
+  assert.deepEqual(sayCode("A \\ B \\to C"), { text: "A minus B backslash to C", sure: false });
+  assert.equal(said("(A \\ B)ᶜ"), "open bracket A minus B close bracket complement");
   assert.deepEqual(sayText("A\\B").unknown, ["\\"]);
 });
