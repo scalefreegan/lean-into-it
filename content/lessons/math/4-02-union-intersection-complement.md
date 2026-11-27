@@ -10,7 +10,7 @@ exercises:
   - id: read-inter
     kind: read
     title: What intersection says
-    statement: "(A B : Set ℕ) (x : ℕ) : x ∈ A ∩ B ↔ x ∈ A ∧ x ∈ B"
+    statement: "(A B : Set ℕ) (x : ℕ) : x ∈ A ∩ B"
     options:
       - x is in A and x is in B.
       - x is in A or x is in B.
@@ -23,20 +23,20 @@ exercises:
     mode: typed
     says: The intersection of A and B is a subset of A.
     statement: "(A B : Set ℕ) : A ∩ B ⊆ A"
-    forbid: &ops [norm_num, simp, simp_all, simpa, dsimp, decide, trivial, aesop, aesop_cat, cat_disch, grind, bound, tauto, tauto_set, solve_by_elim, observe, exact?, apply?, rw?, hint, inter_subset_left, inter_subset_right, subset_union_left, subset_union_right, inter_comm, union_comm, inter_subset_inter, union_subset_union, diff_subset, compl_union, compl_inter, inter_compl_self, compl_inter_self, subset_compl_compl, compl_compl, inf_le_left, inf_le_right, le_sup_left, le_sup_right, inf_comm, sup_comm, and_comm, or_comm, And.comm, Or.comm, And.symm, Or.symm, And.swap, Or.swap, not_or, compl_sup, disjoint_compl_right, inter_union_distrib_left, subset_inter, union_subset, symm, le_inf, sup_le, le_of_eq, inf_compl_eq_bot, inf_compl_self, compl_inf, inf_compl_le_bot, mem_union_left, mem_union_right, mem_of_mem_inter_left, mem_of_mem_inter_right, push_neg, push, order, inf_le_of_left_le, le_sup_of_le_left, subset_union_of_subset_left, isCompl_compl, disjoint_compl_left, disjoint_iff, compl_sup_distrib, compl_subset_compl, compl_le_compl, subset_inter_iff, union_subset_iff]
+    forbid: &ops [norm_num, simp, simp_all, simpa, dsimp, decide, trivial, aesop, aesop_cat, cat_disch, grind, bound, tauto, tauto_set, solve_by_elim, observe, exact?, apply?, rw?, hint, inter_subset_left, inter_subset_right, subset_union_left, subset_union_right, inter_comm, union_comm, inter_subset_inter, union_subset_union, diff_subset, compl_union, compl_inter, inter_compl_self, compl_inter_self, subset_compl_compl, compl_compl, inf_le_left, inf_le_right, le_sup_left, le_sup_right, inf_comm, sup_comm, and_comm, or_comm, And.comm, Or.comm, And.symm, Or.symm, And.swap, Or.swap, not_or, compl_sup, disjoint_compl_right, inter_union_distrib_left, subset_inter, union_subset, symm, le_inf, sup_le, le_of_eq, inf_compl_eq_bot, inf_compl_self, compl_inf, inf_compl_le_bot, mem_union_left, mem_union_right, mem_of_mem_inter_left, mem_of_mem_inter_right, push_neg, push, order, inf_le_of_left_le, le_sup_of_le_left, subset_union_of_subset_left, isCompl_compl, disjoint_compl_left, disjoint_iff, compl_sup_distrib, compl_subset_compl, compl_le_compl, subset_inter_iff, union_subset_iff, aesop_graph, aesop_graph_nonterminal, aesop_mat, aesop_cat_nonterminal, simp_intro, simp_wf, measurability, continuity, cfc_tac, cfc_zero_tac, decreasing_tactic, decreasing_trivial, get_elem_tactic, get_elem_tactic_extensible, ac_nf, ac_rfl, closedness, compactness, membership, nofun, restrict_tac, mfld_set_tac, sep_subset, sup_le_iff, le_inf_iff, and_not_self, sdiff_self, or_imp]
     solution: |
       intro x hx
       exact hx.1
   - id: go-left
     kind: predict
     title: Choose a side
-    says: x is in A, and the goal is that x is in A ∪ B. The step chooses the left side of the "or".
+    says: x is in A, and the goal is that x is in A ∪ B.
     statement: "(A B : Set ℕ) (x : ℕ) (hx : x ∈ A) : x ∈ A ∪ B"
     move: left
     options:
       - "A B : Set ℕ\nx : ℕ\nhx : x ∈ A\n⊢ x ∈ A"
       - "A B : Set ℕ\nx : ℕ\nhx : x ∈ A\n⊢ x ∈ B"
-      - "A B : Set ℕ\nx : ℕ\nhx : x ∈ A\n⊢ x ∈ A ∩ B"
+      - no goals
     solution: "A B : Set ℕ\nx : ℕ\nhx : x ∈ A\n⊢ x ∈ A"
   - id: into-union
     title: Into a union
@@ -178,7 +178,7 @@ The **complement** of A, written Aᶜ, is everything not in A: x ∈ Aᶜ means 
 type: set-diagram
 formula: Aᶜ
 sets: [A, B]
-caption: "Aᶜ: everything outside A, B or not."
+caption: "Aᶜ: everything outside A, whether in B or not."
 ```
 
 A "not" is an "if… then False", so a fact `hna : x ∈ Aᶜ` is used as you would use one: give it a proof that x ∈ A, and it gives False. To prove a goal x ∈ Aᶜ, prove an "if… then False": `intro ha` takes x ∈ A as a fact and leaves the goal False. And the empty set, ∅, has no members at all: x ∈ ∅ is, by definition, False. So to prove that a set is a subset of ∅, take a member and reach a contradiction.
@@ -205,7 +205,7 @@ formula: (A ∪ B)ᶜ
 fill: true
 ```
 
-It is the part outside both circles, which is outside A and outside B. Proving one half of that, `(A ∪ B)ᶜ ⊆ Aᶜ ∩ Bᶜ`, puts the lesson's moves together: an "and" to build, two "not"s to prove, and an "or" to give to the fact that is a "not".
+It is the part outside both circles, which is outside A and outside B. Proving one half of that, `(A ∪ B)ᶜ ⊆ Aᶜ ∩ Bᶜ`{say: the complement of A union B is a subset of A complement intersection B complement}, puts the lesson's moves together: an "and" to build, two "not"s to prove, and an "or" to give to the fact that is a "not".
 
 ```exercise
 id: outside-union

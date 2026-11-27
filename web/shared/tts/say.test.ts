@@ -128,4 +128,14 @@ test("running text: absolute-value bars, lists and Lean names written out", () =
   assert.equal(sayText("Aᶜ,").text, "A complement,");
   assert.equal(said("(A ∪ B)ᶜ ⊆ Aᶜ ∩ Bᶜ"), "open bracket A union B close bracket complement is a subset of A complement intersection B complement");
   assert.equal(said("A \\ B"), "A minus B");
+  assert.equal(said("A \\ B = A ∩ Bᶜ"), "A minus B equals A intersection B complement");
+  assert.equal(said("Aᶜᶜ"), "A complement complement");
+  // A backslash that is typed, not a difference, is never "minus".
+  assert.deepEqual(sayCode("\\"), { text: "backslash", sure: true });
+  assert.deepEqual(sayCode("\\\\"), { text: "backslash backslash", sure: true });
+  assert.equal(said("\\to"), "backslash to");
+  assert.equal(said("\\cap"), "backslash cap");
+  assert.deepEqual(sayCode("type \\to here"), { text: "type to here", sure: false });
+  assert.equal(sayCode("A\\B").sure, false);
+  assert.deepEqual(sayText("A\\B").unknown, ["\\"]);
 });

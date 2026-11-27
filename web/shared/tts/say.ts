@@ -214,8 +214,13 @@ export function sayCode(code: string): Said {
   // What is typed to get a symbol: \not, \<.
   if (/^\\\S+$/.test(whole)) {
     const rest = whole.slice(1);
+    // Two backslashes are two backslashes, not a difference.
+    if (rest === "\\") return { text: "backslash backslash", sure: true };
     return { text: `backslash ${Object.hasOwn(SYMBOLS, rest) ? SYMBOLS[rest].replace(/^is /, "") : rest === "|" ? "bar" : rest.length === 1 ? rest.toUpperCase() : rest}`, sure: true };
   }
+  if (whole === "\\") return { text: "backslash", sure: true };
+  // A \ B is a difference only with a space each side: \to in a longer span is something typed, and not for the tables.
+  const typedBackslash = /\\(?=\S)|(?<=\S)\\|^\\|\\$/.test(whole);
   // A binder by itself, (n : ℕ), is a declaration, not a cast.
   const binder = /^\((.*)\)$/.exec(whole);
   if (binder && !/[()]/.test(binder[1]) && binder[1].includes(":")) return sayCode(binder[1]);
@@ -291,6 +296,7 @@ export function sayCode(code: string): Said {
     } else if (t === "⟩") continue;
     else if (tactic && t === ":=" && (tokens[0] === "obtain" || tokens[0] === "rcases")) out.push("from");
     else if (tactic && t === "|" && tokens[0] === "obtain") out.push("or");
+    else if (t === "\\" && typedBackslash) sure = false;
     else if (Object.hasOwn(SYMBOLS, t)) out.push(SYMBOLS[t]);
     else if (isName(t) && !Object.hasOwn(LOOSE, t)) out.push(sayName(t));
     else if (/^\d/.test(t)) out.push(t);
