@@ -110,6 +110,9 @@ export const SYMBOLS: Record<string, string> = {
   "∪": "union",
   "∩": "intersection",
   "∅": "the empty set",
+  // Aᶜ: the complement, written after its set. A \ B: what is in A and not in B.
+  "ᶜ": "complement",
+  "\\": "minus",
   "::": "followed by",
   "++": "appended to",
   "[]": "the empty list",
@@ -154,7 +157,7 @@ const ONE_OF: Record<string, string> = { "ℕ": "a natural number", "ℤ": "an i
 const TACTIC_SET = new Set(TACTICS);
 const FACT_LISTS = new Set(["rw", "nth_rw", "simp", "simp_all", "dsimp", "norm_num", "field_simp", "linarith", "nlinarith", "ring_nf", "unfold"]);
 /** What makes a bracket matter: with one of these inside, taking the bracket away can change the meaning. */
-const OPERATORS = new Set(["=", "+", "-", "−", "*", "×", "·", "/", "^", "<", ">", "≤", "≥", "≠", "∧", "∨", "¬", "→", "↔", "∣", "∈", "∉", "⊆", "∪", "∩", "::", "++", "↑"]);
+const OPERATORS = new Set(["\\", "=", "+", "-", "−", "*", "×", "·", "/", "^", "<", ">", "≤", "≥", "≠", "∧", "∨", "¬", "→", "↔", "∣", "∈", "∉", "⊆", "∪", "∩", "::", "++", "↑"]);
 
 /** One name as it is said: `Nat.add_comm` is "nat add comm", `h1` "h 1", `hPQ` "h P Q", `x'` "x prime". */
 export function sayName(name: string): string {
@@ -188,7 +191,8 @@ export function sayName(name: string): string {
     .join(" ");
 }
 
-const TOKEN = /\s+|\+\+|[\p{L}_][\p{L}\p{N}_'.]*[\p{L}\p{N}_']|[\p{L}_]|\d+(?:\.\d+)?|::|:=|=>|\[\]|⁻¹|./gu;
+// ᶜ is a letter to Unicode, but Aᶜ is A's complement, not a name: it is a token of its own.
+const TOKEN = /\s+|\+\+|(?!ᶜ)[\p{L}_](?:(?!ᶜ)[\p{L}\p{N}_'.])*(?!ᶜ)[\p{L}\p{N}_']|(?!ᶜ)[\p{L}_]|\d+(?:\.\d+)?|::|:=|=>|\[\]|⁻¹|./gu;
 const IS_NAME = /^[\p{L}_]/u;
 
 /** Whether a word is a move's name (a tactic the lessons or the editor know). */
@@ -305,7 +309,7 @@ export function sayCode(code: string): Said {
 /** Symbols read inside running text. ASCII `-` and `/` are left alone
  *  there: a hyphen is not a minus. */
 const IN_PROSE: Record<string, string> = {
-  ...Object.fromEntries(Object.entries(SYMBOLS).filter(([k]) => [...k].length === 1 && !/[-/*^A-Za-z]/.test(k))),
+  ...Object.fromEntries(Object.entries(SYMBOLS).filter(([k]) => [...k].length === 1 && !/[-/*^A-Za-z\\]/.test(k))),
   "∀": "for every",
   "∃": "there exists",
   "Σ": "sigma",
@@ -323,6 +327,8 @@ const IN_PROSE: Record<string, string> = {
  *  it is said; `unknown` are the characters no table has. */
 export function sayText(run: string): { text: string; unknown: string[] } {
   if (run === "…") return { text: "and so on", unknown: [] };
+  // A \ B, set difference; a backslash inside a word is not one.
+  if (run === "\\") return { text: "minus", unknown: [] };
   // A Lean name written out in the text: norm_num.
   const name = /^([\p{L}]+(?:_[\p{L}\p{N}]+)+)([.,;:!?)]*)$/u.exec(run);
   if (name) return { text: sayName(name[1]) + name[2], unknown: [] };

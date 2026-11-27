@@ -123,4 +123,9 @@ test("running text: absolute-value bars, lists and Lean names written out", () =
   // What the voice would stumble on is reported, ASCII too.
   assert.deepEqual(sayText("|").unknown, ["|"]);
   assert.deepEqual(sayText("a\\b{c}").unknown, ["\\", "{", "}"]);
+  // Set difference and complement: A \ B, Aᶜ.
+  assert.equal(["A", "\\", "B"].map((r) => sayText(r).text).join(" "), "A minus B");
+  assert.equal(sayText("Aᶜ,").text, "A complement,");
+  assert.equal(said("(A ∪ B)ᶜ ⊆ Aᶜ ∩ Bᶜ"), "open bracket A union B close bracket complement is a subset of A complement intersection B complement");
+  assert.equal(said("A \\ B"), "A minus B");
 });

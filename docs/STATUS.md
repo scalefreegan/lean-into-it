@@ -339,14 +339,16 @@ Landed in the first PR, the foundation slice:
   preimage of a set. Both in the Gallery and in the Lab's "Sets and arrows".
   Tried in the real app, light and dark.
 - A level's plan in `curriculum.yaml` orders its lessons across tracks
-  (`lii-dvy.12.13`), so "Sets are predicates" (track `lean`) stays second
-  once "Union, intersection, complement" is written, and Cantor's argument
-  comes last. A lesson the plan does not list is placed by its track's
+  (`lii-dvy.12.13`), so "Sets are predicates" (track `lean`) comes second,
+  before "Union, intersection, complement", and Cantor's argument comes last. A lesson the plan does not list is placed by its track's
   `order`s, and the loader refuses a plan whose lessons' `order`s do not
   rise with it. Levels 0–3 have no plan and keep their order.
 - Level 4's first lesson, "What a set is" (`lii-dvy.12.1`), six exercises, and
   its second, "Sets are predicates" (`lii-dvy.12.2`), eight: membership by
-  definition, `show`, `change` and `rintro`.
+  definition, `show`, `change` and `rintro`. Its third, "Union, intersection,
+  complement" (`lii-dvy.12.3`), nine: ∩, ∪ and ᶜ as and, or and not, proved
+  with Level 1's moves, and a set-diagram the learner shades. Listen mode
+  says Aᶜ as "A complement" and A \ B as "A minus B".
   The level is still an outline, so it does not open yet: the Path lists
   the lessons without a link, a lesson's page says the level is still being written,
   no "Next" leads to one, their proofs are not counted, and an outline is never
@@ -739,13 +741,12 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-10 beads in 2 areas. "Needs" lists beads that must land first.
+9 beads in 2 areas. "Needs" lists beads that must land first.
 
 ### Level 4 (epic `lii-dvy.12`)
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-dvy.12.3` | Union, intersection, complement | 2 | |
 | `lii-dvy.12.4` | Proving two sets equal | 2 | |
 | `lii-dvy.12.5` | Images and preimages | 2 | |
 | `lii-dvy.12.6` | Injective, surjective, bijective | 2 | |
