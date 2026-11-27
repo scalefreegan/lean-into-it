@@ -228,8 +228,9 @@ export function sayCode(code: string): Said {
     return { text: `the absolute value of ${inner.text}`, sure: inner.sure };
   }
   const tokens: string[] = [];
-  // A backslash is a difference, A \ B, only with a space each side of it. Any other is
-  // something typed (\to in a longer span): it is said as a backslash, and is not for the tables.
+  // A backslash is a difference, A \ B, only with white space (a tab or a no-break space too) on
+  // each side of it; the span's start and end are not white space. Any other is something typed
+  // (\to in a longer span): it is said as a backslash, and is not for the tables.
   const typedBackslash = new Set<number>();
   for (const m of whole.matchAll(TOKEN)) {
     if (!m[0].trim()) continue;
