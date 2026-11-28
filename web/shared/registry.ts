@@ -439,7 +439,7 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
       statement: { type: "text", required: true, doc: "The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons." },
       given: { type: "text", doc: "Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`." },
       moves: { type: "move[]", doc: "Board mode, required there: the moves on offer. Every line of the solution must be one of them." },
-      forbid: { type: "string[]", doc: "Tactic and theorem names that may not appear in an answer. A name also forbids its family: itself followed by `_…` or by primes (`simp` forbids `simp_all`, `and_not_self` forbids `and_not_self_iff`). Forbidding anything also forbids `try?`." },
+      forbid: { type: "string[]", doc: "Tactic and theorem names that may not appear in an answer. A name also forbids its family: itself followed by digits, `_…` or primes (`simp` forbids `simp_all`, `and_not_self` forbids `and_not_self_iff`). An entry `+name` lets that one family member through. Forbidding anything also forbids `try?`." },
       solution: { type: "text", required: true, doc: "A proof body, one tactic per line, that Lean accepts. `npm test` checks it against the real Lean." },
     },
     examples: [
@@ -478,7 +478,7 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
       proof: { type: "text", required: true, doc: `The proof body with \`${GAP}\` exactly once, where the missing step goes: a whole line, or part of one.` },
       solution: { type: "string", required: true, doc: "What goes in the gap: one line. `npm test` checks the completed proof against the real Lean." },
       options: { type: "string[]", doc: "The choice form: two to five fills to choose from, the solution among them. `npm test` checks that Lean accepts the solution and refuses every other option." },
-      forbid: { type: "string[]", doc: "Names that may not appear in what is typed into the gap (the proof around it may use them). A name also forbids its family: itself followed by `_…` or by primes (`simp` forbids `simp_all`, `and_not_self` forbids `and_not_self_iff`)." },
+      forbid: { type: "string[]", doc: "Names that may not appear in what is typed into the gap (the proof around it may use them). A name also forbids its family: itself followed by digits, `_…` or primes (`simp` forbids `simp_all`, `and_not_self` forbids `and_not_self_iff`). An entry `+name` lets that one family member through." },
     },
     examples: [
       {
@@ -531,7 +531,7 @@ export const EXERCISES: Record<ExerciseKind, ExerciseSpec> = {
       counterexample: { type: "string", doc: "Required when `truth` is false: a value for each variable, in order, separated by commas, like `1` or `2, 3`. Numbers only." },
       close: { type: "string", doc: "With `witness: values`: the tactic that shows the claim fails at the values given. Default norm_num; decide for small cases." },
       witness: { type: "enum:values|proof", doc: "What a counterexample takes from the learner: only the values (default; `close` does the rest), or the values and the proof that they work." },
-      forbid: { type: "string[]", doc: "Names that may not appear in what the learner writes. A name also forbids its family: itself followed by `_…` or by primes (`simp` forbids `simp_all`, `and_not_self` forbids `and_not_self_iff`)." },
+      forbid: { type: "string[]", doc: "Names that may not appear in what the learner writes. A name also forbids its family: itself followed by digits, `_…` or primes (`simp` forbids `simp_all`, `and_not_self` forbids `and_not_self_iff`). An entry `+name` lets that one family member through." },
     },
     examples: [
       {

@@ -712,21 +712,27 @@ Landed in the first PR, the foundation slice:
   next start or turn sweeps it.
 - A forbidden name forbids its family (`lii-3vy`): `forbiddenIn`
   (`web/shared/proof.ts`) also refuses the names that are a forbidden one
-  followed by `_…` or by primes, so `simp` forbids `simp_all` and
+  followed by digits, `_…` or primes (names in any script: `le_div_iff₀`),
+  and `_root_.` no longer hides a dotted name. An entry `+name` lets one
+  family member through where it is a fair way to do the exercise (the
+  triangle inequality allows `abs_sub_le_iff` beside a forbidden
+  `abs_sub_le`). The loader refuses a `+` entry that lets through nothing
+  forbidden, and a forbid list that refuses a fact its own statement names.
+  The Tutor is told the rule. So `simp` forbids `simp_all` and
   `simp_intro`, `aesop` forbids `aesop_graph`, `and_not_self` forbids
   `and_not_self_iff`, `inf_compl_eq_bot` forbids `inf_compl_eq_bot'`. The
   refusal names what was written (`simp_intro is switched off here`). Before,
   only the whole word was refused, and the reviews of "Union, intersection,
   complement" found such names every round. Checked against every exercise's
   forbid list: no reference solution or offered move is in a forbidden
-  name's family that the exercise did not already forbid, except three where
-  the family member was a way round the exercise (`field_simp` under
-  `field`, `simp_all` under `simp`). Still by the words written: an alias
+  name's family that the exercise did not already forbid, except `field_simp`
+  under `field` in "A rule by name" (a + b = b + a), a way round it; a
+  review found `abs_sub_le_iff` under `abs_sub_le`, now let through. Still by the words written: an alias
   with another name and a lemma reached through two others pass, and a fact
   named after a forbidden word is refused (`lii-dq3`). The moves offered
   beside a proof (`learnedMoves`) drop any the same rule refuses, so an
   exercise forbidding `simp` no longer offers `simp only` or `simp_all`.
-- Tests: 620, including every reference solution checked by the real Lean,
+- Tests: 622, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on

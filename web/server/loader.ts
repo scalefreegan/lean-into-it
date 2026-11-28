@@ -9,6 +9,7 @@
 // proves its statement is Lean's call (web/server/lean.test.ts).
 
 import { isLadder, onBoard, resolveLadder, type Ladder } from "../shared/ladder.ts";
+import { forbiddenIn } from "../shared/proof.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { parse as parseYaml } from "yaml";
@@ -406,6 +407,15 @@ function parseExercise(e: unknown, concepts: string[], lessonGiven: string, leve
   for (const message of checkParams(EXERCISES[kind], e, EXERCISE_KEYS)) bad(message);
   const concept = str(e.concept) || concepts[0] || "";
   if (!concept) bad("needs a concept (or the lesson must list concepts)");
+  const forbid = strings(e.forbid);
+  // A `+` entry lets through one member of a forbidden family; one that is in no such family does nothing.
+  for (const w of forbid.filter((f) => f.startsWith("+"))) {
+    if (!forbiddenIn(w.slice(1), forbid.filter((f) => !f.startsWith("+"))).length) bad(`forbid: ${w} lets through a name that nothing in the list forbids`);
+  }
+  // A fact the statement names must be usable: a forbid list that refuses its name would refuse every proof that uses it.
+  const bound = [...str(e.statement).matchAll(/[({⦃[]([^:(){}⦃⦄[\]]+?):/g)].flatMap((m) => m[1].trim().split(/\s+/)).filter(Boolean);
+  const clash = forbid.length ? forbiddenIn(bound.join(" "), forbid).filter((n) => n !== "try?") : [];
+  if (clash.length) bad(`its statement names ${clash.map((n) => `\`${n}\``).join(", ")}, which its own forbid list refuses, so no proof could use it: rename it, or let it through with +${clash[0]}`);
   if (!ok) return null;
 
   const ownGiven = typeof e.given === "string" ? e.given.replace(/\s+$/, "") : "";

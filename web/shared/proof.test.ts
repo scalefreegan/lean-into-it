@@ -126,7 +126,25 @@ test("a forbidden name forbids its family: the name followed by _… or by prime
   // A name ending in ? or ! is itself only, as before.
   assert.deepEqual(forbiddenIn("exact?", ["exact?"]), ["exact?"]);
   assert.deepEqual(forbiddenIn("exact h", ["exact?"]), []);
-  assert.deepEqual(forbiddenIn("simp?", ["simp"]), ["simp"]);
+  assert.deepEqual(forbiddenIn("simp?", ["simp"]), ["simp?"]);
+  assert.deepEqual(forbiddenIn("simp_all?", ["simp"]), ["simp_all?"]);
+  // Digits after a name are its variants too: ring1, norm_num1.
+  assert.deepEqual(forbiddenIn("ring1", ["ring"]), ["ring1"]);
+  assert.deepEqual(forbiddenIn("norm_num1", ["norm_num"]), ["norm_num1"]);
+  // A name in any script: a letter or digit beyond ASCII belongs to the name around it.
+  assert.deepEqual(forbiddenIn("exact hαsimp", ["simp"]), []);
+  assert.deepEqual(forbiddenIn("exact le_div_iff₀ h", ["le_div_iff"]), ["le_div_iff₀"]);
+  assert.deepEqual(forbiddenIn("exact le_div_iff₀' h", ["le_div_iff₀"]), ["le_div_iff₀'"]);
+  assert.deepEqual(forbiddenIn("rw [←and_not_self_iff]", ["and_not_self"]), ["and_not_self_iff"]);
+  assert.deepEqual(forbiddenIn("exact ⟨and_not_self, h⟩", ["and_not_self"]), ["and_not_self"]);
+  assert.deepEqual(forbiddenIn("exact λ_ => ⟨⟩\nexact λand_not_self", ["and_not_self"]), ["and_not_self"]);
+  // _root_. names a thing from the top: it does not hide a dotted name.
+  assert.deepEqual(forbiddenIn("exact _root_.Not.imp hnQ hPQ", ["Not.imp"]), ["Not.imp"]);
+  // An entry starting with + lets through exactly that member of a forbidden family.
+  assert.deepEqual(forbiddenIn("rw [abs_sub_le_iff]", ["abs_sub_le", "+abs_sub_le_iff"]), []);
+  assert.deepEqual(forbiddenIn("exact abs_sub_le a b c", ["abs_sub_le", "+abs_sub_le_iff"]), ["abs_sub_le"]);
+  assert.deepEqual(forbiddenIn("exact abs_sub_le_iff'", ["abs_sub_le", "+abs_sub_le_iff"]), ["abs_sub_le_iff'"]);
+  assert.deepEqual(forbiddenIn("simp", ["+simp_all"]), []);
   // Each name once, as written, however often it is used.
   assert.deepEqual(forbiddenIn("simp_all\nsimp_all\nsimp", ["simp"]), ["simp_all", "simp"]);
   assert.equal(judge([], "simp_intro", ["simp"]).solved, false);

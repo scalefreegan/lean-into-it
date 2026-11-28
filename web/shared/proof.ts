@@ -520,26 +520,48 @@ const SEARCHES_EVERYTHING = "try?";
 /**
  * The forbidden names a body uses, comments removed, each as it is written
  * there. A forbidden name also forbids its family: the names that are it
- * followed by `_…` or by primes. Forbidding `simp` forbids `simp_all` and
- * `simp_intro`; forbidding `and_not_self` forbids `and_not_self_iff`, and
- * `inf_compl_eq_bot` forbids `inf_compl_eq_bot'`. Tactics and lemmas come in
- * such families (a variant, the iff form, the primed form), and a list that
- * had to name every member was never finished. A name ending in `?` or `!`
- * stands for itself only.
+ * followed by digits, by `_…` or by primes. Forbidding `simp` forbids
+ * `simp_all` and `simp_intro`; `ring` forbids `ring1` and `ring_nf`;
+ * `and_not_self` forbids `and_not_self_iff`; `inf_compl_eq_bot` forbids
+ * `inf_compl_eq_bot'`. Tactics and lemmas come in such families (a variant,
+ * the iff form, the primed form), and a list that had to name every member
+ * was never finished. A name ending in `?` or `!` stands for itself only.
+ *
+ * An entry starting with `+` is not forbidden but let through: a member of a
+ * forbidden family that the exercise means to allow (`+abs_sub_le_iff` beside
+ * `abs_sub_le`). It lets through exactly that name.
  */
 export function forbiddenIn(body: string, forbidden: string[]): string[] {
+  const allowed = new Set(forbidden.filter((w) => w.startsWith("+")).map((w) => w.slice(1)));
+  const named = forbidden.filter((w) => !w.startsWith("+"));
+  if (!named.length) return [];
   // A body with a `{` in a string is refused by escapesIn, so one reading is enough here.
-  const { code } = lex(body);
-  const forbid = forbidden.length && !forbidden.includes(SEARCHES_EVERYTHING) ? [...forbidden, SEARCHES_EVERYTHING] : forbidden;
+  // `_root_.Not.imp` is `Not.imp` named from the top: the prefix is not part of the name.
+  const code = lex(body).code.replace(/_root_\./g, "       ");
   const found = new Set<string>();
-  for (const word of forbid) {
-    const family = /[A-Za-z0-9_']$/.test(word) ? "(?:_[A-Za-z0-9_']*|'+)?" : "";
-    // A name with no dot in it is also found after a dot: forbidding `zero_add`
-    // forbids `Nat.zero_add` and `n.zero_add`, which are the same theorem.
-    const before = `(?:^|[^A-Za-z0-9_${word.includes(".") ? "." : ""}'?!])`;
-    for (const m of code.matchAll(new RegExp(`${before}(${escapeRegExp(word)}${family})(?=$|[^A-Za-z0-9_'])`, "g"))) found.add(m[1]);
+  for (const word of named.includes(SEARCHES_EVERYTHING) ? named : [...named, SEARCHES_EVERYTHING]) {
+    for (const m of code.matchAll(forbidPattern(word))) {
+      if (!allowed.has(m[1])) found.add(m[1] + (m[2] ?? ""));
+    }
   }
   return [...found];
+}
+
+const FORBID_PATTERNS = new Map<string, RegExp>();
+
+/** Where `word` or a member of its family is used. Group 1 is the name, group 2 a `?` or `!` after it. */
+function forbidPattern(word: string): RegExp {
+  let re = FORBID_PATTERNS.get(word);
+  if (re) return re;
+  const family = /[\p{L}\p{N}_']$/u.test(word) ? "[0-9₀-₉]*(?:_[\\p{L}\\p{N}_']*|'+)?" : "";
+  // Lean's names may hold letters and digits from any script (`hα`, `x₁`).
+  // A name with no dot in it is also found after a dot: forbidding `zero_add`
+  // forbids `Nat.zero_add` and `n.zero_add`, which are the same theorem.
+  // λ, Π and Σ are Lean's own symbols, not letters of a name.
+  const before = `(?:^|[λΠΣ]|[^\\p{L}\\p{N}_${word.includes(".") ? "." : ""}'?!])`;
+  re = new RegExp(`${before}(${escapeRegExp(word)}${family})([?!])?(?=$|[^\\p{L}\\p{N}_'])`, "gu");
+  FORBID_PATTERNS.set(word, re);
+  return re;
 }
 
 function escapeRegExp(s: string): string {

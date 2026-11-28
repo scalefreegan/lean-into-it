@@ -156,7 +156,9 @@ export function contextNote(ctx: TutorContext, where: Where): string {
       lines.push(`The claim is ${tf.truth ? "TRUE" : "FALSE"} (Lean has checked the reference answer): ${tf.why} Do not say which before a hint at rung 2 or a direct question; at rung 1 nudge them to try small cases or to look for why it might hold. ${tf.truth ? "They prove it as a typed proof." : `A counterexample is a value for each of ${tf.names.join(", ")}, ${tf.witness === "proof" ? "then lines proving False from hc, the claim at those values" : "and the app proves the claim fails there"}.`} At rung 3 the LINE is ${tf.truth ? "the next line of the proof" : `the values, separated by commas, like \`1, 2\`${tf.witness === "proof" ? " (the proof that they work stays theirs to write)" : ""}`}.`);
     }
     if (where.offered) lines.push(`Moves on offer: ${where.offered.join(", ")}.`);
-    if (exercise.forbid.length) lines.push(`Not allowed in the answer: ${exercise.forbid.join(", ")}.`);
+    const forbid = exercise.forbid.filter((w) => !w.startsWith("+"));
+    const allow = exercise.forbid.filter((w) => w.startsWith("+")).map((w) => w.slice(1));
+    if (forbid.length) lines.push(`Not allowed in the answer: ${forbid.join(", ")}, and any name that is one of these followed by digits, _… or primes (so simp rules out simp_all too)${allow.length ? `, except ${allow.join(", ")}` : ""}.`);
     lines.push(ctx.body?.trim() ? `${exercise.kind === "fill" ? "Their fill so far" : reading ? "Their answer so far" : "Their proof so far"}:\n${fence(ctx.body)}` : "They have written nothing yet.");
     if (ctx.goals?.trim()) lines.push(`Lean's goals now:\n${fence(ctx.goals)}`);
     if (ctx.error?.trim()) lines.push(`Lean's last error:\n${fence(ctx.error)}`);
