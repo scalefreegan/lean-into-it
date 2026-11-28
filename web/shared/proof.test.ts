@@ -95,7 +95,6 @@ test("unsolved goals is unfinished, not a wrong move; any other error is", () =>
 test("a forbidden tactic is found as a whole word, outside comments", () => {
   const forbid = ["simp", "tauto", "exact?"];
   assert.deepEqual(forbiddenIn("intro h\n  simp", forbid), ["simp"]);
-  assert.deepEqual(forbiddenIn("simp_all", forbid), []);
   assert.deepEqual(forbiddenIn("exact hP", forbid), []);
   assert.deepEqual(forbiddenIn("exact?", forbid), ["exact?"]);
   assert.deepEqual(forbiddenIn("intro h -- then tauto\n/- simp -/ exact h", forbid), []);
@@ -105,6 +104,32 @@ test("a forbidden tactic is found as a whole word, outside comments", () => {
   assert.deepEqual(forbiddenIn('have := "/-"\ntauto\n-- -/', forbid), ["tauto"]);
   assert.deepEqual(forbiddenIn("/- a /- nested -/ tauto -/ exact h", forbid), []);
   assert.equal(judge([], "tauto", forbid).solved, false);
+});
+
+test("a forbidden name forbids its family: the name followed by _… or by primes, each reported as written", () => {
+  // Tactics: forbidding simp, aesop or grind forbids their variants.
+  assert.deepEqual(forbiddenIn("simp_all", ["simp"]), ["simp_all"]);
+  assert.deepEqual(forbiddenIn("intro x hx\nsimp_intro", ["simp", "aesop"]), ["simp_intro"]);
+  assert.deepEqual(forbiddenIn("aesop_graph", ["aesop"]), ["aesop_graph"]);
+  assert.deepEqual(forbiddenIn("grind_order", ["grind"]), ["grind_order"]);
+  assert.deepEqual(forbiddenIn("induction' n with n ih", ["induction"]), ["induction'"]);
+  // Lemmas: the iff form, a longer statement, the primed form, and with a namespace or after a dot.
+  assert.deepEqual(forbiddenIn("exact fun _ => (and_not_self_iff _).mp", ["and_not_self"]), ["and_not_self_iff"]);
+  assert.deepEqual(forbiddenIn("exact inf_compl_eq_bot'.le", ["inf_compl_eq_bot"]), ["inf_compl_eq_bot'"]);
+  assert.deepEqual(forbiddenIn("exact Set.inter_subset_left_iff.mpr h", ["inter_subset_left"]), ["inter_subset_left_iff"]);
+  assert.deepEqual(forbiddenIn("exact h.symm_of", ["symm"]), ["symm_of"]);
+  // The family is the name and what follows it, never a longer name that merely contains it.
+  assert.deepEqual(forbiddenIn("exact add_comm a b", ["comm"]), []);
+  assert.deepEqual(forbiddenIn("exact hsimp", ["simp"]), []);
+  assert.deepEqual(forbiddenIn("exact simple_fact", ["simp"]), []);
+  assert.deepEqual(forbiddenIn("exact comm_of h", ["comm_of_x"]), []);
+  // A name ending in ? or ! is itself only, as before.
+  assert.deepEqual(forbiddenIn("exact?", ["exact?"]), ["exact?"]);
+  assert.deepEqual(forbiddenIn("exact h", ["exact?"]), []);
+  assert.deepEqual(forbiddenIn("simp?", ["simp"]), ["simp"]);
+  // Each name once, as written, however often it is used.
+  assert.deepEqual(forbiddenIn("simp_all\nsimp_all\nsimp", ["simp"]), ["simp_all", "simp"]);
+  assert.equal(judge([], "simp_intro", ["simp"]).solved, false);
 });
 
 test("try? is switched off wherever anything is: it would run the forbidden things itself", () => {

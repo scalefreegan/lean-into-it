@@ -710,7 +710,23 @@ Landed in the first PR, the foundation slice:
   take ten minutes or more behind one waiting request; Stop works); a
   server killed mid-turn leaves its worktree in the temp folder until the
   next start or turn sweeps it.
-- Tests: 619, including every reference solution checked by the real Lean,
+- A forbidden name forbids its family (`lii-3vy`): `forbiddenIn`
+  (`web/shared/proof.ts`) also refuses the names that are a forbidden one
+  followed by `_…` or by primes, so `simp` forbids `simp_all` and
+  `simp_intro`, `aesop` forbids `aesop_graph`, `and_not_self` forbids
+  `and_not_self_iff`, `inf_compl_eq_bot` forbids `inf_compl_eq_bot'`. The
+  refusal names what was written (`simp_intro is switched off here`). Before,
+  only the whole word was refused, and the reviews of "Union, intersection,
+  complement" found such names every round. Checked against every exercise's
+  forbid list: no reference solution or offered move is in a forbidden
+  name's family that the exercise did not already forbid, except three where
+  the family member was a way round the exercise (`field_simp` under
+  `field`, `simp_all` under `simp`). Still by the words written: an alias
+  with another name and a lemma reached through two others pass, and a fact
+  named after a forbidden word is refused (`lii-dq3`). The moves offered
+  beside a proof (`learnedMoves`) drop any the same rule refuses, so an
+  exercise forbidding `simp` no longer offers `simp only` or `simp_all`.
+- Tests: 620, including every reference solution checked by the real Lean,
   the grading refusals (`sorry`, a wrong move, a switched-off tactic, an
   error dressed up as a linter remark, an added axiom, a command smuggled
   into a proof, Lean stopped before its axiom report), the origin guard on
@@ -741,7 +757,7 @@ in the repo (`lii-2zf.5`).
 
 ## Remaining
 
-9 beads in 2 areas. "Needs" lists beads that must land first.
+10 beads in 3 areas. "Needs" lists beads that must land first.
 
 ### Level 4 (epic `lii-dvy.12`)
 
@@ -761,3 +777,9 @@ in the repo (`lii-2zf.5`).
 | Bead | Title | P | Needs |
 |---|---|---|---|
 | `lii-53v.4` | Program stepper | 3 | |
+
+### Grading
+
+| Bead | Title | P | Needs |
+|---|---|---|---|
+| `lii-dq3` | Forbid lists judged by Lean: refuse the constants and tactics a proof really used | 3 | |

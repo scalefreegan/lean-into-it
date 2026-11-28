@@ -531,7 +531,7 @@ A statement to prove. Lean decides whether it is solved. On the proof board (lad
 | `statement` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The Lean statement after the keyword: binders, a colon, the claim. Quote it: it contains colons. |
 | `given` | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | Lean definitions the statement is about, placed before the theorem. No `sorry`, no `axiom`. |
 | `moves` | a list of move ids (see Moves below): `[intro, exact]` | Board mode, required there: the moves on offer. Every line of the solution must be one of them. |
-| `forbid` | a list of text: `[a, b]` | Tactic and theorem names that may not appear in an answer. Forbidding anything also forbids `try?`. |
+| `forbid` | a list of text: `[a, b]` | Tactic and theorem names that may not appear in an answer. A name also forbids its family: itself followed by `_…` or by primes (`simp` forbids `simp_all`, `and_not_self` forbids `and_not_self_iff`). Forbidding anything also forbids `try?`. |
 | `solution` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | A proof body, one tactic per line, that Lean accepts. `npm test` checks it against the real Lean. |
 
 ```yaml
@@ -576,7 +576,7 @@ A proof that is written out except for one step, marked `<gap>`. The learner sup
 | `proof` (required) | text; when it runs over several lines, write `\|` after the colon and indent the lines under it | The proof body with `<gap>` exactly once, where the missing step goes: a whole line, or part of one. |
 | `solution` (required) | one line of text | What goes in the gap: one line. `npm test` checks the completed proof against the real Lean. |
 | `options` | a list of text: `[a, b]` | The choice form: two to five fills to choose from, the solution among them. `npm test` checks that Lean accepts the solution and refuses every other option. |
-| `forbid` | a list of text: `[a, b]` | Names that may not appear in what is typed into the gap (the proof around it may use them). |
+| `forbid` | a list of text: `[a, b]` | Names that may not appear in what is typed into the gap (the proof around it may use them). A name also forbids its family: itself followed by `_…` or by primes (`simp` forbids `simp_all`, `and_not_self` forbids `and_not_self_iff`). |
 
 ```yaml
 exercises:
@@ -621,7 +621,7 @@ A claim to decide. The learner says whether it is true or false, then backs that
 | `counterexample` | one line of text | Required when `truth` is false: a value for each variable, in order, separated by commas, like `1` or `2, 3`. Numbers only. |
 | `close` | one line of text | With `witness: values`: the tactic that shows the claim fails at the values given. Default norm_num; decide for small cases. |
 | `witness` | one of `values`, `proof` | What a counterexample takes from the learner: only the values (default; `close` does the rest), or the values and the proof that they work. |
-| `forbid` | a list of text: `[a, b]` | Names that may not appear in what the learner writes. |
+| `forbid` | a list of text: `[a, b]` | Names that may not appear in what the learner writes. A name also forbids its family: itself followed by `_…` or by primes (`simp` forbids `simp_all`, `and_not_self` forbids `and_not_self_iff`). |
 
 ```yaml
 exercises:

@@ -16,6 +16,7 @@
 // rung for one exercise (`stepDown`): that is not help that marks an attempt
 // assisted, but the attempt records the rung it was made at.
 
+import { forbiddenIn } from "./proof.ts";
 import type { ProofMode } from "./content.ts";
 
 export type Ladder = 1 | 2 | 3 | 4;
@@ -47,12 +48,13 @@ export function attemptOnBoard(ladder: number | null | undefined, mode: ProofMod
 
 /** The moves learned by a level: those of every level up to it, in order,
  *  then the exercise's own (a move it needs that no level lists), less any
- *  the exercise switches off. */
+ *  the exercise switches off (by the forbid list's own rule, so `simp`
+ *  takes `simp only` and `simp_all` with it). */
 export function learnedMoves(levels: { id: number; moves: string[] }[], level: number, own: string[], forbid: string[]): string[] {
   const out: string[] = [];
   for (const l of [...levels].sort((a, b) => a.id - b.id)) if (l.id <= level) for (const m of l.moves) if (!out.includes(m)) out.push(m);
   for (const m of own) if (!out.includes(m)) out.push(m);
-  return out.filter((m) => !forbid.includes(m));
+  return out.filter((m) => !forbiddenIn(m, forbid).length);
 }
 
 /** Where a palette click's line goes in a typed proof: on the caret's line

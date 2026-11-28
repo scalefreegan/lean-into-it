@@ -25,3 +25,4 @@ lean/.lake/
 
 # npm run db:backup
 backups/
+.beads.gate.lock

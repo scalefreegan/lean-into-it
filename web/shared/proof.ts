@@ -517,14 +517,29 @@ const UNSOLVED = /^unsolved goals/;
  *  among them, so a list that forbids anything forbids it too. */
 const SEARCHES_EVERYTHING = "try?";
 
-/** Whole-word uses of forbidden tactics in a body, comments removed. */
+/**
+ * The forbidden names a body uses, comments removed, each as it is written
+ * there. A forbidden name also forbids its family: the names that are it
+ * followed by `_…` or by primes. Forbidding `simp` forbids `simp_all` and
+ * `simp_intro`; forbidding `and_not_self` forbids `and_not_self_iff`, and
+ * `inf_compl_eq_bot` forbids `inf_compl_eq_bot'`. Tactics and lemmas come in
+ * such families (a variant, the iff form, the primed form), and a list that
+ * had to name every member was never finished. A name ending in `?` or `!`
+ * stands for itself only.
+ */
 export function forbiddenIn(body: string, forbidden: string[]): string[] {
   // A body with a `{` in a string is refused by escapesIn, so one reading is enough here.
   const { code } = lex(body);
   const forbid = forbidden.length && !forbidden.includes(SEARCHES_EVERYTHING) ? [...forbidden, SEARCHES_EVERYTHING] : forbidden;
-  // A name with no dot in it is also found after a dot: forbidding `zero_add`
-  // forbids `Nat.zero_add` and `n.zero_add`, which are the same theorem.
-  return forbid.filter((word) => new RegExp(`(^|[^A-Za-z0-9_${word.includes(".") ? "." : ""}'?!])${escapeRegExp(word)}($|[^A-Za-z0-9_'])`).test(code));
+  const found = new Set<string>();
+  for (const word of forbid) {
+    const family = /[A-Za-z0-9_']$/.test(word) ? "(?:_[A-Za-z0-9_']*|'+)?" : "";
+    // A name with no dot in it is also found after a dot: forbidding `zero_add`
+    // forbids `Nat.zero_add` and `n.zero_add`, which are the same theorem.
+    const before = `(?:^|[^A-Za-z0-9_${word.includes(".") ? "." : ""}'?!])`;
+    for (const m of code.matchAll(new RegExp(`${before}(${escapeRegExp(word)}${family})(?=$|[^A-Za-z0-9_'])`, "g"))) found.add(m[1]);
+  }
+  return [...found];
 }
 
 function escapeRegExp(s: string): string {
