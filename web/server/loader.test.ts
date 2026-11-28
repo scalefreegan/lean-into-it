@@ -198,6 +198,8 @@ const broken: [string, (lesson: string) => string, RegExp][] = [
   ["a board exercise with no moves", (l) => l.replace("    moves: [intro, exact]\n", ""), /needs `moves`/],
   ["no reference solution", (l) => l.replace("    solution: exact hP\n", ""), /exercise "second": needs `solution`/],
   ["an exercise field that does not exist", (l) => l.replace("    forbid: [tauto]\n", "    forbids: [tauto]\n"), /exercise "second": has no parameter `forbids`/],
+  ["a forbid list that refuses a fact the statement names", (l) => l.replace("    forbid: [tauto]\n", "    forbid: [tauto, hP]\n"), /exercise "second": its statement names `hP`, which its own forbid list refuses/],
+  ["a + in a forbid list that lets through nothing forbidden", (l) => l.replace("    forbid: [tauto]\n", "    forbid: [tauto, +simp_all]\n"), /exercise "second": forbid: \+simp_all lets through a name that nothing in the list forbids/],
   ["an unknown exercise kind", (l) => l.replace("    mode: typed\n", "    mode: typed\n    kind: guess\n"), /kind "guess" is not known/],
   ["an unknown widget", (l) => l.replace("Closing prose.", "```widget\ntype: hologram\n```"), /widget block 1 \(hologram\): there is no widget called "hologram".*proof-state/],
   ["a widget block with no type", (l) => l.replace("Closing prose.", "```widget\nstate: x\n```"), /widget block 1 \(no type\): needs `type`/],

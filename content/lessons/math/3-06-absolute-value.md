@@ -58,7 +58,7 @@ exercises:
     mode: typed
     says: For any real numbers a, b and c, |a − c| ≤ |a − b| + |b − c|.
     statement: "(a b c : ℝ) : |a - c| ≤ |a - b| + |b - c|"
-    forbid: [grind, bound, aesop, exact?, apply?, hint, rw?, abs_sub_le, dist_triangle, dist_triangle_left, dist_triangle_right, abs_cases, polyrith, norm_sub_le_norm_sub_add_norm_sub]
+    forbid: [grind, bound, aesop, exact?, apply?, hint, rw?, abs_sub_le, dist_triangle, dist_triangle_left, dist_triangle_right, abs_cases, polyrith, norm_sub_le_norm_sub_add_norm_sub, +abs_sub_le_iff]
     solution: |
       calc |a - c| = |(a - b) + (b - c)| := by ring_nf
         _ ≤ |a - b| + |b - c| := abs_add_le (a - b) (b - c)

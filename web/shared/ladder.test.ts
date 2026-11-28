@@ -28,6 +28,8 @@ test("the moves learned by a level: every level up to it, then the exercise's ow
   ];
   assert.deepEqual(learnedMoves(levels, 1, ["exact"], []), ["exact", "rfl", "intro", "apply"]);
   assert.deepEqual(learnedMoves(levels, 2, ["use"], ["exact?"]), ["exact", "rfl", "intro", "apply", "rw", "use"]);
+  // A move the forbid list refuses is not offered: `simp` takes `simp only` and `simp_all` with it.
+  assert.deepEqual(learnedMoves([{ id: 1, moves: ["exact", "simp", "simp only", "simp_all", "field_simp"] }], 1, [], ["simp"]), ["exact", "field_simp"]);
 });
 
 test("a palette click writes its line on a blank caret line, or on a new line after it at the same indent", () => {
