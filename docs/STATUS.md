@@ -348,7 +348,11 @@ Landed in the first PR, the foundation slice:
   definition, `show`, `change` and `rintro`. Its third, "Union, intersection,
   complement" (`lii-dvy.12.3`), nine: ∩, ∪ and ᶜ as and, or and not, proved
   with Level 1's moves, and a set-diagram the learner shades. Listen mode
-  says Aᶜ as "A complement" and A \ B as "A minus B".
+  says Aᶜ as "A complement" and A \ B as "A minus B". Its fourth, "Proving
+  two sets equal" (`lii-dvy.12.4`), nine: `ext` turns A = B into
+  x ∈ A ↔ x ∈ B, each direction an inclusion chased with a member; De
+  Morgan's law for a union and intersection over union as equations, and
+  the proof beside its textbook words.
   The level is still an outline, so it does not open yet: the Path lists
   the lessons without a link, a lesson's page says the level is still being written,
   no "Next" leads to one, their proofs are not counted, and an outline is never
@@ -769,7 +773,6 @@ in the repo (`lii-2zf.5`).
 
 | Bead | Title | P | Needs |
 |---|---|---|---|
-| `lii-dvy.12.4` | Proving two sets equal | 2 | |
 | `lii-dvy.12.5` | Images and preimages | 2 | |
 | `lii-dvy.12.6` | Injective, surjective, bijective | 2 | |
 | `lii-dvy.12.7` | Composition and inverses | 2 | |
