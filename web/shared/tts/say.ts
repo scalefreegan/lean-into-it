@@ -214,8 +214,11 @@ export function sayCode(code: string): Said {
   // What is typed to get a symbol: \not, \<.
   if (/^\\\S+$/.test(whole)) {
     const rest = whole.slice(1);
+    // Two backslashes are two backslashes, not a difference.
+    if (rest === "\\") return { text: "backslash backslash", sure: true };
     return { text: `backslash ${Object.hasOwn(SYMBOLS, rest) ? SYMBOLS[rest].replace(/^is /, "") : rest === "|" ? "bar" : rest.length === 1 ? rest.toUpperCase() : rest}`, sure: true };
   }
+  if (whole === "\\") return { text: "backslash", sure: true };
   // A binder by itself, (n : ℕ), is a declaration, not a cast.
   const binder = /^\((.*)\)$/.exec(whole);
   if (binder && !/[()]/.test(binder[1]) && binder[1].includes(":")) return sayCode(binder[1]);
@@ -224,7 +227,16 @@ export function sayCode(code: string): Said {
     const inner = sayCode(bars[1]);
     return { text: `the absolute value of ${inner.text}`, sure: inner.sure };
   }
-  const tokens = (whole.match(TOKEN) ?? []).filter((t) => t.trim());
+  const tokens: string[] = [];
+  // A backslash is a difference, A \ B, only with white space (a tab or a no-break space too) on
+  // each side of it; the span's start and end are not white space. Any other is something typed
+  // (\to in a longer span): it is said as a backslash, and is not for the tables.
+  const typedBackslash = new Set<number>();
+  for (const m of whole.matchAll(TOKEN)) {
+    if (!m[0].trim()) continue;
+    if (m[0] === "\\" && !(/^\s$/.test(whole[m.index - 1] ?? "") && /^\s$/.test(whole[m.index + 1] ?? ""))) typedBackslash.add(tokens.length);
+    tokens.push(m[0]);
+  }
   const isName = (t: string | undefined) => t !== undefined && IS_NAME.test(t) && !Object.hasOwn(SYMBOLS, t);
   const tactic = TACTIC_SET.has(tokens[0] ?? "") && tokens.length > 1;
   // After these the square brackets hold the facts to use, and are punctuation; anywhere else they are a list.
@@ -291,6 +303,10 @@ export function sayCode(code: string): Said {
     } else if (t === "⟩") continue;
     else if (tactic && t === ":=" && (tokens[0] === "obtain" || tokens[0] === "rcases")) out.push("from");
     else if (tactic && t === "|" && tokens[0] === "obtain") out.push("or");
+    else if (t === "\\" && typedBackslash.has(i)) {
+      sure = false;
+      out.push("backslash");
+    }
     else if (Object.hasOwn(SYMBOLS, t)) out.push(SYMBOLS[t]);
     else if (isName(t) && !Object.hasOwn(LOOSE, t)) out.push(sayName(t));
     else if (/^\d/.test(t)) out.push(t);
